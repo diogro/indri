@@ -6,9 +6,27 @@ next.
 
 ## Where things stand
 
-```
-indri           branch main          6 commits, package loads, R CMD check clean
-stanimal        branch indri-support  bdd30cf, +480/-1 (animalModelGQR.stan, eigen_A)
+| repo | branch | head | remote | what is on it |
+|---|---|---|---|---|
+| `indri` | `main` | `588275b` | **none — local only** | the package, tests, examples, NOTES/STATUS |
+| `stanimal` | `indri-support` | `bdd30cf` | **none — local only** | `animalModelGQR.stan`, `eigen_A`, `test-eigen-A.R` (+480/-1 over master) |
+| `limmbo` | `indri-session-fixes` | `4edd228` | **`diogro/limmbo`** (fork), pushed | pipeline fixes, pixi environment, AGENTS.md (+140/-34 over master) |
+
+Notes on the branches:
+
+- `stanimal/indri-support` is branched from `master` (`39ece71`) and is **not**
+  merged anywhere. It is the only copy of the `eigen_A` prototype: a fresh clone
+  of stanimal will not have it.
+- `limmbo/indri-session-fixes` is pushed to the fork; `origin` in that checkout
+  still points at `meyer-lab-cshl/limmbo`. A pull request against upstream would
+  be `https://github.com/diogro/limmbo/pull/new/indri-session-fixes`.
+- `indri` has no remote at all; everything is in the working folder.
+
+If the next machine clones rather than copies, push these first:
+
+```sh
+git -C indri    remote add origin <url> && git -C indri    push -u origin main
+git -C stanimal remote add origin <url> && git -C stanimal push -u origin indri-support
 ```
 
 127 test assertions pass in `indri`; 14 in the stanimal branch's new test file.
