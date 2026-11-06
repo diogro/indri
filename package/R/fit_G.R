@@ -33,8 +33,13 @@
 #' @param missing What to do when `Y` has gaps and the engine cannot handle them:
 #'   `"error"`, or `"complete_block"` to drop incomplete individuals once, before
 #'   subsetting, so every block sees the same rows.
-#' @param cores Number of worker processes used for the subset fits. Fork-based,
-#'   so ignored on Windows.
+#' @param cores Total number of concurrent Stan processes for the whole fit,
+#'   not the number of subsets to run at once. The budget is divided between
+#'   blocks and chains: a block fit supplies `chains` processes by default (four
+#'   for `"stanimal"`, its own default), so `cores = 4` with the default engine
+#'   arguments runs one block at a time with four chains in parallel, while
+#'   `cores = 4` with `engine_args = list(chains = 1)` runs four blocks at once.
+#'   `chains` is never changed here; only how many run concurrently.
 #' @param seed Optional seed for the subset construction. The engine's sampler
 #'   seed is passed through `engine_args`.
 #'
@@ -109,15 +114,19 @@ fit_G <- function(Y, X = NULL, A, s = NULL, min_cooccurrence = 3L,
 
   a_forms <- indri_a_forms(A, need = engine$capabilities$a_form)
 
-  fit_one <- function(i) {
-    engine$fit(Y_std[, subsets[i, ], drop = FALSE], X, a_forms, engine_args)
-  }
   indices <- seq_len(nrow(subsets))
-  cores <- max(1L, min(as.integer(cores), length(indices)))
-  blocks <- if (cores > 1L && .Platform$OS.type == "unix") {
-    parallel::mclapply(indices, fit_one, mc.cores = cores)
+  plan <- .indri_core_plan(cores, engine_args, engine, length(indices))
+  engine_args <- plan$engine_args
+  blocks <- if (plan$blocks_in_parallel > 1L) {
+    cluster <- parallel::makeCluster(plan$blocks_in_parallel)
+    on.exit(parallel::stopCluster(cluster), add = TRUE)
+    parallel::parLapply(cluster, indices, .indri_fit_block, Y = Y_std,
+                        design = X, a_forms = a_forms, engine = engine,
+                        engine_args = engine_args, subsets = subsets)
   } else {
-    lapply(indices, fit_one)
+    lapply(indices, .indri_fit_block, Y = Y_std, design = X,
+           a_forms = a_forms, engine = engine, engine_args = engine_args,
+           subsets = subsets)
   }
   failed <- vapply(blocks, function(b) inherits(b, "try-error") || !is.list(b),
                    logical(1))
@@ -172,6 +181,8 @@ fit_G <- function(Y, X = NULL, A, s = NULL, min_cooccurrence = 3L,
     y_names = colnames(Y),
     x_names = colnames(X),
     n_individuals = nrow(Y),
+    parallel = plan[c("cores", "chains", "blocks_in_parallel",
+                      "per_block_cores")],
     blocks = blocks,
     diagnostics = .indri_diagnostics(blocks),
     call = call
@@ -222,3 +233,35 @@ fit_G <- function(Y, X = NULL, A, s = NULL, min_cooccurrence = 3L,
   storage.mode(X) <- "double"
   X
 }
+
+# Split a total process budget between blocks and the chains inside a block.
+#
+# The engines bring their own default number of chains (four for stanimal, which
+# also runs them in parallel), so "four cores" cannot mean "four blocks at once"
+# without multiplying processes by four. `chains` is a statistical setting and is
+# left alone; only the concurrency changes.
+.indri_core_plan <- function(cores, engine_args, engine, n_blocks) {
+  cores <- max(1L, as.integer(cores %||% 1L))
+  chains <- engine_args$chains %||% engine$capabilities$default_chains %||% 1L
+  chains <- max(1L, as.integer(chains))
+
+  per_block_cores <- engine_args$cores %||% min(chains, cores)
+  per_block_cores <- max(1L, min(as.integer(per_block_cores), chains))
+
+  blocks_in_parallel <- max(1L, cores %/% per_block_cores)
+  blocks_in_parallel <- min(blocks_in_parallel, n_blocks)
+
+  engine_args$cores <- per_block_cores
+  list(engine_args = engine_args, cores = cores, chains = chains,
+       blocks_in_parallel = blocks_in_parallel,
+       per_block_cores = per_block_cores)
+}
+
+# Top-level so that a PSOCK worker does not have to be sent the whole of
+# fit_G()'s frame.
+.indri_fit_block <- function(i, Y, design, a_forms, engine, engine_args,
+                             subsets) {
+  engine$fit(Y[, subsets[i, ], drop = FALSE], design, a_forms, engine_args)
+}
+
+`%||%` <- function(x, y) if (is.null(x)) y else x

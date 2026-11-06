@@ -54,8 +54,13 @@ to weight each subset estimate by its reported uncertainty.}
 \code{"error"}, or \code{"complete_block"} to drop incomplete individuals once, before
 subsetting, so every block sees the same rows.}
 
-\item{cores}{Number of worker processes used for the subset fits. Fork-based,
-so ignored on Windows.}
+\item{cores}{Total number of concurrent Stan processes for the whole fit,
+not the number of subsets to run at once. The budget is divided between
+blocks and chains: a block fit supplies \code{chains} processes by default (four
+for \code{"stanimal"}, its own default), so \code{cores = 4} with the default engine
+arguments runs one block at a time with four chains in parallel, while
+\code{cores = 4} with \code{engine_args = list(chains = 1)} runs four blocks at once.
+\code{chains} is never changed here; only how many run concurrently.}
 
 \item{seed}{Optional seed for the subset construction. The engine's sampler
 seed is passed through \code{engine_args}.}

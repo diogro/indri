@@ -9,7 +9,10 @@
       draws = TRUE,
       se = FALSE,
       a_form = "dense",
-      missing = TRUE
+      missing = TRUE,
+      # what lmm_animal() uses when the caller does not say otherwise, so that
+      # fit_G() can divide a core budget without oversubscribing
+      default_chains = 4L
     ),
     fit = .indri_stanimal_fit
   )

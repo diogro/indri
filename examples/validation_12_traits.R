@@ -27,9 +27,11 @@ sibship_size <- 5L
 s <- 4L
 min_cooccurrence <- 3L
 seeds <- 1:3
-block_control <- list(chains = 1L, iter = 800L, cores = 1L, init = 0.5,
+block_control <- list(chains = 2L, iter = 800L, init = 0.5,
                       refresh = 0, show_messages = FALSE)
-cores <- max(1L, min(4L, parallel::detectCores() - 1L))
+# A budget, not a worker count: with two chains per block, six cores means three
+# blocks at a time.
+cores <- max(1L, min(6L, parallel::detectCores() - 1L))
 dir.create("results", showWarnings = FALSE)
 
 metrics <- function(estimate, truth) {

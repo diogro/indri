@@ -154,6 +154,20 @@ Four properties that make the assembly valid:
    this is the one place a custom Stan file is genuinely required. The REML
    engines solve their own systems and are unaffected.
 
+   `cores` is a *budget* for the whole fit, not a worker count. Each engine
+   brings its own parallelism — stanimal defaults to four chains running on four
+   cores — so the budget is split between blocks and chains:
+
+   ```
+   per_block_cores    = engine_args$cores  %||%  min(chains, cores)
+   blocks_in_parallel = max(1, floor(cores / per_block_cores))
+   ```
+
+   `chains` is never changed, because it is a statistical setting; only the
+   number of processes running at once changes. `cores = 4` with the default
+   engine arguments is one block with four chains in parallel; with
+   `engine_args = list(chains = 1)` it is four blocks at once.
+
 4. **The projection is monotone, the averaging is linear.** The mean of the
    per-draw averages equals the average of the block means, so the point estimate
    is the same whether you assemble draws or means first. Project the **mean**
@@ -539,7 +553,14 @@ M2 decides which engine is the default for which N.
   `c`.
 - **Cost is `b` block fits.** At K = 40, s = 5, expect tens of fits. With a REML
   engine this is minutes; with `stanimal` it is hours. Parallelism over blocks is
-  a day-one requirement.
+  a day-one requirement, and it is implemented (see below).
+- **Do not fork R around cmdstan.** `parallel::mclapply()` looks like the obvious
+  way to run blocks concurrently and silently destroys runs: the forked children
+  conflict with the `processx` supervisor cmdstanr uses, the run dies mid-fit
+  with no R error, and the only clue is that the log stops between chain
+  messages. PSOCK workers (`parallel::makeCluster`, separate processes) run the
+  same 23-block job in 0.8 min against 2.6 min sequentially, with identical
+  estimates.
 - **Licensed dependency.** ASReml-R cannot be in CI. Its tests must skip
   gracefully, and the engine must fail with an actionable message.
 - **The uncertainty story is the weak point** and the one a reviewer will attack.
