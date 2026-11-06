@@ -1,0 +1,13 @@
+.Rproj.user
+.Rhistory
+.RData
+.Ruserdata
+.Rapp.history
+*.Rproj
+*.o
+*.so
+*.dll
+*.html
+examples/figures/
+results/
+*.rds
