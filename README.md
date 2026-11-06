@@ -5,9 +5,8 @@ high-dimensional traits, by combining trait subsampling (LiMMBo) with small
 per-subset fits from a pluggable engine — Stan via stanimal, REML via sommer, or
 REML via ASReml-R.
 
-Status: repo scaffold. The design is settled enough to code from, but no
-implementation has landed yet — see [NOTES.md](NOTES.md) for the estimator, the
-engines, the architecture, the Stan delta and the milestones.
+Status: working package, M1 validated. See [STATUS.md](STATUS.md) for where the
+work stands and [NOTES.md](NOTES.md) for the design.
 
 ## Scope
 

@@ -15,6 +15,9 @@ engine still passes `A` and lets the model decompose it once per chain.
 
 Scope decision of record: **G only**, with **pluggable block engines**.
 
+For the current state of the work, what has been measured and what to do
+next, read [STATUS.md](STATUS.md). This file is the design.
+
 ---
 
 ## 1. What this package is
