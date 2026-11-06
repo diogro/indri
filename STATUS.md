@@ -6,27 +6,32 @@ next.
 
 ## Where things stand
 
-| repo | branch | head | remote | what is on it |
-|---|---|---|---|---|
-| `indri` | `main` | `588275b` | **none — local only** | the package, tests, examples, NOTES/STATUS |
-| `stanimal` | `indri-support` | `bdd30cf` | **none — local only** | `animalModelGQR.stan`, `eigen_A`, `test-eigen-A.R` (+480/-1 over master) |
-| `limmbo` | `indri-session-fixes` | `4edd228` | **`diogro/limmbo`** (fork), pushed | pipeline fixes, pixi environment, AGENTS.md (+140/-34 over master) |
+| repo | branch | remote | what is on it |
+|---|---|---|---|
+| `indri` | `main` | `diogro/indri` (**private**) | the package, tests, examples, NOTES/STATUS |
+| `stanimal` | `indri-support` | `diogro/stanimal` | `animalModelGQR.stan`, `eigen_A`, `test-eigen-A.R` (+480/-1 over master) |
+| `limmbo` | `indri-session-fixes` | `diogro/limmbo` (fork of `meyer-lab-cshl/limmbo`) | pipeline fixes, pixi environment, AGENTS.md (+140/-34 over master) |
 
-Notes on the branches:
+All three are pushed and the working trees are clean. Heads at the time of
+writing: `indri` `6abddf4`, `stanimal/indri-support` `bdd30cf`, `limmbo`
+`indri-session-fixes` `4edd228`; check with `git ls-remote --heads origin`
+rather than trusting this line.
 
-- `stanimal/indri-support` is branched from `master` (`39ece71`) and is **not**
-  merged anywhere. It is the only copy of the `eigen_A` prototype: a fresh clone
-  of stanimal will not have it.
-- `limmbo/indri-session-fixes` is pushed to the fork; `origin` in that checkout
-  still points at `meyer-lab-cshl/limmbo`. A pull request against upstream would
-  be `https://github.com/diogro/limmbo/pull/new/indri-session-fixes`.
-- `indri` has no remote at all; everything is in the working folder.
-
-If the next machine clones rather than copies, push these first:
+Cloning on another machine — note that two of the branches are not the default
+branch of their repo:
 
 ```sh
-git -C indri    remote add origin <url> && git -C indri    push -u origin main
-git -C stanimal remote add origin <url> && git -C stanimal push -u origin indri-support
+git clone https://github.com/diogro/indri.git
+git clone git@github.com:diogro/stanimal.git && cd stanimal && git switch indri-support
+git clone git@github.com:diogro/limmbo.git  && cd limmbo  && git switch indri-session-fixes
+```
+
+`stanimal` also carries `master` (`39ece71`, the branch `indri-support` is cut
+from) and older `feature/0.7.0`/`roadmap` branches. In the `limmbo` checkout,
+`origin` is the fork; add the upstream if a PR is wanted:
+
+```sh
+git remote add upstream https://github.com/meyer-lab-cshl/limmbo
 ```
 
 127 test assertions pass in `indri`; 14 in the stanimal branch's new test file.
