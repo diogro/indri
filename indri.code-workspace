@@ -1,0 +1,14 @@
+{
+	"folders": [
+		{
+			"path": "../limmbo"
+		},
+		{
+			"path": "../stanimal"
+		},
+		{
+			"path": "."
+		}
+	],
+    "settings": {}
+}

@@ -1,10 +1,10 @@
 # indri — design notes and implementation plan
 
-Status: pre-implementation. Repo initialized (`main`, no commits yet); only this
-file plus `README.md`/`.gitignore`. Everything below is a design decision taken
-far enough to code from, not code.
+Status: pre-implementation. Repo initialized (`main`); this file plus
+`README.md`/`.gitignore` and one scaffold commit. Everything below is a design
+decision taken far enough to code from, not code.
 
-Scope decision of record: **G only.**
+Scope decision of record: **G only**, with **pluggable block engines**.
 
 ---
 
@@ -24,8 +24,12 @@ It is the child of two parents:
   unstructured or sparse-factor G. Honest uncertainty, expensive in the number of
   traits.
 
-`indri` takes the subsetting idea from the first and the Bayesian block fits from
-the second.
+`indri` takes the subsetting idea from the first and the block fits from the
+second — but the block fit is a **plugin**, not a hard dependency. LiMMBo calls
+limix for its blocks; indri should be able to call **stanimal**, **sommer** or
+**ASReml-R**, because the right engine depends on N, on whether the data have
+gaps, on whether the machine has an ASReml licence, and on whether the user wants
+a posterior or a likelihood.
 
 Name: *indri* is a lemur — same genus as the animal-ish names the parent projects
 already use, and short enough to be a valid R package name. Checked free on CRAN,
@@ -37,9 +41,15 @@ PyPI and GitHub.
 
 In scope:
 
-- `G` (K x K additive genetic covariance), on the original response scale.
-- Prior choices that affect `G`.
-- Diagnostics for the subsetting (pair coverage, per-block convergence).
+- `G` (K x K additive genetic covariance), on a documented response scale.
+- **Pluggable block engines**, at least three:
+  - `"stanimal"` — Bayesian, NUTS, returns posterior draws. Default.
+  - `"sommer"` — REML in pure R, CRAN-installable, returns point estimates plus
+    delta-method standard errors.
+  - `"asreml"` — REML, licensed, sparse inverse of A, fastest per block.
+- Prior/engine settings that affect `G`, and the diagnostics needed to compare
+  them (pair coverage, per-block convergence, cross-engine agreement).
+- Entry weights in the assembly (equal vs inverse-variance).
 
 Out of scope, for now:
 
@@ -47,14 +57,14 @@ Out of scope, for now:
   summarised).
 - Association testing, breeding values, `size_shape()`, imputation API,
   LOO/PPC/model comparison.
-- Any frequentist API parity with `limmbo` (no CLI).
+- Any frequentist CLI parity with `limmbo`.
 
 ---
 
 ## 3. Why this must be two-stage
 
-This is the load-bearing design argument. Worth re-reading before changing the
-architecture.
+This is the load-bearing design argument, and it is independent of which engine
+fits the blocks. Worth re-reading before changing the architecture.
 
 LiMMBo's speedup does not come from fitting on fewer columns. It comes from
 **decentralising E**: each subset gets its own small nuisance covariance and its
@@ -72,27 +82,28 @@ sum_j O(N s^2 + s^3)  ~  O(N K^2)
 which is the cost of the *full* model, with a noisier objective and the same
 number of parameters. Same price, worse estimator.
 
-Therefore a faithful Bayesian translation must also decentralise `E`, which
-forces a two-stage structure:
+Therefore a faithful translation must also decentralise `E`, which forces a
+two-stage structure:
 
 ```
-stage 1   b independent small Bayesian fits      ->  G_j draws (s x s)
-stage 2   assemble those blocks into one K x K   ->  G, G_draws
+stage 1   b independent small fits (any engine)   ->  G_j, E_j, + uncertainty
+stage 2   assemble those blocks into one K x K    ->  G, spread
 ```
 
-Stage 2 is where LiMMBo's averaging and PSD projection live. Stage 1 is where
-stanimal works.
+Stage 2 is where LiMMBo's averaging and PSD projection live. Stage 1 is where the
+engine works. The engine is interchangeable; stage 2 is not.
 
 ### What the output is, and what it is not
 
-`G` (the point estimate) is a least-squares projection of block means onto the
-PSD cone — the same estimand LiMMBo targets.
+`G` (the point estimate) is a least-squares projection of block estimates onto
+the PSD cone — the same estimand LiMMBo targets.
 
-`G_draws` is an **ensemble spread, not a joint posterior**. Blocks share traits,
-so block posteriors are dependent; averaging draw `d` across overlapping blocks
-is a heuristic that carries block-level uncertainty through, not a posterior over
-the joint matrix. Document this in the man page and in anything published.
-Measuring what it actually covers (section 9) is the honest way to justify it.
+The spread (`G_draws` for `"stanimal"`, `G_se`/`G_draws` for the REML engines) is
+an **assembled spread, not a joint posterior**. Blocks share traits, so block
+estimates are dependent; combining them is a heuristic that carries block-level
+uncertainty through, not a posterior over the joint matrix. Document this in the
+man page and in anything published. Measuring what it actually covers
+(section 10) is the honest way to justify it.
 
 ---
 
@@ -103,40 +114,48 @@ Y, X, A
   |
   +-> indri_subsets(K, s, c)          b x s index matrix, every pair covered >= c
   |
-  +-> block fits (parallel over blocks)
-  |     stanimal::lmm_animal(Y[, I_j], X, A)   ->  G_j draws, Rhat, divergences
+  +-> block fits (parallel over blocks), one engine per fit
+  |     engine$fit(Y[, I_j], X, A)    ->  G_j, E_j, draws | se
   |
   +-> assemble_G()
-        inflate + average overlaps        -> G_bar      (K x K)
+        inflate + weighted average        -> G_bar      (K x K)
         Cholesky LS projection to PSD     -> G_hat      (the reported estimate)
-        per-draw inflate + average        -> G_draws    (K x K x D, spread)
+        per-draw / per-se propagation     -> G_draws / G_se
 ```
 
-Three properties that make the assembly valid:
+Four properties that make the assembly valid:
 
-1. **Blocks are on a common scale.** stanimal standardises per trait
-   (`Y_std[n,k] = (Y[n,k] - y_mean[k]) / y_sd[k]`, computed from that trait's
-   observed values only) and back-transforms with
-   `G = quad_form_diag(G_std, y_sd)`, i.e. `G_ij = y_sd_i * G_std_ij * y_sd_j`.
-   `y_sd[k]` depends only on trait k's observed data, so **it is identical in
-   every block that contains trait k**. Assembled entries are therefore on the
-   same original scale regardless of which block produced them. (Verified in
-   `../stanimal/package/inst/stan/animalModelG.stan` lines 55-93, 233-234.)
-   Pin this with a test in M1 — it is the assumption the whole method rests on.
+1. **Blocks are on a common scale — by construction in indri.** Each engine
+   treats scale differently (`stanimal` standardises internally and back-transforms
+   with `G = quad_form_diag(G_std, y_sd)`; `sommer` and `ASReml` do not
+   standardise at all). So indri standardises **once, globally**, before
+   subsetting: `Y_std[, k] = (Y[, k] - mean_k) / sd_k` using all observed values
+   of trait k, and keeps `y_sd` on the object. Every block, from every engine,
+   then sees the same numbers and estimates the same G on the same scale; the
+   reported `G` is on the standardised scale and can be back-transformed by the
+   caller with `quad_form_diag(G, y_sd)`. This replaces an earlier design that
+   relied on stanimal's per-block standardisation — that worked, but it made
+   the estimator's validity depend on an internal of one engine.
 
-2. **A's eigen-decomposition is shared.** Every block needs the same
-   `Q diag(lambda) Q'`. See section 5; this is the one place a custom Stan file
-   is genuinely required.
+2. **A is prepared once and shared.** `stanimal` wants dense `A`; `sommer` wants
+   `solve(A)` marked as an inverse; `ASReml` wants a sparse three-column inverse.
+   Compute each form once per run, not per block.
 
-3. **The projection is monotone, the averaging is linear.** The mean of the
+3. **`A`'s eigen-decomposition is shared** for the Stan engine. See section 5;
+   this is the one place a custom Stan file is genuinely required. The REML
+   engines solve their own systems and are unaffected.
+
+4. **The projection is monotone, the averaging is linear.** The mean of the
    per-draw averages equals the average of the block means, so the point estimate
-   is the same whether you assemble means or draws first. Project the **mean**
-   (nonlinear, must not be applied draw-by-draw if you care about smoothness of
-   the spread) and report spread from the unprojected draw ensemble.
+   is the same whether you assemble draws or means first. Project the **mean**
+   (nonlinear; do not project draw-by-draw if you care about smoothness of the
+   spread) and report spread from the unprojected ensemble.
 
 ---
 
 ## 5. The Stan delta (verified against stanimal)
+
+Only relevant to the `"stanimal"` engine.
 
 ### Facts established by reading the package and by experiment
 
@@ -166,8 +185,9 @@ Three properties that make the assembly valid:
    | 4,000 | ~60 s | ~2 h | ~50% |
    | 10,000 | ~10 min | ~20 h | dominates |
 
-   i.e. negligible in the package's stated niche (hundreds to a few thousand
-   individuals), essential above it. Do not block M1 on this.
+   Negligible in the niche, essential above it. Do not block M1 on this. (The
+   REML engines have their own N-side cost; ASReml with a sparse inverse of A is
+   the only engine here that avoids the dense `O(N^3)`/`O(N^2)` entirely.)
 
 3. **`model_file=` cannot be used to inject `Q`/`lambda`.** `lmm_animal()` builds
    a fixed `stan_data` list containing `A = A` and passes it to
@@ -183,8 +203,8 @@ Three properties that make the assembly valid:
 
 5. **`model_file` is already incompatible with the factor structure.**
    `lmm_animal()` stops with "`model_file` cannot be combined with
-   `genetic_structure = "factor"`" (R/lmm_animal.R:251-252). If indri wants
-   horseshoe blocks later, it cannot go through that path anyway.
+   `genetic_structure = "factor"`" (`../stanimal/package/R/lmm_animal.R:251-252`).
+   If indri wants horseshoe blocks later, it cannot go through that path anyway.
 
 6. **Conventions that must match exactly when precomputing in R:**
    - Stan's `eigenvectors_sym` returns eigenvalues **ascending**; R's `eigen()`
@@ -195,9 +215,9 @@ Three properties that make the assembly valid:
 
 | Route | Verdict |
 |---|---|
-| **A. indri owns the Stan file and the sampler call** | **Chosen.** No upstream change, works at any N. Cost: indri takes on the R-side data prep (validation, sample matching, missing-data mask, `x_mean_weight`). |
+| **A. indri owns the Stan file and the sampler call** | **Chosen.** No upstream change, works at any N. Cost: indri takes on the R-side data prep for its own model variant (validation, sample matching, missing-data mask, `x_mean_weight`). |
 | B. Add a `q_lambda = list(Q=, lambda=)` hook to stanimal | Cleanest for indri, but needs an upstream PR. Keep as an option; do not depend on it. |
-| C. Pass `A = diag(sort(eigenvalues))` so Stan's decomposition is free | **Rejected.** Requires pre-rotating Y/X, but `Y_std` is computed *before* rotation on the individual axis, so pre-rotation changes per-trait standardisation; and the missing-data mask is per (individual, trait), which rotation destroys. |
+| C. Pass `A = diag(sort(eigenvalues))` so Stan's decomposition is free | **Rejected.** Requires pre-rotating Y/X, but `Y_std` is computed *before* rotation on the individual axis, so pre-rotation changes standardisation; and the missing-data mask is per (individual, trait), which rotation destroys. |
 
 ### The patch
 
@@ -230,16 +250,134 @@ lambda <- pmax(rev(qr$values), 0)
 
 ---
 
-## 6. API
+## 6. Block engines
+
+### The contract
+
+Every engine implements one function with one signature:
+
+```r
+engine$fit(Ysub, X, A_forms, control) -> list(
+  G       = s x s numeric,           # required
+  E       = s x s numeric,           # required (nuisance)
+  draws   = s x s x D array | NULL,  # at least one of draws/se is required
+  se      = s x s numeric | NULL,
+  converged = logical,
+  loglik  = numeric | NA,
+  time    = numeric,
+  warnings = character()
+)
+```
+
+`A_forms` is the prepared list described in section 4 (`A`, `A_inv`,
+`A_sparse_inv`); engines declare which they need so indri builds only what is
+used. Each engine also declares capabilities:
+
+| engine | estimator | uncertainty | A form | missing traits | cost/block | licence |
+|---|---|---|---|---|---|---|
+| `stanimal` | Bayesian posterior mean (NUTS) | `draws` | dense `A` | yes (gap parameters) | highest | GPL-3, CRAN |
+| `sommer` | REML (`mmes`/`mmer`) | `se` (delta method) | dense `A^-1` | no — drops incomplete rows | low | GPL, CRAN |
+| `asreml` | REML (AI) | `se` (from `$vcov`) | sparse `A^-1` | no | lowest | commercial |
+
+### Rules the engines impose on the design
+
+1. **One engine per fit.** Recorded on the object (`attr(fit, "engine")`). Mixing
+   engines across blocks is an error, not a warning: the estimands differ (REML
+   point estimate vs posterior mean under a prior), so mixed blocks would be
+   averaged on unequal footing.
+2. **The estimand depends on the engine.** With weak priors and enough N the
+   three agree; with a few hundred individuals they do not, and `stanimal` will
+   shrink more. Any cross-engine comparison must say which estimand it is
+   comparing. This belongs in the man page, not just here.
+3. **Missing data is a capability, not an assumption.** `stanimal` handles gaps
+   natively; the REML engines silently drop incomplete rows. `missing =
+   c("error", "complete_block")` decides the behaviour, defaulting to `"error"`
+   when the engine cannot handle gaps and any gap falls in the block. Dropping
+   rows per block also breaks the "same data in every block" property, so it must
+   be recorded and reported.
+4. **Weights.** Because every engine reports a per-entry uncertainty, the
+   assembly can weight entries by inverse variance instead of LiMMBo's equal
+   weights: `weights = c("none", "inverse_variance")`. Default `"none"` for
+   fidelity to the paper, with `"inverse_variance"` as the obvious improvement to
+   measure in M4.
+
+### Verified call forms
+
+Taken from `../stanimal/examples/package_comparison.R`, which fits the same
+bivariate animal model with all six engines and is the reference for how each is
+wired. Port these, don't reinvent them.
+
+**sommer** (long format, `mmes`; term 1 is the animal/G term, term 2 the
+residual/E term):
+
+```r
+Ainv <- solve(A); attr(Ainv, "inverse") <- TRUE
+long <- data.frame(id = factor(rep(ids, K)),
+                   trait = factor(rep(traits, each = N)),
+                   value = as.vector(Y),
+                   record = rep(seq_len(N), K), <covariates repeated per trait>)
+fit <- sommer::mmes(
+  value ~ 0 + trait + trait:x1,
+  random = ~ vsm(usm(trait), ism(id), Gu = Ainv),
+  rcov   = ~ vsm(usm(trait), ism(record)),
+  data = long, control = mmes_control(diagnostics = list(verbose = FALSE)))
+g  <- sommer::covmatrix_mmes(fit, 1, se = TRUE)
+G  <- g$covariance
+se <- g$covariance.se
+```
+
+`sommer::mmer()` is the wide-format alternative (`cbind(y1, y2) ~ ...`); `mmes`
+is what the benchmark uses and is the safer default. `covmatrix_mmes()` exposes
+`$covariance`, `$correlation`, `$covariance.se`, `$correlation.se`
+(delta method from the fit's `theta_se`).
+
+**ASReml-R** (wide format; bivariate fits need a second pass):
+
+```r
+Ainv <- <sparse three-column inverse of A, class "ginv">
+fit <- asreml::asreml(
+  fixed  = cbind(y1, y2) ~ trait + trait:x1,
+  random = ~ vm(id, Ainv):us(trait, init = c(1, 0, 1)),
+  rcov   = ~ units:us(trait, init = c(1, 0, 1)),
+  data = dat)
+fit <- update(fit)
+vc <- summary(fit)$varcomp            # lower triangle, row by row
+G  <- lower2mat(vc[grep("^vm\\(", rownames(vc)), 1])
+```
+
+Helpers to port from that file (`package_comparison.R:98-122`): `lower2mat()`
+(lower triangle to symmetric matrix) and `sparse_ginv()` (three-column inverse
+with `class "ginv"`). Note the benchmark builds the inverse from `solve(A)`
+because `asreml::ainverse()` "fails intermittently on some pedigrees" — that
+defeats the sparsity advantage. For the package: accept a user-supplied sparse
+inverse (`nadiv::ainv(pedigree)` or `Matrix::solve(Matrix(A, sparse = TRUE))`),
+fall back to the dense route with a warning.
+
+### G extraction is engine-specific and easy to get wrong
+
+| engine | how G comes out | format |
+|---|---|---|
+| `stanimal` | `fit_draws(fit)$G` / `draws_mean(fit, "G")` | K x K, original scale |
+| `sommer` | `covmatrix_mmes(fit, 1)$covariance` | K x K |
+| `asreml` | `summary(fit)$varcomp`, `"^vm\\("` rows, lower triangle | vector -> `lower2mat()` |
+
+Written as one paragraph per engine in `R/engines/*.R`, each with its own test
+against a known simulation (section 10).
+
+---
+
+## 7. API
 
 ```r
 fit_G(Y, X = NULL, A,
       s = NULL,                     # subset size; default floor(sqrt(K)) clamped
       min_cooccurrence = 3,         # c
       subsets = NULL,               # precomputed b x s matrix, for reproducibility
-      block = "stanimal",           # "stanimal" | "stanimal_qr" (M2)
+      engine = c("stanimal", "sommer", "asreml"),
+      engine_args = list(),         # forwarded to the engine (iter, chains, priors, ...)
       assembly = "ls",              # "ls" | "average"
-      block_args = list(),          # forwarded: iter, chains, cores, priors
+      weights = "none",             # "none" | "inverse_variance"
+      missing = "error",            # "error" | "complete_block"
       seed = NULL)
 ```
 
@@ -249,137 +387,175 @@ Returns an `indri_fit`:
 |---|---|
 | `G` | K x K point estimate (LS projection of the averaged blocks) |
 | `corrG`, `sigma_G` | derived summaries |
-| `G_draws` | K x K x D assembled ensemble (spread, not a posterior) |
+| `G_draws` / `G_se` | assembled spread, per engine capability |
 | `G_bar` | pre-projection average, for diagnosis |
+| `engine`, `engine_args` | what ran |
 | `subsets` | b x s index matrix |
-| `coverage` | K x K pair counts, plus which pairs are below threshold |
-| `blocks` | the raw block fits (E included, for debugging only) |
-| `diagnostics` | per-block Rhat / divergences / ESS, projection status |
+| `coverage` | K x K pair counts, plus pairs below threshold |
+| `y_sd` | per-trait scale, for back-transformation |
+| `blocks` | raw block fits (E included, debugging only) |
+| `diagnostics` | per-block convergence (Rhat/divergences, or REML convergence), projection status, dropped rows |
 
-Exported internals, each independently testable:
-`indri_subsets()`, `assemble_G()`, `project_psd()`.
+Exported internals, each independently testable: `indri_subsets()`,
+`assemble_G()`, `project_psd()`, and the engine constructors.
 
 Methods: `print()`, `summary()`, `plot()` (correlation heatmap with coverage
-overlay).
+overlay), `compare_engines()` (sugar over the same data, section 10).
 
 ---
 
-## 7. Package skeleton
+## 8. Package skeleton
 
 ```
 package/
-  DESCRIPTION        Imports: stanimal, posterior, cmdstanr | rstan;
-                     Suggests: testthat, loo
+  DESCRIPTION        Imports: posterior;
+                     Suggests: stanimal, cmdstanr, rstan, sommer, asreml, nadiv
+                     (engines are optional: stanimal is not a hard dependency once
+                      sommer/asreml exist, but one of them must be installed)
   NAMESPACE
-  R/fit_G.R          entry point and orchestration
-  R/subsets.R        set-cover sampler (port of limmbo's multiple_set_covers_all)
-  R/assemble.R       inflate / average / draw-wise assembly
-  R/project_psd.R    Cholesky-parametrised LS fit (limmbo's BFGS objective)
-  R/blocks.R         block engine abstraction ("stanimal", later "stanimal_qr")
-  R/methods.R        print / summary / plot
-  inst/stan/indriBlock.stan        (M2)
-  tests/testthat/    test-subsets, test-assemble, test-project, test-fit-G,
-                     test-scale, test-qr-equivalence
-examples/            simulation_recovery.R, ratones_G.R
+  R/fit_G.R              entry point and orchestration
+  R/subsets.R            set-cover sampler (port of limmbo's multiple_set_covers_all)
+  R/assemble.R           inflate / weighted average / draw and se propagation
+  R/project_psd.R        Cholesky-parametrised LS fit (limmbo's BFGS objective)
+  R/a_forms.R            dense A, dense inverse, sparse inverse, built once
+  R/engines.R            registry, capability checks, dispatch
+  R/engines/stanimal.R   block fit via stanimal::lmm_animal()
+  R/engines/sommer.R     block fit via sommer::mmes()
+  R/engines/asreml.R     block fit via asreml::asreml()
+  R/methods.R            print / summary / plot / compare_engines
+  inst/stan/indriBlock.stan        (M3)
+  tests/testthat/        test-subsets, test-assemble, test-project, test-scale,
+                         test-engine-stanimal, test-engine-sommer,
+                         test-engine-asreml, test-cross-engine, test-qr-equivalence
+examples/                simulation_recovery.R, engine_comparison.R, ratones_G.R
 ```
 
-Reference implementation to port for `subsets.R` and `project_psd.R`:
-`../limmbo/limmbo/utils/utils.py` (`multiple_set_covers_all`, `inflate_matrix`)
-and `../limmbo/limmbo/core/vdbootstrap.py` (`__getBootstrapResults`,
+Reference implementations to port: `../limmbo/limmbo/utils/utils.py`
+(`multiple_set_covers_all`, `inflate_matrix`) and
+`../limmbo/limmbo/core/vdbootstrap.py` (`__getBootstrapResults`,
 `__fit_bootstrap_results`, `__rss`, `__RSS_grad_compute`).
 
 ---
 
-## 8. Milestones
+## 9. Milestones
+
+Engines come early: they are cheap to add, and three of them make every later
+decision measurable (a bug in the assembly shows up as disagreement between
+engines).
 
 | # | Deliverable | Acceptance test |
 |---|---|---|
 | **M0** | Skeleton + `indri_subsets()` | Reproduces limmbo's `multiple_set_covers_all` for a grid of `(K, s, c)` at the same seed; every pair covered `>= c`; errors cleanly on `s < 2`, `c < 1`, `s > K` |
-| **M1** | `fit_G()` on stock `stanimal::lmm_animal()`, average + LS projection | (a) a 2-trait block equals the full 2-trait `lmm_animal()` within MC error; (b) on a 12-trait simulation with known G, median per-entry relative error (correlation scale) within 2x the full 12-trait stanimal fit; (c) entries estimated by different blocks agree within MC error — **the scale-consistency test**; (d) runs end-to-end on the shipped `ratones` data |
-| **M2** | `indriBlock.stan` + `block = "stanimal_qr"` | **Deterministic** equivalence: same data, fixed parameter vector, `log_prob()` matches the stock model to machine precision. Not a posterior comparison |
-| **M3** | Uncertainty + diagnostics | Per-block Rhat/divergence table, pair-coverage report, `G_draws`; simulation study of interval coverage, documented in the man page |
-| **M4** | Performance | Block caching keyed by (subset, hyperparameters); parallel schedule over blocks; target wall clock <= 2x the equivalent number of independent `lmm_animal()` fits |
+| **M1** | `fit_G()` on the `stanimal` engine + global standardisation + LS projection | (a) a 2-trait block equals the full 2-trait `lmm_animal()` within MC error, after undoing the global scale; (b) on a 12-trait simulation with known G, median per-entry relative error (correlation scale) within 2x the full 12-trait stanimal fit; (c) entries estimated by different blocks agree within MC error — **the scale-consistency test**; (d) runs end-to-end on the shipped `ratones` data |
+| **M2** | `sommer` and `asreml` engines behind the contract | Each engine, on the same 3-trait block and the same data, gives G within REML tolerance of the other and of `stanimal` (MC error); `"asreml"` errors informatively when the licence is absent; no engine is imported at package load |
+| **M3** | `indriBlock.stan` + `engine = "stanimal_qr"` | **Deterministic** equivalence: same data, fixed parameter vector, `log_prob()` matches the stock model to machine precision. Not a posterior comparison |
+| **M4** | Uncertainty + weights + diagnostics | Per-block convergence table (Rhat/divergences or REML convergence), pair-coverage report, `G_draws`/`G_se`; equal vs inverse-variance weights compared on simulation; interval coverage study documented in the man page |
+| **M5** | Performance | Block caching keyed by (subset, engine, hyperparameters); parallel schedule over blocks; target wall clock <= 2x the equivalent number of independent block fits with that engine |
 
-M1 is the number that decides whether the project continues. If assembled G is
+M1 is the number that decides whether the project continues: if assembled G is
 not within ~2x the full model's error, the estimator is not worth the machinery.
+M2 decides which engine is the default for which N.
 
 ---
 
-## 9. Validation plan
+## 10. Validation plan
 
 - **Simulation**: `stanimal::random_covariance(method = "factor")` for known G;
   sweep K in {8, 12, 20}, N in {300, 1000}, s in {3, 4, 5}, c in {3, 5}.
 - **Metrics**: relative Frobenius error on the correlation scale (never absolute —
   entries can be ~1e-3), per-entry error against pair coverage, correlation of
-  assembled `corrG` with truth, wall clock, block-level Rhat.
+  assembled `corrG` with truth, wall clock, block-level convergence.
+- **Cross-engine**: the same subset, the same standardised data, three engines;
+  report pairwise relative differences in G. This is the cheapest guard against a
+  wiring bug in any engine and the only way to know whether engine choice changes
+  the answer at a given N.
 - **Reference points**: full stanimal fit (K small enough), and LiMMBo's own
   estimate where the Python stack is available.
-- **Interval coverage** (M3): fraction of true entries inside the 95% band from
-  `G_draws`, reported per coverage count. Expect this to be optimistic; the
+- **Interval coverage** (M4): fraction of true entries inside the 95% band,
+  reported per coverage count and per engine. Expect this to be optimistic; the
   number is the deliverable, not a pass/fail gate.
 - **Do not** claim posterior calibration. Claim what is measured.
 
 ---
 
-## 10. Open decisions
+## 11. Open decisions
 
-1. **Block engine.** MVP: `stanimal::lmm_animal()` (pure R, handles gaps, slower
-   per block). Later: a REML engine matching the paper. *Default: stanimal only.*
+1. **Default engine.** `"stanimal"` gives uncertainty and handles gaps;
+   `"asreml"` is far faster and scales in N. *Provisional: `"stanimal"` as
+   default, with `asreml`/`sommer` documented for the N-heavy and
+   no-licence cases; revisit after M2.*
 2. **Priors inside blocks.** stanimal's LKJ default vs
    `genetic_structure = "factor"` (horseshoe). This changes *what* G is
-   estimated, not just speed — a factor prior shrinks blocks toward low rank and
-   the assembly inherits it. Note that the factor structure is incompatible with
+   estimated, not just speed. The factor structure is incompatible with
    `model_file` today, so a factor path implies owning the Stan file from M1
-   onward. *Default: LKJ, factor exposed as an option later.*
+   onward. *Default: LKJ; factor later, and only for the Stan engine.*
 3. **Assembly.** LS projection (matches LiMMBo, guarantees PSD) vs plain
    averaging (`Cg_average` in the paper). *Default: both computed, LS reported.*
-4. **Uncertainty semantics.** Draw-wise ensemble vs point-only vs full block
-   bootstrap. *Default: draw-wise, documented as a spread.*
-5. **Dependency on stanimal**: `Imports:` (clean, version-coupled) vs vendoring
-   its Stan files (independent, forks the priors). *Default: `Imports:` for the
-   stock engine, vendored file only for `indriBlock.stan`.*
-6. **License**: GPL-3, to match stanimal.
-7. **Remote**: `gh repo create diogro/indri --private` — not done; needs a
+4. **Weights.** Equal (paper fidelity) vs inverse-variance (uses what the engines
+   already report). *Default: equal; measure the alternative in M4.*
+5. **Uncertainty per engine.** `stanimal` -> draws; `sommer`/`asreml` -> delta
+   method SEs propagated as a Gaussian ensemble. The independence caveat in
+   propagating a per-entry `se` matrix (entries are correlated) must be stated.
+   *Default: propagate as documented, or `"none"` if the user prefers point
+   estimates.*
+6. **Missing data.** `"error"` vs `"complete_block"` default. *Default: `"error"`.*
+7. **stanimal as dependency.** `Imports:` for the default engine vs `Suggests:`
+   with a runtime check. Now that three engines exist, `Suggests:` is more
+   defensible. *Default: `Suggests:`, checked at call time.*
+8. **Licence**: GPL-3, to match stanimal.
+9. **Remote**: `gh repo create diogro/indri --private` — not done; needs a
    decision on public/private and org.
 
 ---
 
-## 11. Risks
+## 12. Risks
 
+- **Engine heterogeneity.** Three estimands (posterior mean, REML, AI-REML),
+  three uncertainty formats, three A representations. The contract and the
+  cross-engine test exist to contain this; the failure mode is a plausible-looking
+  G that is subtly on the wrong scale or from the wrong term.
 - **Coverage-starved pairs.** With small `s`, some pairs get few estimates and
   their entries are the noisy ones. The `coverage` field exists so this is
   visible rather than silent; consider refusing to fit when any pair falls below
   `c`.
-- **Cost is `b` MCMC fits.** At K = 40, s = 5, expect tens of fits. Parallelism
-  over blocks is a day-one requirement, not an optimization.
+- **Cost is `b` block fits.** At K = 40, s = 5, expect tens of fits. With a REML
+  engine this is minutes; with `stanimal` it is hours. Parallelism over blocks is
+  a day-one requirement.
+- **Licensed dependency.** ASReml-R cannot be in CI. Its tests must skip
+  gracefully, and the engine must fail with an actionable message.
 - **The uncertainty story is the weak point** and the one a reviewer will attack.
-  Measure it (M3) rather than defending it.
-- **Missing data interacts with subsetting.** A gap-heavy trait is weakly
-  identified in a 4-trait block. Either document, or default to complete-case
-  rows per block. `residual_structure = "diagonal"` with many gaps is explicitly
-  warned against in stanimal's own docs.
+  Measure it (M4) rather than defending it.
+- **Missing data interacts with subsetting**, differently per engine. A gap-heavy
+  trait is weakly identified in a 4-trait block under `stanimal`, and silently
+  loses rows under the REML engines.
 - **Vendoring drift.** `indriBlock.stan` will diverge from `animalModelG.stan` as
-  stanimal evolves. The deterministic `log_prob()` test in M2 is the guard; re-run
+  stanimal evolves. The deterministic `log_prob()` test in M3 is the guard; re-run
   it whenever the stanimal version changes.
 
 ---
 
-## 12. Environment (verified on this machine)
+## 13. Environment (verified on this machine)
 
 - R 4.6.0; `cmdstanr`, `rstan`, `posterior`, `testthat`, `loo` installed.
 - CmdStan 2.27.0 / 2.28.1 / 2.31.0 available.
+- Block engines available: `stanimal` (source at `../stanimal`; install with
+  `devtools::install_local("../stanimal/package")` if not installed),
+  `sommer` 4.5.12, `asreml` 4.2.0.482 (licensed; licence checks out),
+  `nadiv` 2.18.0. `MCMCglmm` 2.36 also present but not an indri engine.
 - Python/LiMMBo reference implementation in `../limmbo`, runnable through pixi
-  (`.pixi/envs/default`, Python 3.6 + limix 1.0.18) — this is the fastest way to
-  generate reference subsets and reference G estimates.
-- Repo: `/Users/diogro/Documents/GitHub/indri`, branch `main`, no commits.
+  (`.pixi/envs/default`, Python 3.6 + limix 1.0.18) — fastest way to generate
+  reference subsets and reference G estimates.
+- Repo: `/Users/diogro/Documents/GitHub/indri`, branch `main`.
 
 ---
 
-## 13. References
+## 14. References
 
 - LiMMBo paper: <https://www.biorxiv.org/content/10.1101/255497v1>
 - LiMMBo source: `../limmbo`
-- stanimal source and interface guide: `../stanimal`,
-  `../stanimal/AGENTS.md`
+- stanimal source and interface guide: `../stanimal`, `../stanimal/AGENTS.md`
+- Engine comparison script with working call forms for all engines:
+  `../stanimal/examples/package_comparison.R` (sommer ~line 212, ASReml ~line
+  272, `lower2mat`/`sparse_ginv` at ~98-122)
 - Regularized horseshoe: Piironen & Vehtari (2017)
 - LKJ prior: Lewandowski, Kurowicka & Joe (2009)
