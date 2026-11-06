@@ -6,6 +6,9 @@ the assembly, the PSD projection, the engine registry and the `stanimal` engine;
 86 test assertions pass. The `sommer` and `asreml` engines are designed and
 registered as errors pointing here.
 
+`examples/six_traits.R` runs the whole pipeline on a known 6 x 6 covariance
+(about three minutes) and compares it entry by entry with the truth.
+
 The `eigen_A` prototype for stanimal lives on the `indri-support` branch of
 `../stanimal` (not merged upstream). indri does not use it yet: the `stanimal`
 engine still passes `A` and lets the model decompose it once per chain.
