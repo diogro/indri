@@ -142,7 +142,7 @@ fit_G <- function(Y, X = NULL, A, s = NULL, min_cooccurrence = 3L,
   if (isTRUE(engine$capabilities$draws)) {
     block_draws <- lapply(blocks, `[[`, "draws")
     if (all(!vapply(block_draws, is.null, logical(1L))))
-      G_draws <- indri_assemble_draws(block_draws, subsets)
+      G_draws <- indri_assemble_draws(block_draws, subsets, K)
   }
 
   # The engine may or may not carry trait names through; naming is indri's job.
@@ -161,7 +161,7 @@ fit_G <- function(Y, X = NULL, A, s = NULL, min_cooccurrence = 3L,
     corrG = corrG,
     sigma_G = sqrt(pmax(diag(G), 0)),
     counts = assembled$counts,
-    coverage = indri_pair_coverage(subsets),
+    coverage = indri_pair_coverage(subsets, K),
     subsets = subsets,
     engine = engine$name,
     engine_args = engine_args,

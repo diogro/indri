@@ -92,11 +92,13 @@ indri_assemble <- function(blocks, subsets, K = NULL,
 #'
 #' @param draws List of `s` by `s` by `D` arrays, one per subset.
 #' @param subsets Integer matrix of trait indices, one subset per row.
+#' @param K Number of traits; inferred from `subsets` when `NULL`, which is only
+#'   right when the subsets happen to reach the last trait.
 #'
 #' @return A `K` by `K` by `D` array.
 #' @export
-indri_assemble_draws <- function(draws, subsets) {
-  K <- max(subsets)
+indri_assemble_draws <- function(draws, subsets, K = NULL) {
+  if (is.null(K)) K <- max(subsets)
   D <- dim(draws[[1L]])[3L]
   accumulated <- array(0, c(K, K, D))
   counts <- matrix(0, K, K)

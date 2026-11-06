@@ -4,12 +4,15 @@
 \alias{indri_assemble_draws}
 \title{Average bootstrap draws across subsets}
 \usage{
-indri_assemble_draws(draws, subsets)
+indri_assemble_draws(draws, subsets, K = NULL)
 }
 \arguments{
 \item{draws}{List of \code{s} by \code{s} by \code{D} arrays, one per subset.}
 
 \item{subsets}{Integer matrix of trait indices, one subset per row.}
+
+\item{K}{Number of traits; inferred from \code{subsets} when \code{NULL}, which is only
+right when the subsets happen to reach the last trait.}
 }
 \value{
 A \code{K} by \code{K} by \code{D} array.

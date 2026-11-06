@@ -87,8 +87,8 @@ indri_subsets <- function(K, s, min_cooccurrence = 3L, seed = NULL) {
 }
 
 # Number of times each trait pair is covered by a subset matrix.
-indri_pair_coverage <- function(subsets) {
-  K <- max(subsets)
+indri_pair_coverage <- function(subsets, K = NULL) {
+  if (is.null(K)) K <- max(subsets)
   coverage <- matrix(0L, K, K)
   for (i in seq_len(nrow(subsets))) {
     idx <- subsets[i, ]
