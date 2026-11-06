@@ -31,13 +31,16 @@
   G_draws <- draws$G
   E_draws <- draws$E
 
+  # The CmdStanMCMC object is deliberately not kept: it carries the draws of
+  # every parameter plus handles on its output files, and a fit keeps one per
+  # subset. Everything the assembly needs is extracted here.
   list(
     G = apply(G_draws, c(1L, 2L), mean),
     E = apply(E_draws, c(1L, 2L), mean),
     draws = G_draws,
     se = NULL,
     converged = .indri_stanimal_rhat(fit),
-    fit = fit
+    n_draws = dim(G_draws)[3L]
   )
 }
 

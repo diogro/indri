@@ -479,7 +479,7 @@ engines).
 | # | Deliverable | Acceptance test |
 |---|---|---|
 | **M0** | Skeleton + `indri_subsets()` — **done** | Every pair covered `>= c`; valid 1-based indices; deterministic given a seed; caller's RNG state restored; errors cleanly on `s < 2`, `c < 1`, `s > K`. Note: bit-for-bit reproduction of limmbo's `multiple_set_covers_all` is **not** achievable — its permutation comes from numpy's global generator, so LiMMBo's own subsets are not reproducible run to run. indri implements the same construction with a seeded generator, which is a deliberate divergence |
-| **M1** | `fit_G()` on the `stanimal` engine + global standardisation + LS projection — **implemented, validation incomplete** | (a) a 2-trait block equals the full 2-trait `lmm_animal()` within MC error, after undoing the global scale; (b) on a 12-trait simulation with known G, median per-entry relative error (correlation scale) within 2x the full 12-trait stanimal fit; (c) entries estimated by different blocks agree within MC error — **the scale-consistency test**; (d) runs end-to-end on the shipped `ratones` data |
+| **M1** | `fit_G()` on the `stanimal` engine + global standardisation + LS projection — **done, gate passed** | (a) a 2-trait block equals the full 2-trait `lmm_animal()` within MC error, after undoing the global scale; (b) on a 12-trait simulation with known G, median per-entry relative error (correlation scale) within 2x the full 12-trait stanimal fit; (c) entries estimated by different blocks agree within MC error — **the scale-consistency test**; (d) runs end-to-end on the shipped `ratones` data |
 | **M2** | `sommer` and `asreml` engines behind the contract | Each engine, on the same 3-trait block and the same data, gives G within REML tolerance of the other and of `stanimal` (MC error); `"asreml"` errors informatively when the licence is absent; no engine is imported at package load |
 | **M3** | `engine = "stanimal_qr"` using `eigen_A` (prototype in stanimal's `indri-support` branch) | **Deterministic** equivalence: same data, fixed parameter vector, `log_prob()` matches the stock model to machine precision. Not a posterior comparison |
 | **M4** | Uncertainty + weights + diagnostics | Per-block convergence table (Rhat/divergences or REML convergence), pair-coverage report, `G_draws`/`G_se`; equal vs inverse-variance weights compared on simulation; interval coverage study documented in the man page |
@@ -488,6 +488,23 @@ engines).
 M1 is the number that decides whether the project continues: if assembled G is
 not within ~2x the full model's error, the estimator is not worth the machinery.
 M2 decides which engine is the default for which N.
+
+**M1 result** (12 traits, N = 300, s = 4, 46 six-trait subsets, min_cooccurrence
+3, three seeds, `results/validation_12_traits_*.csv`):
+
+| seed | indri median per-entry abs corr error | full 12-trait model | ratio |
+|---|---|---|---|
+| 1 | 0.0895 | 0.0912 | 0.98 |
+| 2 | 0.0829 | 0.0964 | 0.86 |
+| 3 | 0.1079 | 0.1557 | 0.69 |
+| median | 0.0895 | 0.0964 | **0.93** |
+
+The subset estimator is as accurate as fitting all twelve traits at once, and on
+these seeds slightly more so, at 4.6x the wall clock. That ratio is the whole
+argument for the method turning on K: at 12 traits the full model is still
+cheap, and the subsetting only pays once the full model's `O(P^5)` term bites.
+The next measurement worth making is the same study at K = 30-40, where the full
+model becomes the slow side.
 
 ---
 
@@ -586,6 +603,12 @@ M2 decides which engine is the default for which N.
   (`.pixi/envs/default`, Python 3.6 + limix 1.0.18) — fastest way to generate
   reference subsets and reference G estimates.
 - Repo: `/Users/diogro/Documents/GitHub/indri`, branch `main`.
+- **Long CPU-bound runs get killed silently in this environment** after roughly
+  15 CPU-minutes, with exit code 1 and nothing in the log between the last chain
+  messages. A single-threaded run therefore survives about 15 minutes, and a run
+  using six workers survives about two and a half. The validation study is
+  chunked one seed per invocation for this reason, not because of a bug in
+  indri; each seed costs about 8 CPU-minutes.
 
 ---
 

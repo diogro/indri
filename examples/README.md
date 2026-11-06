@@ -50,3 +50,5 @@ fit_G(Y, A = A, s = 3L, engine_args = list(lkj_prior = 1), ...)
 
 The block fits are the cost. `cores` at the `fit_G()` level parallelises across
 subsets; `cores` inside `engine_args` parallelises the chains of a single subset.
+
+| `validation_12_traits.R` | The M1 gate: 12 traits, a known covariance, indri against the full twelve-trait model, per-entry error against pair coverage. One seed per invocation (`INDRI_STUDY_SEEDS=2`), roughly eight minutes each |

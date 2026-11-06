@@ -9,5 +9,6 @@
 *.dll
 *.html
 examples/figures/
-results/
+results/*
+!results/validation_12_traits_*.csv
 *.rds

@@ -26,12 +26,14 @@ n_fam <- 60L
 sibship_size <- 5L
 s <- 4L
 min_cooccurrence <- 3L
-seeds <- 1:3
-block_control <- list(chains = 2L, iter = 800L, init = 0.5,
+# One seed per invocation, so that a long study can be run in pieces and each
+# piece writes its own rows. Set INDRI_STUDY_SEED to pick one.
+seeds <- as.integer(strsplit(Sys.getenv("INDRI_STUDY_SEEDS", "1,2,3"), ",")[[1]])
+block_control <- list(chains = 1L, iter = 400L, init = 0.5,
                       refresh = 0, show_messages = FALSE)
 # A budget, not a worker count: with two chains per block, six cores means three
 # blocks at a time.
-cores <- max(1L, min(6L, parallel::detectCores() - 1L))
+cores <- as.integer(Sys.getenv("INDRI_STUDY_CORES", "1"))
 dir.create("results", showWarnings = FALSE)
 
 metrics <- function(estimate, truth) {
@@ -81,7 +83,7 @@ for (seed in seeds) {
 
   started <- Sys.time()
   full <- stanimal::lmm_animal(data$Y, matrix(1, data$N, 1L), data$A,
-                               chains = 2L, iter = 800L, cores = 2L,
+                               chains = 2L, iter = 500L, cores = 2L,
                                seed = 2000L + seed, refresh = 0,
                                show_messages = FALSE)
   time_full <- as.numeric(difftime(Sys.time(), started, units = "mins"))
@@ -114,7 +116,10 @@ for (seed in seeds) {
 }
 
 # One seed with inverse-variance weights, to see whether using the block
-# uncertainty helps at this sample size.
+# uncertainty helps at this sample size. Off by default: it is another full
+# sweep of block fits, and the study is run one seed per invocation to stay
+# inside the machine's process budget.
+if (Sys.getenv("INDRI_STUDY_WEIGHTS", "0") == "1") {
 message("\n== weights comparison (seed 1) ==")
 data <- simulate(1L)
 fit_weighted <- fit_G(data$Y, A = data$A, s = s,
@@ -126,13 +131,19 @@ summary_rows[[length(summary_rows) + 1L]] <- data.frame(
   seed = 1L, method = "indri_weighted", m, time_min = NA_real_, subsets = NA_integer_,
   coverage_min = NA_integer_, stringsAsFactors = FALSE
 )
+}
 
 summary_table <- do.call(rbind, summary_rows)
 entries <- do.call(rbind, entry_rows)
-utils::write.csv(summary_table, "results/validation_12_traits_summary.csv",
-                 row.names = FALSE)
-utils::write.csv(entries, "results/validation_12_traits_entries.csv",
-                 row.names = FALSE)
+# one file per seed, so a piece that dies does not take the finished seeds with
+# it and the pieces can be combined afterwards
+write_seed <- function(df, prefix) {
+  utils::write.csv(df, file.path("results", sprintf("%s_seed%s.csv", prefix,
+                                                    paste(unique(df$seed), collapse = "-"))),
+                   row.names = FALSE)
+}
+write_seed(summary_table, "validation_12_traits_summary")
+write_seed(entries, "validation_12_traits_entries")
 
 cat("\n== summary ==\n")
 print(summary_table, row.names = FALSE)
@@ -150,5 +161,5 @@ coverage_bands <- cut(entries$coverage, breaks = c(0, 3, 6, 9, Inf),
                       labels = c("1-3", "4-6", "7-9", "10+"))
 print(tapply(abs(entries$indri - entries$truth), coverage_bands, stats::median))
 
-cat("\nwritten: results/validation_12_traits_summary.csv\n")
-cat("written: results/validation_12_traits_entries.csv\n")
+cat("\nwritten: results/validation_12_traits_summary_seed*.csv\n")
+cat("written: results/validation_12_traits_entries_seed*.csv\n")
