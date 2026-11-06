@@ -1,0 +1,38 @@
+Package: indri
+Title: Scalable Additive Genetic Covariance Estimation
+Version: 0.0.0.9000
+Authors@R:
+    person(given = "Diogo",
+           family = "Melo",
+           role = c("aut", "cre"),
+           email = "diogro@gmail.com",
+           comment = c(ORCID = "0000-0002-7603-0092"))
+Description: Estimates the additive genetic covariance matrix of
+    high-dimensional trait sets by fitting a multivariate animal model on many
+    small trait subsets and reassembling the subset estimates into a single
+    positive semi-definite matrix. The per-subset fit is a plugin, so the same
+    estimator can run on a Bayesian sampler or on a REML engine.
+License: GPL (>= 3)
+URL: https://github.com/diogro/indri
+BugReports: https://github.com/diogro/indri/issues
+Encoding: UTF-8
+Depends:
+    R (>= 4.0.0)
+Imports:
+    graphics,
+    grDevices,
+    parallel,
+    posterior,
+    stats,
+    utils
+Suggests:
+    cmdstanr,
+    rstan,
+    sommer,
+    asreml,
+    nadiv,
+    stanimal,
+    testthat (>= 3.0.0)
+Config/testthat/edition: 3
+Roxygen: list(markdown = TRUE)
+Config/roxygen2/version: 8.1.1

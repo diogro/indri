@@ -1,8 +1,14 @@
 # indri — design notes and implementation plan
 
-Status: pre-implementation. Repo initialized (`main`); this file plus
-`README.md`/`.gitignore` and one scaffold commit. Everything below is a design
-decision taken far enough to code from, not code.
+Status: package skeleton and the closed-form parts are implemented and tested.
+`package/` holds a loadable, `R CMD check`-clean package with the subset sampler,
+the assembly, the PSD projection, the engine registry and the `stanimal` engine;
+86 test assertions pass. The `sommer` and `asreml` engines are designed and
+registered as errors pointing here.
+
+The `eigen_A` prototype for stanimal lives on the `indri-support` branch of
+`../stanimal` (not merged upstream). indri does not use it yet: the `stanimal`
+engine still passes `A` and lets the model decompose it once per chain.
 
 Scope decision of record: **G only**, with **pluggable block engines**.
 
@@ -218,6 +224,16 @@ Only relevant to the `"stanimal"` engine.
 | **A. indri owns the Stan file and the sampler call** | **Chosen.** No upstream change, works at any N. Cost: indri takes on the R-side data prep for its own model variant (validation, sample matching, missing-data mask, `x_mean_weight`). |
 | B. Add a `q_lambda = list(Q=, lambda=)` hook to stanimal | Cleanest for indri, but needs an upstream PR. Keep as an option; do not depend on it. |
 | C. Pass `A = diag(sort(eigenvalues))` so Stan's decomposition is free | **Rejected.** Requires pre-rotating Y/X, but `Y_std` is computed *before* rotation on the individual axis, so pre-rotation changes standardisation; and the missing-data mask is per (individual, trait), which rotation destroys. |
+
+### Prototype status
+
+`lmm_animal(eigen_A = list(Q=, lambda=))` is implemented on the `indri-support`
+branch of `../stanimal`, together with `animalModelGQR.stan`. Validated by
+reconstructing `A` from the pair, and by asserting that the two models produce
+**bit-identical draws** at the same seed and start — the trajectories can only
+agree if the log density and gradient do. One thing the tests settled: the
+eigenvalues and eigenvectors need only be consistently *paired*, not sorted, so
+indri does not have to reverse R's descending order for correctness.
 
 ### The patch
 
@@ -445,10 +461,10 @@ engines).
 
 | # | Deliverable | Acceptance test |
 |---|---|---|
-| **M0** | Skeleton + `indri_subsets()` | Reproduces limmbo's `multiple_set_covers_all` for a grid of `(K, s, c)` at the same seed; every pair covered `>= c`; errors cleanly on `s < 2`, `c < 1`, `s > K` |
-| **M1** | `fit_G()` on the `stanimal` engine + global standardisation + LS projection | (a) a 2-trait block equals the full 2-trait `lmm_animal()` within MC error, after undoing the global scale; (b) on a 12-trait simulation with known G, median per-entry relative error (correlation scale) within 2x the full 12-trait stanimal fit; (c) entries estimated by different blocks agree within MC error — **the scale-consistency test**; (d) runs end-to-end on the shipped `ratones` data |
+| **M0** | Skeleton + `indri_subsets()` — **done** | Every pair covered `>= c`; valid 1-based indices; deterministic given a seed; caller's RNG state restored; errors cleanly on `s < 2`, `c < 1`, `s > K`. Note: bit-for-bit reproduction of limmbo's `multiple_set_covers_all` is **not** achievable — its permutation comes from numpy's global generator, so LiMMBo's own subsets are not reproducible run to run. indri implements the same construction with a seeded generator, which is a deliberate divergence |
+| **M1** | `fit_G()` on the `stanimal` engine + global standardisation + LS projection — **implemented, validation incomplete** | (a) a 2-trait block equals the full 2-trait `lmm_animal()` within MC error, after undoing the global scale; (b) on a 12-trait simulation with known G, median per-entry relative error (correlation scale) within 2x the full 12-trait stanimal fit; (c) entries estimated by different blocks agree within MC error — **the scale-consistency test**; (d) runs end-to-end on the shipped `ratones` data |
 | **M2** | `sommer` and `asreml` engines behind the contract | Each engine, on the same 3-trait block and the same data, gives G within REML tolerance of the other and of `stanimal` (MC error); `"asreml"` errors informatively when the licence is absent; no engine is imported at package load |
-| **M3** | `indriBlock.stan` + `engine = "stanimal_qr"` | **Deterministic** equivalence: same data, fixed parameter vector, `log_prob()` matches the stock model to machine precision. Not a posterior comparison |
+| **M3** | `engine = "stanimal_qr"` using `eigen_A` (prototype in stanimal's `indri-support` branch) | **Deterministic** equivalence: same data, fixed parameter vector, `log_prob()` matches the stock model to machine precision. Not a posterior comparison |
 | **M4** | Uncertainty + weights + diagnostics | Per-block convergence table (Rhat/divergences or REML convergence), pair-coverage report, `G_draws`/`G_se`; equal vs inverse-variance weights compared on simulation; interval coverage study documented in the man page |
 | **M5** | Performance | Block caching keyed by (subset, engine, hyperparameters); parallel schedule over blocks; target wall clock <= 2x the equivalent number of independent block fits with that engine |
 
