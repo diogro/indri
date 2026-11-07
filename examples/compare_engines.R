@@ -1,10 +1,11 @@
 # Cross-engine comparison on simulated data.
 #
 # Simulates a known K-trait genetic covariance and estimates it with indri on
-# two block engines:
+# three block engines:
 #
 #   1. indri with stanimal blocks (posterior mean per block),
-#   2. indri with sommer blocks (REML point estimate per block).
+#   2. indri with sommer blocks (REML point estimate per block),
+#   3. indri with asreml blocks (REML point estimate per block).
 #
 # Every estimate is compared with the truth on the correlation scale, and the
 # engines are compared with each other on the same trait pairs.
@@ -12,19 +13,23 @@
 # Run from the repository root:
 #   Rscript examples/compare_engines.R
 #
-# Needs stanimal, sommer and CmdStan. Environment overrides:
+# Needs stanimal, sommer and CmdStan; asreml is optional (licensed). Environment
+# overrides:
 #   INDRI_ENGINE_K       number of traits (10)
 #   INDRI_ENGINE_NFAM    families (60)
 #   INDRI_ENGINE_SIZE    sibship size (5)
 #   INDRI_ENGINE_S       subset size parameter for stanimal blocks (4)
 #   INDRI_ENGINE_S_SOMMER subset size parameter for sommer blocks (2)
+#   INDRI_ENGINE_S_ASREML subset size parameter for asreml blocks (2)
 #   INDRI_ENGINE_MINCOOC minimum pair coverage (3)
 #   INDRI_ENGINE_SEED    simulation seed (1)
 #   INDRI_ENGINE_CORES   Stan process budget for the stanimal blocks (64)
 #   INDRI_ENGINE_CORES_SOMMER number of sommer blocks to run in parallel (16)
+#   INDRI_ENGINE_CORES_ASREML number of asreml blocks to run in parallel (1)
 #   INDRI_ENGINE_ITER    stanimal iterations per chain (400)
 #   INDRI_ENGINE_CHAINS  chains per stanimal block (2)
 #   INDRI_ENGINE_SOMMER  1 to run the sommer engine (1)
+#   INDRI_ENGINE_ASREML  1 to run the asreml engine (1)
 #   INDRI_ENGINE_OMP_THREADS  OpenMP threads per sommer block (1)
 
 library(indri)
@@ -43,13 +48,16 @@ n_fam <- as.integer(Sys.getenv("INDRI_ENGINE_NFAM", "60"))
 sibship_size <- as.integer(Sys.getenv("INDRI_ENGINE_SIZE", "5"))
 s <- as.integer(Sys.getenv("INDRI_ENGINE_S", "4"))
 s_sommer <- as.integer(Sys.getenv("INDRI_ENGINE_S_SOMMER", "2"))
+s_asreml <- as.integer(Sys.getenv("INDRI_ENGINE_S_ASREML", "2"))
 min_cooccurrence <- as.integer(Sys.getenv("INDRI_ENGINE_MINCOOC", "3"))
 seed <- as.integer(Sys.getenv("INDRI_ENGINE_SEED", "1"))
 cores <- as.integer(Sys.getenv("INDRI_ENGINE_CORES", "64"))
 cores_sommer <- as.integer(Sys.getenv("INDRI_ENGINE_CORES_SOMMER", "16"))
+cores_asreml <- as.integer(Sys.getenv("INDRI_ENGINE_CORES_ASREML", "1"))
 iter <- as.integer(Sys.getenv("INDRI_ENGINE_ITER", "400"))
 chains <- as.integer(Sys.getenv("INDRI_ENGINE_CHAINS", "2"))
 run_sommer <- Sys.getenv("INDRI_ENGINE_SOMMER", "1") == "1"
+run_asreml <- Sys.getenv("INDRI_ENGINE_ASREML", "1") == "1"
 
 stanimal_control <- list(chains = chains, iter = iter, init = 0.5,
                          refresh = 0, show_messages = FALSE)
@@ -121,19 +129,39 @@ fit_stanimal <- fit_G(data$Y, A = data$A, s = s,
                       seed = 2000L + seed)
 time_stanimal <- as.numeric(difftime(Sys.time(), started, units = "mins"))
 
+## indri + asreml -----------------------------------------------------------
+
+if (run_asreml) {
+  if (!requireNamespace("asreml", quietly = TRUE))
+    stop("This study needs asreml to run the asreml engine; it is licensed and ",
+         "not on CRAN")
+  message("== indri, asreml engine (", cores_asreml, " parallel blocks) ==")
+  started <- Sys.time()
+  fit_asreml <- fit_G(data$Y, A = data$A, s = s_asreml,
+                      min_cooccurrence = min_cooccurrence, engine = "asreml",
+                      cores = cores_asreml, seed = 3000L + seed)
+  time_asreml <- as.numeric(difftime(Sys.time(), started, units = "mins"))
+} else {
+  fit_asreml <- NULL
+  time_asreml <- NA_real_
+}
+
 ## Compare -------------------------------------------------------------------
 
 estimates <- list(
   indri_sommer = if (!is.null(fit_sommer)) fit_sommer$corrG else NULL,
-  indri_stanimal = fit_stanimal$corrG
+  indri_stanimal = fit_stanimal$corrG,
+  indri_asreml = if (!is.null(fit_asreml)) fit_asreml$corrG else NULL
 )
 times <- c(
   indri_sommer = time_sommer,
-  indri_stanimal = time_stanimal
+  indri_stanimal = time_stanimal,
+  indri_asreml = time_asreml
 )
 
 summary_rows <- list()
-block_s <- c(indri_sommer = s_sommer, indri_stanimal = s)
+block_s <- c(indri_sommer = s_sommer, indri_stanimal = s,
+             indri_asreml = s_asreml)
 for (method in names(estimates)) {
   estimate <- estimates[[method]]
   if (is.null(estimate)) next
