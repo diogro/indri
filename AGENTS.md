@@ -149,6 +149,13 @@ Gotchas:
   `ssh` or `bash -c` never exits, because the loop's own command line contains
   the pattern. Wait for the summary CSVs to appear instead, or anchor the
   pattern (`pgrep -f '^Rscript examples/'`).
+- **More than ~125 parallel blocks needs `Rscript --max-connections=N`.**
+  Each PSOCK worker holds one R connection and R allows 128 by default, so
+  `fit_G(cores = 256)` with one process per block fails in `makeCluster()`
+  with "all 128 connections are in use". Pass `--max-connections=1024` (R >=
+  4.4). If `makeCluster()` fails with "port ... cannot be opened", another
+  service owns a port in R's random range (11000-11999); set
+  `R_PARALLEL_PORT` to a free one.
 - When pulling results back from a remote machine, batch them into one
   transfer (`ssh host 'tar cf - <files>' | tar xf -`); many separate
   connections can trip SSH rate limiting.
