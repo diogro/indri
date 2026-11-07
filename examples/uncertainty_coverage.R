@@ -158,6 +158,16 @@ inflate_spread <- function(draws, coverage) {
 }
 
 rows <- list()
+ev_rows <- list()
+# Integration: relative eigenvalue variance (evolqg::CalcEigenVar) of the
+# genetic correlation matrix, truth vs estimate. For the indri point estimate
+# only: mixed draws are pointwise, not valid matrices, so they give no
+# interval for a whole-matrix quantity. The full model's posterior draws are
+# valid matrices and give one.
+eigenvar <- function(m) {
+  if (!requireNamespace("evolqg", quietly = TRUE)) return(NA_real_)
+  evolqg::CalcEigenVar((m + t(m)) / 2)
+}
 
 for (seed in seeds) {
   message("\n== seed ", seed, " ==")
@@ -214,6 +224,19 @@ for (seed in seeds) {
   }
 
   rows[[length(rows) + 1L]] <- rbind(indri_rows, full_rows)
+  ev_true <- eigenvar(data$corr_true)
+  ev_rows[[length(ev_rows) + 1L]] <- data.frame(
+    seed = seed, method = if (reml) paste0("indri_", engine) else "indri",
+    ev_true = ev_true, ev_est = eigenvar(fit$corrG),
+    ev_lo = NA_real_, ev_hi = NA_real_)
+  if (run_full) {
+    full_ev <- apply(full_draws, 3L, eigenvar)
+    full_ev_mean <- eigenvar(apply(full_draws, c(1L, 2L), mean))
+    ev_rows[[length(ev_rows) + 1L]] <- data.frame(
+      seed = seed, method = "full", ev_true = ev_true, ev_est = full_ev_mean,
+      ev_lo = unname(stats::quantile(full_ev, 0.025)),
+      ev_hi = unname(stats::quantile(full_ev, 0.975)))
+  }
   saveRDS(list(data = data, subsets = fit$subsets, coverage = fit$coverage,
                G = fit$G, corrG = fit$corrG,
                block_draws = lapply(fit$blocks, `[[`, "draws"),
@@ -222,6 +245,15 @@ for (seed in seeds) {
           sprintf("results/uncertainty_coverage_fits_%sseed%d.rds", tag, seed))
   invisible(gc(FALSE))
 }
+
+ev_table <- do.call(rbind, ev_rows)
+utils::write.csv(
+  ev_table,
+  sprintf("results/uncertainty_coverage_eigenvar_%sseed%s.csv", tag,
+          paste(unique(ev_table$seed), collapse = "-")),
+  row.names = FALSE
+)
+print(ev_table, row.names = FALSE)
 
 summary <- do.call(rbind, rows)
 summary <- summary[, c("seed", "method", "band", "n_pairs", "coverage", "mean_width",
