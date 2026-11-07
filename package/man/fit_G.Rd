@@ -16,6 +16,7 @@ fit_G(
   assembly = c("ls", "average"),
   weights = c("none", "inverse_variance"),
   missing = c("error", "complete_block"),
+  spread = c("average", "mixture"),
   cores = 1L,
   seed = NULL
 )
@@ -56,6 +57,11 @@ projection.}
 \item{missing}{What to do when \code{Y} has gaps and the engine cannot handle them:
 \code{"error"}, or \code{"complete_block"} to drop incomplete individuals once, before
 subsetting, so every block sees the same rows.}
+
+\item{spread}{How \code{G_draws} combines the block posteriors: \code{"average"}
+averages draw \code{d} across the covering blocks, \code{"mixture"} takes each entry
+from one covering block at random. Averaging is overconfident by roughly
+the square root of a pair's coverage; see \code{\link[=indri_assemble_draws]{indri_assemble_draws()}}.}
 
 \item{cores}{Total number of concurrent Stan processes for the whole fit,
 not the number of subsets to run at once. The budget is divided between

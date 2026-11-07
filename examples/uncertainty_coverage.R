@@ -5,10 +5,17 @@
 # fraction of true correlation entries inside each estimate's 95% band, per
 # pair-coverage count for indri.
 #
-# The indri band comes from `G_draws`, which is an assembled spread across
-# dependent blocks, NOT a joint posterior (subsets share traits). This study is
-# the measurement that says how far from calibrated that spread is, compared
-# with the full model's own posterior.
+# The indri band comes from the block posteriors, assembled three ways from the
+# same fit, on the correlation scale (each block's draws -> correlation draws):
+#   indri_average   draw d averaged over covering blocks (what G_draws did by
+#                   default); shrinks the spread by ~1/sqrt(coverage)
+#   indri_mixture   each entry of draw d taken from one random covering block
+#   indri_inflated  the average, with deviations from its mean scaled by
+#                   sqrt(coverage): what the average would give if the block
+#                   errors were perfectly correlated
+# None is a joint posterior (subsets share traits and data). The fits are saved
+# to results/uncertainty_coverage_fits_seed<N>.rds (git-ignored) so further
+# arms can be scored without refitting.
 #
 # Run from the repository root:
 #   Rscript examples/uncertainty_coverage.R
@@ -104,6 +111,16 @@ coverage_rows <- function(lo, hi, corr_true, coverage = NULL) {
   )
 }
 
+# Scale each entry's deviations from its mean by sqrt(coverage).
+inflate_spread <- function(draws, coverage) {
+  centre <- apply(draws, c(1L, 2L), mean)
+  scale <- sqrt(pmax(coverage, 1))
+  out <- draws
+  for (d in seq_len(dim(draws)[3L]))
+    out[, , d] <- centre + (draws[, , d] - centre) * scale
+  out
+}
+
 rows <- list()
 
 for (seed in seeds) {
@@ -113,10 +130,21 @@ for (seed in seeds) {
   fit <- fit_G(data$Y, A = data$A, s = s,
                min_cooccurrence = min_cooccurrence, engine = "stanimal",
                engine_args = block_control, cores = cores, seed = 1000L + seed)
-  indri <- quantile_bands(corr_draws(fit$G_draws), ci)
-  indri_rows <- coverage_rows(indri$lo, indri$hi, data$corr_true, fit$coverage)
+  block_corr <- lapply(fit$blocks, function(b) corr_draws(b$draws))
+  averaged <- indri_assemble_draws(block_corr, fit$subsets, K)
+  arms <- list(
+    indri_average = averaged,
+    indri_mixture = indri_assemble_draws(block_corr, fit$subsets, K,
+                                         method = "mixture", seed = seed),
+    indri_inflated = inflate_spread(averaged, fit$coverage)
+  )
+  indri_rows <- do.call(rbind, lapply(names(arms), function(arm) {
+    band <- quantile_bands(arms[[arm]], ci)
+    out <- coverage_rows(band$lo, band$hi, data$corr_true, fit$coverage)
+    out$method <- arm
+    out
+  }))
   indri_rows$seed <- seed
-  indri_rows$method <- "indri"
 
   full <- stanimal::lmm_animal(data$Y, matrix(1, data$N, 1L), data$A,
                                chains = 2L, iter = 500L, cores = 2L,
@@ -129,6 +157,10 @@ for (seed in seeds) {
   full_rows$method <- "full"
 
   rows[[length(rows) + 1L]] <- rbind(indri_rows, full_rows)
+  saveRDS(list(data = data, subsets = fit$subsets, coverage = fit$coverage,
+               G = fit$G, block_draws = lapply(fit$blocks, `[[`, "draws"),
+               full_corr_draws = full_draws),
+          sprintf("results/uncertainty_coverage_fits_seed%d.rds", seed))
   rm(full); invisible(gc(FALSE))
 }
 
@@ -141,6 +173,6 @@ utils::write.csv(
   row.names = FALSE
 )
 
-cat("\n== 95% coverage of the true correlation, indri vs full model ==\n")
+cat("\n== 95% coverage of the true correlation, indri arms vs full model ==\n")
 print(summary, row.names = FALSE)
 cat("\nwritten: results/uncertainty_coverage_summary_seed*.csv\n")

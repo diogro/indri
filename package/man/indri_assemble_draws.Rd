@@ -2,9 +2,15 @@
 % Please edit documentation in R/assemble.R
 \name{indri_assemble_draws}
 \alias{indri_assemble_draws}
-\title{Average bootstrap draws across subsets}
+\title{Assemble block posterior draws into one array}
 \usage{
-indri_assemble_draws(draws, subsets, K = NULL)
+indri_assemble_draws(
+  draws,
+  subsets,
+  K = NULL,
+  method = c("average", "mixture"),
+  seed = NULL
+)
 }
 \arguments{
 \item{draws}{List of \code{s} by \code{s} by \code{D} arrays, one per subset.}
@@ -13,14 +19,34 @@ indri_assemble_draws(draws, subsets, K = NULL)
 
 \item{K}{Number of traits; inferred from \code{subsets} when \code{NULL}, which is only
 right when the subsets happen to reach the last trait.}
+
+\item{method}{\code{"average"} or \code{"mixture"}; see Details.}
+
+\item{seed}{Optional seed for the block choice in \code{"mixture"}. The caller's
+random state is left untouched.}
 }
 \value{
-A \code{K} by \code{K} by \code{D} array.
+A \code{K} by \code{K} by \code{D} array. Entries no subset covers are 0 for
+\code{"average"} and \code{NA} for \code{"mixture"}.
 }
 \description{
-Assembles the per-draw block posteriors into one array, drawing \code{d} from every
-block and averaging the overlaps exactly as the means are averaged. The result
-carries block-level uncertainty through; it is \strong{not} a posterior over the
-joint matrix, because subsets share traits and are therefore dependent. See
-\code{NOTES.md}.
+Combines the per-block posterior draws into a \code{K} by \code{K} by \code{D} array. Either
+way the result carries block-level uncertainty through; it is \strong{not} a
+posterior over the joint matrix, because subsets share traits and data and
+are therefore dependent. See \code{NOTES.md}.
+}
+\details{
+\code{method = "average"} averages draw \code{d} across every block that covers an
+entry, exactly as the means are averaged. Because the block chains are
+independent, this shrinks the spread of an entry covered \code{c} times by about
+\code{1 / sqrt(c)}, while the block estimates themselves, fitted to the same
+individuals, have nearly perfectly correlated errors: the band is too narrow
+and gets narrower the better a pair is covered.
+
+\code{method = "mixture"} instead takes each entry of draw \code{d} from one covering
+block chosen at random, so an entry's draws are a mixture of its block
+posteriors: the spread is the average within-block spread plus the spread
+between blocks. Entries are drawn independently of one another, so a mixed
+covariance draw need not be positive semi-definite; mix per-block
+correlation draws (pass them as \code{draws}) when correlations are the target.
 }

@@ -81,3 +81,53 @@ test_that("draws are averaged the same way the means are", {
   expect_equal(dim(assembled), c(4L, 4L, D))
   expect_equal(assembled[, , 1L], G, tolerance = 1e-12)
 })
+
+test_that("mixture draws copy a covering block's value entry by entry", {
+  subsets <- rbind(c(1L, 2L, 3L), c(2L, 3L, 4L))
+  D <- 200L
+  # block 1 says 1 everywhere, block 2 says 2 everywhere
+  draws <- list(array(1, c(3L, 3L, D)), array(2, c(3L, 3L, D)))
+
+  mixed <- indri_assemble_draws(draws, subsets, K = 4L, method = "mixture",
+                                seed = 1L)
+
+  expect_equal(dim(mixed), c(4L, 4L, D))
+  expect_true(all(mixed[1, 1, ] == 1))           # only block 1 covers (1, 1)
+  expect_true(all(mixed[4, 4, ] == 2))           # only block 2 covers (4, 4)
+  expect_true(all(is.na(mixed[1, 4, ])))         # nobody covers (1, 4)
+  shared <- mixed[2, 3, ]                        # both blocks cover (2, 3)
+  expect_true(all(shared %in% c(1, 2)))
+  expect_true(mean(shared == 2) > 0.3 && mean(shared == 2) < 0.7)
+  for (d in seq_len(D)) expect_equal(mixed[, , d], t(mixed[, , d]))
+})
+
+test_that("mixture draws are reproducible and leave the caller's stream alone", {
+  subsets <- rbind(c(1L, 2L), c(1L, 2L))
+  draws <- list(array(stats::rnorm(40), c(2L, 2L, 10L)),
+                array(stats::rnorm(40), c(2L, 2L, 10L)))
+  set.seed(5); before <- runif(1)
+  set.seed(5)
+  a <- indri_assemble_draws(draws, subsets, method = "mixture", seed = 9L)
+  after <- runif(1)
+  b <- indri_assemble_draws(draws, subsets, method = "mixture", seed = 9L)
+  expect_identical(a, b)
+  expect_equal(before, after)
+})
+
+test_that("mixing keeps the block spread that averaging divides away", {
+  # c blocks that all saw the same data: their draws share one error term, the
+  # situation in which averaging over independent chains is overconfident.
+  set.seed(3)
+  n_blocks <- 9L
+  D <- 4000L
+  subsets <- matrix(rep(1:2, n_blocks), n_blocks, byrow = TRUE)
+  draws <- lapply(seq_len(n_blocks), function(j) {
+    array(stats::rnorm(4L * D), c(2L, 2L, D))   # block posterior sd 1
+  })
+
+  averaged <- indri_assemble_draws(draws, subsets, method = "average")
+  mixed <- indri_assemble_draws(draws, subsets, method = "mixture", seed = 1L)
+
+  expect_equal(stats::sd(averaged[1, 2, ]), 1 / sqrt(n_blocks), tolerance = 0.1)
+  expect_equal(stats::sd(mixed[1, 2, ]), 1, tolerance = 0.1)
+})

@@ -95,24 +95,49 @@ indri_assemble <- function(blocks, subsets, K = NULL,
   NULL
 }
 
-#' Average bootstrap draws across subsets
+#' Assemble block posterior draws into one array
 #'
-#' Assembles the per-draw block posteriors into one array, drawing `d` from every
-#' block and averaging the overlaps exactly as the means are averaged. The result
-#' carries block-level uncertainty through; it is **not** a posterior over the
-#' joint matrix, because subsets share traits and are therefore dependent. See
-#' `NOTES.md`.
+#' Combines the per-block posterior draws into a `K` by `K` by `D` array. Either
+#' way the result carries block-level uncertainty through; it is **not** a
+#' posterior over the joint matrix, because subsets share traits and data and
+#' are therefore dependent. See `NOTES.md`.
+#'
+#' `method = "average"` averages draw `d` across every block that covers an
+#' entry, exactly as the means are averaged. Because the block chains are
+#' independent, this shrinks the spread of an entry covered `c` times by about
+#' `1 / sqrt(c)`, while the block estimates themselves, fitted to the same
+#' individuals, have nearly perfectly correlated errors: the band is too narrow
+#' and gets narrower the better a pair is covered.
+#'
+#' `method = "mixture"` instead takes each entry of draw `d` from one covering
+#' block chosen at random, so an entry's draws are a mixture of its block
+#' posteriors: the spread is the average within-block spread plus the spread
+#' between blocks. Entries are drawn independently of one another, so a mixed
+#' covariance draw need not be positive semi-definite; mix per-block
+#' correlation draws (pass them as `draws`) when correlations are the target.
 #'
 #' @param draws List of `s` by `s` by `D` arrays, one per subset.
 #' @param subsets Integer matrix of trait indices, one subset per row.
 #' @param K Number of traits; inferred from `subsets` when `NULL`, which is only
 #'   right when the subsets happen to reach the last trait.
+#' @param method `"average"` or `"mixture"`; see Details.
+#' @param seed Optional seed for the block choice in `"mixture"`. The caller's
+#'   random state is left untouched.
 #'
-#' @return A `K` by `K` by `D` array.
+#' @return A `K` by `K` by `D` array. Entries no subset covers are 0 for
+#'   `"average"` and `NA` for `"mixture"`.
 #' @export
-indri_assemble_draws <- function(draws, subsets, K = NULL) {
+indri_assemble_draws <- function(draws, subsets, K = NULL,
+                                 method = c("average", "mixture"),
+                                 seed = NULL) {
+  method <- match.arg(method)
   if (is.null(K)) K <- max(subsets)
+  if (length(draws) != nrow(subsets))
+    stop("`draws` and `subsets` disagree on the number of subsets.",
+         call. = FALSE)
   D <- dim(draws[[1L]])[3L]
+  if (method == "mixture")
+    return(.indri_mix_draws(draws, subsets, K, D, seed))
   accumulated <- array(0, c(K, K, D))
   counts <- matrix(0, K, K)
 
@@ -129,4 +154,30 @@ indri_assemble_draws <- function(draws, subsets, K = NULL) {
 
   counts[counts == 0] <- 1
   sweep(accumulated, c(1L, 2L), counts, "/")
+}
+
+# For every entry (a, b), a <= b, pick one covering block per draw and copy its
+# value; mirror to (b, a).
+.indri_mix_draws <- function(draws, subsets, K, D, seed) {
+  for (block in draws)
+    if (dim(block)[3L] != D)
+      stop("every draw array must have the same number of draws.", call. = FALSE)
+  restore <- .indri_use_seed(seed)
+  on.exit(restore(), add = TRUE)
+
+  out <- array(NA_real_, c(K, K, D))
+  for (b in seq_len(K)) {
+    for (a in seq_len(b)) {
+      covering <- which(apply(subsets, 1L, function(r) a %in% r && b %in% r))
+      if (!length(covering)) next
+      values <- vapply(covering, function(j) {
+        index <- subsets[j, ]
+        draws[[j]][match(a, index), match(b, index), ]
+      }, numeric(D))
+      values <- matrix(values, nrow = D)          # D x n_covering
+      pick <- sample.int(length(covering), D, replace = TRUE)
+      out[a, b, ] <- out[b, a, ] <- values[cbind(seq_len(D), pick)]
+    }
+  }
+  out
 }

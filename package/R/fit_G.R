@@ -43,6 +43,10 @@
 #'   arguments runs one block at a time with four chains in parallel, while
 #'   `cores = 4` with `engine_args = list(chains = 1)` runs four blocks at once.
 #'   `chains` is never changed here; only how many run concurrently.
+#' @param spread How `G_draws` combines the block posteriors: `"average"`
+#'   averages draw `d` across the covering blocks, `"mixture"` takes each entry
+#'   from one covering block at random. Averaging is overconfident by roughly
+#'   the square root of a pair's coverage; see [indri_assemble_draws()].
 #' @param seed Optional seed for the subset construction. The engine's sampler
 #'   seed is passed through `engine_args`.
 #'
@@ -56,11 +60,13 @@ fit_G <- function(Y, X = NULL, A, s = NULL, min_cooccurrence = 3L,
                   assembly = c("ls", "average"),
                   weights = c("none", "inverse_variance"),
                   missing = c("error", "complete_block"),
+                  spread = c("average", "mixture"),
                   cores = 1L, seed = NULL) {
   call <- match.call()
   assembly <- match.arg(assembly)
   weights <- match.arg(weights)
   missing <- match.arg(missing)
+  spread <- match.arg(spread)
   engine <- indri_engine(engine)
 
   Y <- as.matrix(Y)
@@ -170,7 +176,8 @@ fit_G <- function(Y, X = NULL, A, s = NULL, min_cooccurrence = 3L,
   if (isTRUE(engine$capabilities$draws)) {
     block_draws <- lapply(blocks, `[[`, "draws")
     if (all(!vapply(block_draws, is.null, logical(1L))))
-      G_draws <- indri_assemble_draws(block_draws, subsets, K)
+      G_draws <- indri_assemble_draws(block_draws, subsets, K,
+                                      method = spread, seed = seed)
   }
 
   # The engine may or may not carry trait names through; naming is indri's job.
@@ -195,6 +202,7 @@ fit_G <- function(Y, X = NULL, A, s = NULL, min_cooccurrence = 3L,
     engine_args = engine_args,
     assembly = assembly,
     weights = weights,
+    spread = if (is.null(G_draws)) NA_character_ else spread,
     y_mean = y_mean,
     y_sd = y_sd,
     y_names = colnames(Y),
