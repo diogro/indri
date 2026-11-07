@@ -18,6 +18,7 @@ fit_G(
   missing = c("error", "complete_block"),
   spread = c("mixture", "average"),
   cores = NULL,
+  n_draws = 1000L,
   seed = NULL
 )
 }
@@ -86,13 +87,21 @@ arguments runs one block at a time with four chains in parallel, while
 \code{cores = 4} with \code{engine_args = list(chains = 1)} runs four blocks at once.
 \code{chains} is never changed here; only how many run concurrently.}
 
+\item{n_draws}{Number of draws per block for the REML engines, which
+report a joint sampling covariance of each block's G entries (the inverse
+average-information matrix) instead of posterior draws: indri draws from
+that normal approximation and assembles the draws like stanimal's.
+Ignored for \code{"stanimal"}.}
+
 \item{seed}{Optional seed for the subset construction. The engine's sampler
 seed is passed through \code{engine_args}.}
 }
 \value{
 An object of class \code{indri_fit}. The estimate is \code{G} (and \code{corrG}).
-For engines that return posterior draws, \code{G_draws} and \code{corrG_draws}
-(traits x traits x draws) carry the assembled block uncertainty; use
+\code{G_draws} and \code{corrG_draws}
+(traits x traits x draws) carry the assembled block uncertainty, from
+the posterior draws of \code{"stanimal"} blocks or from the normal sampling
+approximation of the REML blocks (see \code{n_draws}); use
 \code{corrG_draws} for intervals on correlations, since it mixes each block's
 own correlation draws and stays within [-1, 1]. Mixed draws are
 pointwise: their entries are drawn independently, so a single draw need

@@ -42,7 +42,9 @@ test_that("fit_G runs end to end with the asreml engine", {
   expect_equal(dim(fit$G), c(3L, 3L))
   expect_equal(fit$G, t(fit$G), tolerance = 1e-8)
   expect_gt(min_eigen(fit$G), -1e-8)
-  expect_null(fit$G_draws)
+  # REML blocks now yield draws from their sampling covariance
+  expect_equal(dim(fit$G_draws)[1:2], c(3L, 3L))
+  expect_true(all(abs(fit$corrG_draws) <= 1))
   expect_equal(unname(rownames(fit$G)), unname(colnames(data$Y)))
 })
 
@@ -62,4 +64,15 @@ test_that("the asreml engine fits a single trait", {
   expect_equal(dim(one$G), c(1L, 1L))
   expect_gt(one$G[1, 1], 0)
   expect_equal(one$G[1, 1] + one$E[1, 1], 1, tolerance = 0.25)
+})
+
+test_that("asreml blocks carry the inverse AI matrix for their G entries", {
+  skip_if_no_asreml()
+  data <- simulate_block_data(n_fam = 30, size = 5, K = 2L)
+  Y <- scale(data$Y)
+  X <- matrix(1, nrow(Y), 1, dimnames = list(rownames(Y), "intercept"))
+  out <- .indri_asreml_fit(Y, X, indri_a_forms(data$A, need = "sparse_inverse"))
+  expect_equal(dim(out$vcov), c(3L, 3L))
+  expect_equal(sqrt(diag(out$vcov)), out$se[.indri_vech_index(2L)],
+               tolerance = 1e-6)
 })

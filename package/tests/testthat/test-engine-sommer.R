@@ -43,7 +43,9 @@ test_that("fit_G runs end to end with the sommer engine", {
   expect_equal(dim(fit$G), c(3L, 3L))
   expect_equal(fit$G, t(fit$G), tolerance = 1e-8)
   expect_gt(min_eigen(fit$G), -1e-8)
-  expect_null(fit$G_draws)
+  # REML blocks now yield draws from their sampling covariance
+  expect_equal(dim(fit$G_draws)[1:2], c(3L, 3L))
+  expect_true(all(abs(fit$corrG_draws) <= 1))
   expect_equal(unname(rownames(fit$G)), unname(colnames(data$Y)))
 })
 
@@ -99,4 +101,40 @@ test_that("sommer blocks come back in column order, not alphabetical order", {
   expect_equal(rownames(out$G), colnames(Y))
   expect_true(out$G[1, 1] > out$G[3, 3] && out$G[3, 3] > out$G[2, 2])
   expect_equal(rownames(out$se), colnames(Y))
+})
+
+test_that("REML blocks carry a joint sampling covariance and yield draws", {
+  skip_if_not_installed("sommer")
+  data <- simulate_block_data(n_fam = 30, size = 5, K = 3L)
+  fit <- fit_G(data$Y, A = data$A, engine = "sommer", cores = 1L,
+               n_draws = 400L, seed = 3L)
+  v <- fit$blocks[[1]]$vcov
+  expect_equal(dim(v), c(3L, 3L))                 # G11, G21, G22 of a pair
+  # its diagonal is the squared standard errors sommer reports
+  se <- fit$blocks[[1]]$se
+  expect_equal(sqrt(diag(v)), se[.indri_vech_index(2L)], tolerance = 1e-6)
+  expect_equal(dim(fit$G_draws), c(3L, 3L, 400L))
+  expect_equal(dim(fit$corrG_draws), c(3L, 3L, 400L))
+  expect_true(all(abs(fit$corrG_draws) <= 1))
+  # the spread of a pair's draws matches its reported standard error
+  idx <- fit$subsets[1, ]
+  sd_draws <- sd(fit$blocks[[1]]$draws[1, 2, ])
+  expect_equal(sd_draws, se[1, 2], tolerance = 0.15)
+  # reproducible from the seed
+  again <- fit_G(data$Y, A = data$A, engine = "sommer", cores = 1L,
+                 n_draws = 400L, seed = 3L)
+  expect_identical(again$corrG_draws, fit$corrG_draws)
+})
+
+test_that("normal draws respect the joint covariance and the point estimate", {
+  G <- matrix(c(1, 0.3, 0.3, 0.5), 2)
+  V <- diag(c(0.04, 0.01, 0.02)); V[1, 3] <- V[3, 1] <- 0.02
+  set.seed(1)
+  d <- .indri_normal_draws(G, V, 20000L)
+  x <- cbind(d[1, 1, ], d[2, 1, ], d[2, 2, ])
+  expect_equal(colMeans(x), c(1, 0.3, 0.5), tolerance = 0.01)
+  expect_equal(cov(x), V, tolerance = 0.05)
+  expect_identical(d[1, 2, ], d[2, 1, ])
+  # without a covariance the block contributes its point estimate only
+  expect_true(all(.indri_normal_draws(G, NULL, 5L)[1, 2, ] == 0.3))
 })

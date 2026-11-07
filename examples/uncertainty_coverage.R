@@ -25,6 +25,14 @@
 #   INDRI_COVERAGE_CORES   block-parallelism budget for indri (1)
 #   INDRI_COVERAGE_ITER    indri iterations per block chain (400)
 #   INDRI_COVERAGE_CI      interval level (0.95)
+#   INDRI_COVERAGE_ENGINE  stanimal, sommer or asreml (stanimal). REML engines
+#                          use their defaults (pairs, once each) and are scored
+#                          on fit$corrG_draws, drawn from each pair's REML
+#                          sampling covariance; with one block per pair there
+#                          is nothing to average or mix.
+#   INDRI_COVERAGE_FULL    1 to fit the full stanimal model as a reference
+#                          (1 for stanimal, 0 otherwise; same seeds, same data)
+#   INDRI_COVERAGE_DRAWS   draws per block for the REML engines (1000)
 
 library(indri)
 
@@ -44,6 +52,12 @@ seeds <- as.integer(strsplit(Sys.getenv("INDRI_COVERAGE_SEEDS", "1,2,3"), ",")[[
 cores <- as.integer(Sys.getenv("INDRI_COVERAGE_CORES", "1"))
 iter <- as.integer(Sys.getenv("INDRI_COVERAGE_ITER", "400"))
 ci <- as.numeric(Sys.getenv("INDRI_COVERAGE_CI", "0.95"))
+engine <- Sys.getenv("INDRI_COVERAGE_ENGINE", "stanimal")
+reml <- engine != "stanimal"
+run_full <- Sys.getenv("INDRI_COVERAGE_FULL", if (reml) "0" else "1") == "1"
+n_draws <- as.integer(Sys.getenv("INDRI_COVERAGE_DRAWS", "1000"))
+tag <- if (reml) paste0(engine, "_") else ""
+Sys.setenv(OMP_NUM_THREADS = "1")
 
 block_control <- list(chains = 1L, iter = iter, init = 0.5,
                       refresh = 0, show_messages = FALSE)
@@ -127,17 +141,25 @@ for (seed in seeds) {
   message("\n== seed ", seed, " ==")
   data <- simulate(seed)
 
-  fit <- fit_G(data$Y, A = data$A, s = s,
-               min_cooccurrence = min_cooccurrence, engine = "stanimal",
-               engine_args = block_control, cores = cores, seed = 1000L + seed)
-  block_corr <- lapply(fit$blocks, function(b) corr_draws(b$draws))
-  averaged <- indri_assemble_draws(block_corr, fit$subsets, K)
-  arms <- list(
-    indri_average = averaged,
-    indri_mixture = indri_assemble_draws(block_corr, fit$subsets, K,
-                                         method = "mixture", seed = seed),
-    indri_inflated = inflate_spread(averaged, fit$coverage)
-  )
+  if (reml) {
+    fit <- fit_G(data$Y, A = data$A, engine = engine, cores = cores,
+                 n_draws = n_draws, seed = 1000L + seed)
+    arms <- list(fit$corrG_draws)
+    names(arms) <- paste0("indri_", engine)
+  } else {
+    fit <- fit_G(data$Y, A = data$A, s = s,
+                 min_cooccurrence = min_cooccurrence, engine = "stanimal",
+                 engine_args = block_control, cores = cores,
+                 seed = 1000L + seed)
+    block_corr <- lapply(fit$blocks, function(b) corr_draws(b$draws))
+    averaged <- indri_assemble_draws(block_corr, fit$subsets, K)
+    arms <- list(
+      indri_average = averaged,
+      indri_mixture = indri_assemble_draws(block_corr, fit$subsets, K,
+                                           method = "mixture", seed = seed),
+      indri_inflated = inflate_spread(averaged, fit$coverage)
+    )
+  }
   indri_rows <- do.call(rbind, lapply(names(arms), function(arm) {
     band <- quantile_bands(arms[[arm]], ci)
     out <- coverage_rows(band$lo, band$hi, data$corr_true, fit$coverage)
@@ -146,29 +168,36 @@ for (seed in seeds) {
   }))
   indri_rows$seed <- seed
 
-  full <- stanimal::lmm_animal(data$Y, matrix(1, data$N, 1L), data$A,
-                               chains = 2L, iter = 500L, cores = 2L,
-                               seed = 2000L + seed, refresh = 0,
-                               show_messages = FALSE)
-  full_draws <- stanimal::fit_draws(full)$corrG
-  full_bands <- quantile_bands(full_draws, ci)
-  full_rows <- coverage_rows(full_bands$lo, full_bands$hi, data$corr_true)
-  full_rows$seed <- seed
-  full_rows$method <- "full"
+  full_draws <- NULL
+  full_rows <- NULL
+  if (run_full) {
+    full <- stanimal::lmm_animal(data$Y, matrix(1, data$N, 1L), data$A,
+                                 chains = 2L, iter = 500L, cores = 2L,
+                                 seed = 2000L + seed, refresh = 0,
+                                 show_messages = FALSE)
+    full_draws <- stanimal::fit_draws(full)$corrG
+    full_bands <- quantile_bands(full_draws, ci)
+    full_rows <- coverage_rows(full_bands$lo, full_bands$hi, data$corr_true)
+    full_rows$seed <- seed
+    full_rows$method <- "full"
+    rm(full)
+  }
 
   rows[[length(rows) + 1L]] <- rbind(indri_rows, full_rows)
   saveRDS(list(data = data, subsets = fit$subsets, coverage = fit$coverage,
-               G = fit$G, block_draws = lapply(fit$blocks, `[[`, "draws"),
-               full_corr_draws = full_draws),
-          sprintf("results/uncertainty_coverage_fits_seed%d.rds", seed))
-  rm(full); invisible(gc(FALSE))
+               G = fit$G, corrG = fit$corrG,
+               block_draws = lapply(fit$blocks, `[[`, "draws"),
+               block_vcov = lapply(fit$blocks, `[[`, "vcov"),
+               diagnostics = fit$diagnostics, full_corr_draws = full_draws),
+          sprintf("results/uncertainty_coverage_fits_%sseed%d.rds", tag, seed))
+  invisible(gc(FALSE))
 }
 
 summary <- do.call(rbind, rows)
 summary <- summary[, c("seed", "method", "band", "n_pairs", "coverage", "mean_width")]
 utils::write.csv(
   summary,
-  sprintf("results/uncertainty_coverage_summary_seed%s.csv",
+  sprintf("results/uncertainty_coverage_summary_%sseed%s.csv", tag,
           paste(unique(summary$seed), collapse = "-")),
   row.names = FALSE
 )

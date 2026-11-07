@@ -62,12 +62,19 @@
 #'   on a 12-trait simulation the averaged 95% band covered the true
 #'   correlation 40% of the time and the mixture 89% (the full model: 80%).
 #'   See [indri_assemble_draws()].
+#' @param n_draws Number of draws per block for the REML engines, which
+#'   report a joint sampling covariance of each block's G entries (the inverse
+#'   average-information matrix) instead of posterior draws: indri draws from
+#'   that normal approximation and assembles the draws like stanimal's.
+#'   Ignored for `"stanimal"`.
 #' @param seed Optional seed for the subset construction. The engine's sampler
 #'   seed is passed through `engine_args`.
 #'
 #' @return An object of class `indri_fit`. The estimate is `G` (and `corrG`).
-#'   For engines that return posterior draws, `G_draws` and `corrG_draws`
-#'   (traits x traits x draws) carry the assembled block uncertainty; use
+#'   `G_draws` and `corrG_draws`
+#'   (traits x traits x draws) carry the assembled block uncertainty, from
+#'   the posterior draws of `"stanimal"` blocks or from the normal sampling
+#'   approximation of the REML blocks (see `n_draws`); use
 #'   `corrG_draws` for intervals on correlations, since it mixes each block's
 #'   own correlation draws and stays within \[-1, 1\]. Mixed draws are
 #'   pointwise: their entries are drawn independently, so a single draw need
@@ -82,7 +89,7 @@ fit_G <- function(Y, X = NULL, A, s = NULL, min_cooccurrence = NULL,
                   weights = c("none", "inverse_variance"),
                   missing = c("error", "complete_block"),
                   spread = c("mixture", "average"),
-                  cores = NULL, seed = NULL) {
+                  cores = NULL, n_draws = 1000L, seed = NULL) {
   call <- match.call()
   assembly <- match.arg(assembly)
   weights <- match.arg(weights)
@@ -206,21 +213,31 @@ fit_G <- function(Y, X = NULL, A, s = NULL, min_cooccurrence = NULL,
     if (minimum < 0) G <- G + (-minimum + 1e-8) * diag(K)
   }
 
+  # REML blocks carry a sampling covariance instead of draws: draw them here,
+  # in the main process, so the result does not depend on how many workers
+  # ran. Each block then holds draws like a stanimal block.
+  if (!isTRUE(engine$capabilities$draws) && isTRUE(engine$capabilities$vcov)) {
+    n_draws <- .indri_count(n_draws, "n_draws", min = 2L)
+    restore <- .indri_use_seed(if (is.null(seed)) NULL else seed + 2L)
+    for (i in seq_along(blocks))
+      blocks[[i]]$draws <- .indri_normal_draws(blocks[[i]]$G, blocks[[i]]$vcov,
+                                               n_draws)
+    restore()
+  }
+
   G_draws <- NULL
   corrG_draws <- NULL
-  if (isTRUE(engine$capabilities$draws)) {
-    block_draws <- lapply(blocks, `[[`, "draws")
-    if (all(!vapply(block_draws, is.null, logical(1L)))) {
-      G_draws <- indri_assemble_draws(block_draws, subsets, K,
-                                      method = spread, seed = seed)
-      # Correlations are mixed from each block's own correlation draws, as in
-      # the coverage study, so every entry is a real correlation.
-      block_corr <- lapply(block_draws, .indri_corr_draws)
-      corrG_draws <- indri_assemble_draws(
-        block_corr, subsets, K, method = spread,
-        seed = if (is.null(seed)) NULL else seed + 1L)
-      for (k in seq_len(K)) corrG_draws[k, k, ] <- 1
-    }
+  block_draws <- lapply(blocks, `[[`, "draws")
+  if (all(!vapply(block_draws, is.null, logical(1L)))) {
+    G_draws <- indri_assemble_draws(block_draws, subsets, K,
+                                    method = spread, seed = seed)
+    # Correlations are mixed from each block's own correlation draws, as in
+    # the coverage study, so every entry is a real correlation.
+    block_corr <- lapply(block_draws, .indri_corr_draws)
+    corrG_draws <- indri_assemble_draws(
+      block_corr, subsets, K, method = spread,
+      seed = if (is.null(seed)) NULL else seed + 1L)
+    for (k in seq_len(K)) corrG_draws[k, k, ] <- 1
   }
 
   # The engine may or may not carry trait names through; naming is indri's job.
@@ -354,10 +371,19 @@ fit_G <- function(Y, X = NULL, A, s = NULL, min_cooccurrence = NULL,
          "`fit$diagnostics$unconverged`.")
 }
 
-# Correlation draws of one block: cov2cor() of every draw.
+# Correlation draws of one block, draw by draw. A normal-approximation draw
+# near a boundary can have a non-positive variance or an indefinite matrix;
+# its variances are floored and its correlations clamped to [-1, 1], so every
+# entry is a correlation (posterior draws are unaffected).
 .indri_corr_draws <- function(draws) {
   out <- draws
-  for (d in seq_len(dim(draws)[3L])) out[, , d] <- stats::cov2cor(draws[, , d])
+  for (d in seq_len(dim(draws)[3L])) {
+    m <- draws[, , d, drop = FALSE][, , 1L]
+    s <- sqrt(pmax(diag(as.matrix(m)), 1e-12))
+    r <- pmin(pmax(as.matrix(m) / outer(s, s), -1), 1)
+    diag(r) <- 1
+    out[, , d] <- r
+  }
   out
 }
 

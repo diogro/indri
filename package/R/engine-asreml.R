@@ -11,6 +11,8 @@
     capabilities = list(
       draws = FALSE,
       se = TRUE,
+      # joint sampling covariance of the G entries, from which fit_G() draws
+      vcov = TRUE,
       a_form = "sparse_inverse",
       missing = FALSE,
       # pairs, once each; see .indri_engine_defaults()
@@ -117,6 +119,12 @@
     E = .indri_lower2mat(vc[ei, "component"], s),
     draws = NULL,
     se = .indri_lower2mat(vc[gi, "std.error"], s),
+    # inverse AI matrix rows for the G components: already in the lower-
+    # triangle row-by-row order of .indri_vech_index()
+    vcov = tryCatch({
+      v <- unname(as.matrix(fit$ai)[gi, gi, drop = FALSE])
+      if (anyNA(v) || any(!is.finite(v))) NULL else v
+    }, error = function(e) NULL),
     converged = isTRUE(fit$converge),
     loglik = as.numeric(summary(fit)$loglik),
     time = elapsed

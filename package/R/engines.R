@@ -54,3 +54,33 @@ indri_engines <- function() {
   }
   list(G = init$G, E = init$E)
 }
+
+# Lower-triangle positions of a k x k matrix, row by row: (1,1), (2,1), (2,2),
+# (3,1), ... The order of the REML engines' `vcov`.
+.indri_vech_index <- function(k) {
+  cbind(rep(seq_len(k), seq_len(k)), sequence(seq_len(k)))
+}
+
+# Normal draws of a block's G from its point estimate and the sampling
+# covariance of its lower-triangle entries (the REML engines' `vcov`): the
+# asymptotic REML sampling distribution, drawn jointly so that the entries
+# keep their correlation. Without a usable `vcov` the block contributes its
+# point estimate only (no spread). A draw near a boundary can be indefinite;
+# .indri_corr_draws() copes with that.
+.indri_normal_draws <- function(G, vcov, n_draws) {
+  k <- nrow(G)
+  out <- array(G, c(k, k, n_draws))
+  if (is.null(vcov)) return(out)
+  index <- .indri_vech_index(k)
+  e <- eigen((vcov + t(vcov)) / 2, symmetric = TRUE)
+  L <- e$vectors %*% diag(sqrt(pmax(e$values, 0)), nrow(index))
+  x <- G[index] + L %*% matrix(stats::rnorm(nrow(index) * n_draws),
+                               nrow(index), n_draws)
+  for (d in seq_len(n_draws)) {
+    m <- matrix(0, k, k)
+    m[index] <- x[, d]
+    m[index[, 2:1, drop = FALSE]] <- x[, d]
+    out[, , d] <- m
+  }
+  out
+}

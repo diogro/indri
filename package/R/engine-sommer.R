@@ -8,6 +8,8 @@
     capabilities = list(
       draws = FALSE,
       se = TRUE,
+      # joint sampling covariance of the G entries, from which fit_G() draws
+      vcov = TRUE,
       a_form = "inverse",
       missing = FALSE,
       # pairs, once each; see .indri_engine_defaults()
@@ -114,6 +116,8 @@
   G <- sommer::covmatrix_mmes(fit, 1, se = TRUE)
   E <- sommer::covmatrix_mmes(fit, 2)
 
+  vcov <- .indri_sommer_vcov(fit, traits, single)
+
   llik <- tail(fit$llik, 1)
   if (length(llik) != 1L || !is.finite(llik)) llik <- NA_real_
 
@@ -130,8 +134,41 @@
     E = in_order(E$covariance),
     draws = NULL,
     se = in_order(G$covariance.se),
+    vcov = vcov,
     converged = isTRUE(fit$convergence),
     loglik = as.numeric(llik),
     time = elapsed
   )
+}
+
+# Sampling covariance of the block's G entries, in .indri_vech_index() order,
+# from sommer's natural-scale parameter table. Parameters are matched by name
+# ("variance[a]", "covariance[b,a]"), so the result follows the columns of Y
+# whatever order sommer keeps them in. NULL when sommer reports none.
+.indri_sommer_vcov <- function(fit, traits, single) {
+  native <- fit$covParNative
+  V <- attr(native, "vcov")
+  if (is.null(native) || is.null(V)) return(NULL)
+  rows <- which(native$term == names(fit$theta)[1L])
+  k <- length(traits)
+  index <- .indri_vech_index(k)
+  if (single) {
+    if (length(rows) != 1L) return(NULL)
+    out <- V[rows, rows, drop = FALSE]
+  } else {
+    parm <- native$parameter[rows]
+    pos <- vapply(parm, function(p) {
+      inside <- sub("^[a-z]+\\[(.*)\\]$", "\\1", p)
+      who <- match(strsplit(inside, ",", fixed = TRUE)[[1L]], traits)
+      if (length(who) == 1L) who <- c(who, who)
+      if (anyNA(who) || length(who) != 2L) return(NA_integer_)
+      which(index[, 1L] == max(who) & index[, 2L] == min(who))
+    }, integer(1))
+    if (anyNA(pos) || length(pos) != nrow(index) || anyDuplicated(pos))
+      return(NULL)
+    out <- matrix(NA_real_, nrow(index), nrow(index))
+    out[pos, pos] <- V[rows, rows]
+  }
+  if (anyNA(out) || any(!is.finite(out))) return(NULL)
+  unname(out)
 }
