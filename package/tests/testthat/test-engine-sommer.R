@@ -112,7 +112,8 @@ test_that("REML blocks carry a joint sampling covariance and yield draws", {
   expect_equal(dim(v), c(3L, 3L))                 # G11, G21, G22 of a pair
   # its diagonal is the squared standard errors sommer reports
   se <- fit$blocks[[1]]$se
-  expect_equal(sqrt(diag(v)), se[.indri_vech_index(2L)], tolerance = 1e-6)
+  expect_equal(unname(sqrt(diag(v))), unname(se[.indri_vech_index(2L)]),
+               tolerance = 1e-6)
   expect_equal(dim(fit$G_draws), c(3L, 3L, 400L))
   expect_equal(dim(fit$corrG_draws), c(3L, 3L, 400L))
   expect_true(all(abs(fit$corrG_draws) <= 1))
@@ -137,4 +138,26 @@ test_that("normal draws respect the joint covariance and the point estimate", {
   expect_identical(d[1, 2, ], d[2, 1, ])
   # without a covariance the block contributes its point estimate only
   expect_true(all(.indri_normal_draws(G, NULL, 5L)[1, 2, ] == 0.3))
+})
+
+test_that("every matrix in a fit carries the trait names of Y", {
+  skip_if_not_installed("sommer")
+  data <- simulate_block_data(n_fam = 20, size = 5, K = 3L)
+  colnames(data$Y) <- c("tail", "wing", "beak")
+  fit <- fit_G(data$Y, A = data$A, engine = "sommer", cores = 1L,
+               n_draws = 20L, seed = 1L)
+  traits <- colnames(data$Y)
+  for (part in c("G", "G_bar", "corrG", "counts", "coverage"))
+    expect_equal(dimnames(fit[[part]]), list(traits, traits), label = part)
+  for (part in c("G_draws", "corrG_draws"))
+    expect_equal(dimnames(fit[[part]])[1:2], list(traits, traits), label = part)
+  expect_named(fit$sigma_G, traits)
+  b <- fit$blocks[[1]]
+  own <- traits[fit$subsets[1, ]]
+  for (part in c("G", "E", "se"))
+    expect_equal(dimnames(b[[part]]), list(own, own), label = part)
+  expect_equal(dimnames(b$draws)[1:2], list(own, own))
+  expect_equal(rownames(b$vcov),
+               c(paste(own[1], own[1], sep = ","), paste(own[2], own[1], sep = ","),
+                 paste(own[2], own[2], sep = ",")))
 })

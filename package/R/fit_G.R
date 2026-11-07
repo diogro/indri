@@ -242,6 +242,8 @@ fit_G <- function(Y, X = NULL, A, s = NULL, min_cooccurrence = NULL,
 
   # The engine may or may not carry trait names through; naming is indri's job.
   trait_names <- colnames(Y)
+  blocks <- lapply(seq_along(blocks), function(i)
+    .indri_name_block(blocks[[i]], trait_names[subsets[i, ]]))
   diagnostics <- .indri_diagnostics(blocks, subsets, trait_names)
   # A stanimal block with Rhat >= 1.05 did not mix: that is a sampling problem
   # worth a warning. REML blocks that report no convergence are listed in
@@ -265,8 +267,8 @@ fit_G <- function(Y, X = NULL, A, s = NULL, min_cooccurrence = NULL,
     corrG = corrG,
     corrG_draws = corrG_draws,
     sigma_G = sqrt(pmax(diag(G), 0)),
-    counts = assembled$counts,
-    coverage = indri_pair_coverage(subsets, K),
+    counts = .indri_named(assembled$counts, trait_names),
+    coverage = .indri_named(indri_pair_coverage(subsets, K), trait_names),
     subsets = subsets,
     s = s,
     min_cooccurrence = min_cooccurrence,
@@ -369,6 +371,34 @@ fit_G <- function(Y, X = NULL, A, s = NULL, min_cooccurrence = NULL,
   paste0(slow, " of ", n_blocks, " blocks have Rhat >= 1.05 (max ",
          signif(diagnostics$max_rhat, 3), "); run longer chains. See ",
          "`fit$diagnostics$unconverged`.")
+}
+
+# A K x K matrix with the trait names on both dimensions.
+.indri_named <- function(m, names) {
+  dimnames(m) <- list(names, names)
+  m
+}
+
+# Name a block's matrices after its own traits, whatever the engine returned:
+# G, E and se are traits x traits, draws traits x traits x draws, and vcov is
+# indexed by the lower-triangle entries ("b,a" is the covariance of b with a).
+.indri_name_block <- function(block, traits) {
+  k <- length(traits)
+  for (part in c("G", "E", "se")) {
+    m <- block[[part]]
+    if (is.matrix(m) && identical(dim(m), c(k, k)))
+      block[[part]] <- .indri_named(m, traits)
+  }
+  if (!is.null(block$draws) && identical(dim(block$draws)[1:2], c(k, k)))
+    dimnames(block$draws) <- list(traits, traits, NULL)
+  if (is.matrix(block$vcov)) {
+    index <- .indri_vech_index(k)
+    if (nrow(block$vcov) == nrow(index)) {
+      entry <- paste(traits[index[, 1L]], traits[index[, 2L]], sep = ",")
+      dimnames(block$vcov) <- list(entry, entry)
+    }
+  }
+  block
 }
 
 # Correlation draws of one block, draw by draw. A normal-approximation draw
