@@ -25,6 +25,9 @@
 #   INDRI_ENGINE_ITER    stanimal iterations per chain (400)
 #   INDRI_ENGINE_CHAINS  chains per stanimal block (2)
 #   INDRI_ENGINE_FULL    1 to run the full stanimal reference (1)
+#   INDRI_ENGINE_FULL_ITER    full-model iterations per chain (500)
+#   INDRI_ENGINE_FULL_CHAINS  full-model chains (2)
+#   INDRI_ENGINE_FULL_CORES   full-model cores (2)
 
 library(indri)
 
@@ -49,6 +52,9 @@ cores_sommer <- as.integer(Sys.getenv("INDRI_ENGINE_CORES_SOMMER", "16"))
 iter <- as.integer(Sys.getenv("INDRI_ENGINE_ITER", "400"))
 chains <- as.integer(Sys.getenv("INDRI_ENGINE_CHAINS", "2"))
 run_full <- Sys.getenv("INDRI_ENGINE_FULL", "1") == "1"
+full_iter <- as.integer(Sys.getenv("INDRI_ENGINE_FULL_ITER", "500"))
+full_chains <- as.integer(Sys.getenv("INDRI_ENGINE_FULL_CHAINS", "2"))
+full_cores <- as.integer(Sys.getenv("INDRI_ENGINE_FULL_CORES", "2"))
 
 stanimal_control <- list(chains = chains, iter = iter, init = 0.5,
                          refresh = 0, show_messages = FALSE)
@@ -116,7 +122,8 @@ if (run_full) {
   message("== full ", K, "-trait stanimal model ==")
   started <- Sys.time()
   full <- stanimal::lmm_animal(data$Y, matrix(1, data$N, 1L), data$A,
-                               chains = 2L, iter = 500L, cores = 2L,
+                               chains = full_chains, iter = full_iter,
+                               cores = full_cores,
                                seed = 3000L + seed, refresh = 0,
                                show_messages = FALSE)
   time_full <- as.numeric(difftime(Sys.time(), started, units = "mins"))
