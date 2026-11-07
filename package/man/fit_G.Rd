@@ -34,14 +34,14 @@ have row names they are matched by name.}
 \item{s}{Subset size parameter. Controls how many trait pairs each subset
 covers, not the number of traits in a subset; see \code{\link[=indri_subsets]{indri_subsets()}}.
 The default depends on the engine: \code{min(floor(sqrt(K)), 4)}, clamped to at
-least 2, for \code{"stanimal"}, and 2 (blocks of two traits) for the REML
-engines, whose multi-trait fits converge poorly (sommer's badly) and were
-measured to gain no accuracy from larger blocks.}
+least 2, for \code{"stanimal"}, and 3 (blocks of four traits) for the REML
+engines, which measured slightly more accurate than pairs at the same or
+lower cost; larger blocks cost more for little more.}
 
-\item{min_cooccurrence}{Minimum number of times every trait pair must be
-sampled. The default depends on the engine: 3 for \code{"stanimal"}, 1 for the
-REML engines. A REML fit of the same pair on the same data is the same
-number, so with two-trait blocks repeats add cost and nothing else.}
+\item{min_cooccurrence}{Minimum number of distinct subsets every trait pair
+must appear in. Defaults to 3. Identical subsets are never repeated, since
+a pair estimated twice in the same trait context adds nothing, so the
+value is capped at what the block width allows (1 for two-trait blocks).}
 
 \item{subsets}{Optional precomputed subset matrix, from \code{\link[=indri_subsets]{indri_subsets()}}.}
 

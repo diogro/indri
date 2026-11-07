@@ -111,12 +111,16 @@ test_that("subset size, co-occurrence and workers default by engine", {
   expect_equal(stanimal, list(s = 4L, min_cooccurrence = 3L))
   expect_equal(.indri_engine_defaults(indri_engine("stanimal"), 9L)$s, 3L)
 
-  # REML: pairs, once each, whatever K is
+  # REML: 4-trait blocks, each pair in 3 distinct ones (s capped at K)
   for (name in c("sommer", "asreml")) {
-    for (K in c(3L, 16L, 50L)) {
+    for (K in c(16L, 50L)) {
       expect_equal(.indri_engine_defaults(indri_engine(name), K),
-                   list(s = 2L, min_cooccurrence = 1L), label = paste(name, K))
+                   list(s = 3L, min_cooccurrence = 3L), label = paste(name, K))
     }
+    # blocks must stay narrower than K: pairs for 3 or 4 traits
+    expect_equal(.indri_engine_defaults(indri_engine(name), 3L)$s, 2L)
+    expect_equal(.indri_engine_defaults(indri_engine(name), 4L)$s, 2L)
+    expect_equal(.indri_engine_defaults(indri_engine(name), 5L)$s, 3L)
   }
   # one asreml licence seat per worker; a standard licence has two
   expect_equal(indri_engine("asreml")$capabilities$default_cores, 2L)

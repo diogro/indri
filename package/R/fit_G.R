@@ -19,13 +19,13 @@
 #' @param s Subset size parameter. Controls how many trait pairs each subset
 #'   covers, not the number of traits in a subset; see [indri_subsets()].
 #'   The default depends on the engine: `min(floor(sqrt(K)), 4)`, clamped to at
-#'   least 2, for `"stanimal"`, and 2 (blocks of two traits) for the REML
-#'   engines, whose multi-trait fits converge poorly (sommer's badly) and were
-#'   measured to gain no accuracy from larger blocks.
-#' @param min_cooccurrence Minimum number of times every trait pair must be
-#'   sampled. The default depends on the engine: 3 for `"stanimal"`, 1 for the
-#'   REML engines. A REML fit of the same pair on the same data is the same
-#'   number, so with two-trait blocks repeats add cost and nothing else.
+#'   least 2, for `"stanimal"`, and 3 (blocks of four traits) for the REML
+#'   engines, which measured slightly more accurate than pairs at the same or
+#'   lower cost; larger blocks cost more for little more.
+#' @param min_cooccurrence Minimum number of distinct subsets every trait pair
+#'   must appear in. Defaults to 3. Identical subsets are never repeated, since
+#'   a pair estimated twice in the same trait context adds nothing, so the
+#'   value is capped at what the block width allows (1 for two-trait blocks).
 #' @param subsets Optional precomputed subset matrix, from [indri_subsets()].
 #' @param engine Block engine: `"stanimal"` (posterior draws), `"sommer"` or
 #'   `"asreml"` (REML point estimates).
@@ -351,14 +351,17 @@ fit_G <- function(Y, X = NULL, A, s = NULL, min_cooccurrence = NULL,
 }
 
 # Subset size and co-occurrence when the caller gives neither. stanimal keeps
-# the sqrt(K) rule and c = 3. The REML engines use pairs, once each: sweeps at
-# K = 16 and 30 (examples/block_size_sweep.R) found no accuracy gain from
-# larger blocks for asreml, sommer's multi-trait fits mostly fail to converge,
-# and a deterministic fit of the same pair is the same number every time.
+# the sqrt(K) rule; the REML engines use s = 3 (4-trait blocks), which the
+# sweeps at K = 16 and 30 (examples/block_size_sweep.R) found slightly more
+# accurate than pairs at the same or lower cost. Every engine asks for each
+# pair in 3 distinct trait contexts (indri_subsets() never repeats a block).
 .indri_engine_defaults <- function(engine, K) {
   caps <- engine$capabilities
   s <- caps$default_s %||% .indri_default_s(K)
-  list(s = max(2L, min(as.integer(s), K)),
+  # a subset covers up to 2 (s - 1) traits; keep it narrower than K, or there
+  # is nothing to reassemble (pairs at K = 3 or 4)
+  s <- min(as.integer(s), max(2L, (K + 1L) %/% 2L))
+  list(s = max(2L, min(s, K)),
        min_cooccurrence = caps$default_cooccurrence %||% 3L)
 }
 

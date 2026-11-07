@@ -19,9 +19,12 @@ sampled.}
 state is left untouched.}
 }
 \value{
-An integer matrix with one subset per row, holding 1-based indices of
-the traits in that subset. The number of trait pairs in each subset is
-stored in the \code{coverage} attribute.
+An integer matrix with one distinct subset per row, holding 1-based
+indices of the traits in that subset. Every pair is in at least
+\code{min_cooccurrence} distinct subsets, capped at the number of distinct
+subsets of this width that contain it (one, for two-trait subsets); the
+coverage reached is stored in the \code{min_cooccurrence} attribute and the
+pair counts in the \code{coverage} attribute.
 }
 \description{
 Draws the trait subsets on which the small models are fitted. This is the

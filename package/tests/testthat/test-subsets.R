@@ -24,7 +24,12 @@ test_that("every pair reaches min_cooccurrence across seeds and settings", {
       subsets <- indri_subsets(K, s, min_cooccurrence = c, seed = seed)
       coverage <- attr(subsets, "coverage")
       info <- sprintf("K = %d, s = %d, c = %d, seed = %d", K, s, c, seed)
-      expect_gte(min(coverage[upper.tri(coverage)]), c, label = info)
+      # distinct subsets only, and the cap a block width imposes
+      expect_false(anyDuplicated(apply(subsets, 1L, paste, collapse = "-")) > 0,
+                   label = info)
+      cap <- choose(K - 2, ncol(subsets) - 2)
+      expect_gte(min(coverage[upper.tri(coverage)]), min(c, cap), label = info)
+      expect_equal(attr(subsets, "min_cooccurrence"), min(c, cap), label = info)
       expect_true(all(apply(subsets, 1L, function(r) !anyDuplicated(r))),
                   label = info)
       expect_identical(coverage, indri_pair_coverage(subsets, K), label = info)

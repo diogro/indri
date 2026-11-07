@@ -12,9 +12,10 @@
       vcov = TRUE,
       a_form = "inverse",
       missing = FALSE,
-      # pairs, once each; see .indri_engine_defaults()
-      default_s = 2L,
-      default_cooccurrence = 1L
+      # 4-trait blocks, each pair in 3 distinct ones; see
+      # .indri_engine_defaults()
+      default_s = 3L,
+      default_cooccurrence = 3L
     ),
     fit = .indri_sommer_fit
   )

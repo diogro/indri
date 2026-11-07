@@ -27,9 +27,12 @@
 #' @param seed Optional seed for the subset construction. The caller's random
 #'   state is left untouched.
 #'
-#' @return An integer matrix with one subset per row, holding 1-based indices of
-#'   the traits in that subset. The number of trait pairs in each subset is
-#'   stored in the `coverage` attribute.
+#' @return An integer matrix with one distinct subset per row, holding 1-based
+#'   indices of the traits in that subset. Every pair is in at least
+#'   `min_cooccurrence` distinct subsets, capped at the number of distinct
+#'   subsets of this width that contain it (one, for two-trait subsets); the
+#'   coverage reached is stored in the `min_cooccurrence` attribute and the
+#'   pair counts in the `coverage` attribute.
 #'
 #' @export
 indri_subsets <- function(K, s, min_cooccurrence = 3L, seed = NULL) {
@@ -81,13 +84,24 @@ indri_subsets <- function(K, s, min_cooccurrence = 3L, seed = NULL) {
   }
 
   out <- do.call(rbind, subsets)
+  # Coverage counts distinct trait combinations: fitting the same block twice
+  # estimates a pair in the same context twice, which adds nothing (and for a
+  # deterministic REML engine returns the same number).
+  out <- out[!duplicated(out), , drop = FALSE]
   coverage <- indri_pair_coverage(out, K)
+
+  # A pair can only be in choose(K - 2, width - 2) distinct blocks of this
+  # width (one, for pairs), so that caps the coverage any construction can
+  # reach.
+  target <- min(min_cooccurrence, choose(K - 2L, width - 2L))
 
   # The passes above cover every pair `n_covers = ceiling(c / 2)` times by
   # construction; LiMMBo relies on incidental co-membership for the rest, and
   # that often falls short (min coverage 2 for c = 3 is common). Top up with
-  # greedily built subsets of the same width until every pair reaches `c`.
-  out <- .indri_top_up(out, coverage, K, width, min_cooccurrence)
+  # greedily built, new subsets of the same width until every pair reaches
+  # the target.
+  out <- .indri_top_up(out, coverage, K, width, target)
+  attr(out, "min_cooccurrence") <- target
   out
 }
 
@@ -98,6 +112,7 @@ indri_subsets <- function(K, s, min_cooccurrence = 3L, seed = NULL) {
 # terminates.
 .indri_top_up <- function(subsets, coverage, K, width, min_cooccurrence) {
   extra <- list()
+  keys <- apply(subsets, 1L, paste, collapse = "-")
   repeat {
     deficit <- min_cooccurrence - coverage
     deficit[!upper.tri(deficit)] <- 0L
@@ -107,12 +122,22 @@ indri_subsets <- function(K, s, min_cooccurrence = 3L, seed = NULL) {
 
     worst <- which(deficit == max(deficit) & upper.tri(deficit), arr.ind = TRUE)
     members <- unname(worst[.indri_sample(seq_len(nrow(worst)), 1L), ])
+    worst_pair <- members
     while (length(members) < width) {
       others <- setdiff(seq_len(K), members)
       gain <- colSums(deficit[members, others, drop = FALSE] > 0L)
       members <- c(members, .indri_sample(others[gain == max(gain)], 1L))
     }
     members <- sort(members)
+    key <- paste(members, collapse = "-")
+    if (key %in% keys) {
+      # the greedy choice already exists: take the best block not yet fitted
+      # that contains the most under-covered pair (one always exists, since
+      # the target never exceeds the number of distinct blocks with the pair)
+      members <- .indri_new_block(worst_pair, K, width, deficit, keys)
+      key <- paste(members, collapse = "-")
+    }
+    keys <- c(keys, key)
     extra[[length(extra) + 1L]] <- members
     coverage[members, members] <- coverage[members, members] + 1L
   }
@@ -120,6 +145,33 @@ indri_subsets <- function(K, s, min_cooccurrence = 3L, seed = NULL) {
   storage.mode(subsets) <- "integer"
   attr(subsets, "coverage") <- coverage
   subsets
+}
+
+# The block of `width` traits containing `pair` that is not in `keys` and
+# covers the most pairs still short of their target. Candidates are every
+# completion when there are few, a random sample otherwise.
+.indri_new_block <- function(pair, K, width, deficit, keys) {
+  rest <- setdiff(seq_len(K), pair)
+  need <- width - 2L
+  if (need == 0L) return(sort(pair))
+  n <- choose(length(rest), need)
+  candidates <- if (n <= 5000) utils::combn(rest, need, simplify = FALSE) else
+    lapply(seq_len(2000L), function(i) .indri_sample(rest, need))
+  best <- NULL
+  best_gain <- -1
+  for (cand in candidates) {
+    block <- sort(c(pair, cand))
+    if (paste(block, collapse = "-") %in% keys) next
+    gain <- sum(deficit[block, block][upper.tri(diag(width))] > 0L)
+    if (gain > best_gain) {
+      best <- block
+      best_gain <- gain
+    }
+  }
+  if (is.null(best))
+    stop("no new block contains pair ", paste(pair, collapse = "-"),
+         "; this is a bug in the top-up.", call. = FALSE)
+  best
 }
 
 # sample() treats a single number n as 1:n; this never does.
