@@ -206,7 +206,7 @@ INDRI_STUDY_SEEDS=3 INDRI_STUDY_CORES=2 Rscript examples/validation_12_traits.R
 INDRI_STUDY_SEEDS=1 INDRI_STUDY_WEIGHTS=1 Rscript examples/validation_12_traits.R
 
 # the uncertainty coverage study (average / mixture / inflated indri bands vs
-# the full-model posterior); one seed per process, ~3 minutes each on meyer
+# the full-model posterior); one seed per process, ~3 minutes each at 48 cores
 INDRI_COVERAGE_SEEDS=1 INDRI_COVERAGE_CORES=48 Rscript examples/uncertainty_coverage.R
 ```
 

@@ -111,48 +111,44 @@ documented because they are invisible from reading the code.
   Keep the top-up, and keep the test that sweeps seeds — a single seed passed
   while the guarantee was broken.
 
-## Running studies (remote machine)
+## Running studies
 
-Long runs go to `meyer` via SSH; background Copilot commands on the remote
-stall, so run remote commands over `ssh` and pull results back with `scp`.
-
-The checkout is `~/projects/indri` (plural). It syncs through GitHub only:
-commit and push locally first.
+The studies in `examples/` fit many Stan models; run anything beyond the test
+suite on a machine with spare cores, not a laptop. If you use a remote
+machine, sync it through git (commit and push locally, then fast-forward the
+remote checkout) rather than copying files.
 
 ```sh
-# sync + reinstall (meyer has no local changes, so a fast-forward suffices;
-# check `git status --short` there first if in doubt)
-ssh meyer 'cd ~/projects/indri && git pull --ff-only origin main && R CMD INSTALL package'
-
-# run a study (async via the tool), e.g. the M1 gate or the coverage study
-ssh meyer 'cd ~/projects/indri && INDRI_STUDY_SEEDS=1 INDRI_STUDY_CORES=32 Rscript examples/validation_12_traits.R'
-ssh meyer 'cd ~/projects/indri && INDRI_COVERAGE_SEEDS=1,2,3 INDRI_COVERAGE_CORES=32 Rscript examples/uncertainty_coverage.R'
-
-# long runs: one seed per process, detached so a dropped connection is harmless
-ssh meyer 'cd ~/projects/indri && for s in 1 2 3; do INDRI_COVERAGE_SEEDS=$s INDRI_COVERAGE_CORES=48 nohup Rscript examples/uncertainty_coverage.R > results/uncertainty_coverage_seed$s.log 2>&1 & done'
-
-# pull results back in ONE connection
-ssh meyer 'cd ~/projects/indri/results && tar cf - <files>' | tar xf - -C results/
+# one seed per process, detached so a dropped connection does not kill the run
+for s in 1 2 3; do
+  INDRI_COVERAGE_SEEDS=$s INDRI_COVERAGE_CORES=48 \
+    nohup Rscript examples/uncertainty_coverage.R \
+    > results/uncertainty_coverage_seed$s.log 2>&1 &
+done
 ```
 
-Remote gotchas:
+The `INDRI_*_CORES` variables are a total process budget for `fit_G()`, not a
+worker count; see STATUS.md, "Running the studies". The 12-trait coverage study
+takes about 3 minutes per seed at 48 cores.
 
-- **meyer rate-limits SSH.** A burst of separate `scp`/`ssh` calls gets the
-  host to refuse connections for a minute or so. Batch commands into one
-  `ssh` and transfer files with one `tar` stream.
-- **`pgrep -f <script>` matches its own wait loop.** A remote
-  `while pgrep -f uncertainty_coverage.R; do sleep 30; done` never exits,
-  because the loop's own command line contains the pattern. Wait on the
-  summary CSVs appearing, or use `pgrep -f '^Rscript examples/...'`.
-- The 12-trait coverage study takes ~3 minutes per seed at 48 cores.
+Gotchas:
+
+- **`pgrep -f <script>` matches its own wait loop.** A
+  `while pgrep -f uncertainty_coverage.R; do sleep 30; done` run through
+  `ssh` or `bash -c` never exits, because the loop's own command line contains
+  the pattern. Wait for the summary CSVs to appear instead, or anchor the
+  pattern (`pgrep -f '^Rscript examples/'`).
+- When pulling results back from a remote machine, batch them into one
+  transfer (`ssh host 'tar cf - <files>' | tar xf -`); many separate
+  connections can trip SSH rate limiting.
 
 Tracked results (`results/validation_12_traits_*.csv`,
-`results/uncertainty_coverage_*.csv`) are whitelisted in `.gitignore`; the
-benchmark overwrites them on meyer, so pull the CSVs back, commit them
-locally, and discard meyer's modified copies (`git checkout -- results/` there)
-before the next fast-forward. A *new* results file that you committed from
-meyer's output is still untracked there and blocks the fast-forward ("would be
-overwritten"); check it matches the committed copy (`md5sum`) and remove it.
+`results/uncertainty_coverage_*.csv`) are whitelisted in `.gitignore`. A study
+overwrites them where it runs, so on a remote checkout: copy the CSVs back,
+commit them locally, then discard the remote's copies (`git checkout --
+results/` for modified files; remove new ones after checking they match the
+committed copy) before the next fast-forward, which otherwise refuses to
+overwrite them.
 
 ## Conventions
 
