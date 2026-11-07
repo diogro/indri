@@ -263,17 +263,14 @@ affected. See [REVIEW.md](REVIEW.md) §1.
 
 ## Next, in priority order
 
-0. **Finish the mixture assembly.** What was measured is the mixture of each
-   block's *correlation* draws; `fit_G(spread = "mixture")` mixes
-   *covariance* draws, whose `cov2cor()` can leave [-1, 1]. Add a
-   `corrG_draws` output built per block, as in the study, then make
-   `spread = "mixture"` the default (recommended) and document both outputs as
-   pointwise intervals (a mixed draw need not be PSD).
-1. **A REML full-model baseline.** The stanimal full model's LKJ prior shrinks
-   each correlation harder as K grows (prior sd 0.38 at 6 traits, 0.28 at 12,
-   0.18 at 30), so "indri beats the full model" partly compares priors. Refit
-   the K = 12 and K = 30 references with sommer or asreml on all traits. See
-   [REVIEW.md](REVIEW.md) §3.
+0. *Done (2026-11-07):* `spread = "mixture"` is the default and `fit_G()`
+   returns `corrG_draws` (mixed per-block correlation draws, the measured
+   0.89). The REML engines still return no uncertainty; a Gaussian ensemble
+   from their `se` would need the same mixture treatment and its own
+   coverage check.
+1. *Dropped:* a REML full-model baseline. Full multi-trait REML fits are too
+   slow and rarely converge without curated starting values, so the
+   full-model comparisons stay Bayesian, with the LKJ caveat of REVIEW.md §3.
 2. **Missing data end to end.** The missing-data policy has still never gone
    through `fit_G()` with gaps in `Y`; `"complete_block"` is implemented but
    unexercised on real fits.
