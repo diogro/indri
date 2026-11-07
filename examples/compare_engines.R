@@ -25,6 +25,7 @@
 #   INDRI_ENGINE_ITER    stanimal iterations per chain (400)
 #   INDRI_ENGINE_CHAINS  chains per stanimal block (2)
 #   INDRI_ENGINE_FULL    1 to run the full stanimal reference (1)
+#   INDRI_ENGINE_SOMMER  1 to run the sommer engine (1)
 #   INDRI_ENGINE_FULL_ITER    full-model iterations per chain (500)
 #   INDRI_ENGINE_FULL_CHAINS  full-model chains (2)
 #   INDRI_ENGINE_FULL_CORES   full-model cores (2)
@@ -53,6 +54,7 @@ cores_sommer <- as.integer(Sys.getenv("INDRI_ENGINE_CORES_SOMMER", "16"))
 iter <- as.integer(Sys.getenv("INDRI_ENGINE_ITER", "400"))
 chains <- as.integer(Sys.getenv("INDRI_ENGINE_CHAINS", "2"))
 run_full <- Sys.getenv("INDRI_ENGINE_FULL", "1") == "1"
+run_sommer <- Sys.getenv("INDRI_ENGINE_SOMMER", "1") == "1"
 full_iter <- as.integer(Sys.getenv("INDRI_ENGINE_FULL_ITER", "500"))
 full_chains <- as.integer(Sys.getenv("INDRI_ENGINE_FULL_CHAINS", "2"))
 full_cores <- as.integer(Sys.getenv("INDRI_ENGINE_FULL_CORES", "2"))
@@ -105,12 +107,17 @@ pairs <- upper.tri(data$corr_true)
 
 ## indri + sommer -----------------------------------------------------------
 
-message("== indri, sommer engine (", cores_sommer, " parallel blocks) ==")
-started <- Sys.time()
-fit_sommer <- fit_G(data$Y, A = data$A, s = s_sommer,
-                    min_cooccurrence = min_cooccurrence, engine = "sommer",
-                    cores = cores_sommer, seed = 1000L + seed)
-time_sommer <- as.numeric(difftime(Sys.time(), started, units = "mins"))
+if (run_sommer) {
+  message("== indri, sommer engine (", cores_sommer, " parallel blocks) ==")
+  started <- Sys.time()
+  fit_sommer <- fit_G(data$Y, A = data$A, s = s_sommer,
+                      min_cooccurrence = min_cooccurrence, engine = "sommer",
+                      cores = cores_sommer, seed = 1000L + seed)
+  time_sommer <- as.numeric(difftime(Sys.time(), started, units = "mins"))
+} else {
+  fit_sommer <- NULL
+  time_sommer <- NA_real_
+}
 
 ## indri + stanimal ----------------------------------------------------------
 
@@ -142,7 +149,7 @@ if (run_full) {
 ## Compare -------------------------------------------------------------------
 
 estimates <- list(
-  indri_sommer = fit_sommer$corrG,
+  indri_sommer = if (!is.null(fit_sommer)) fit_sommer$corrG else NULL,
   indri_stanimal = fit_stanimal$corrG,
   full_stanimal = corr_full
 )
