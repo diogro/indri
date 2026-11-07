@@ -21,6 +21,7 @@
 #   INDRI_ENGINE_MINCOOC minimum pair coverage (3)
 #   INDRI_ENGINE_SEED    simulation seed (1)
 #   INDRI_ENGINE_CORES   Stan process budget for the stanimal blocks (64)
+#   INDRI_ENGINE_CORES_SOMMER number of sommer blocks to run in parallel (16)
 #   INDRI_ENGINE_ITER    stanimal iterations per chain (400)
 #   INDRI_ENGINE_CHAINS  chains per stanimal block (2)
 #   INDRI_ENGINE_FULL    1 to run the full stanimal reference (1)
@@ -44,6 +45,7 @@ s_sommer <- as.integer(Sys.getenv("INDRI_ENGINE_S_SOMMER", "2"))
 min_cooccurrence <- as.integer(Sys.getenv("INDRI_ENGINE_MINCOOC", "3"))
 seed <- as.integer(Sys.getenv("INDRI_ENGINE_SEED", "1"))
 cores <- as.integer(Sys.getenv("INDRI_ENGINE_CORES", "64"))
+cores_sommer <- as.integer(Sys.getenv("INDRI_ENGINE_CORES_SOMMER", "16"))
 iter <- as.integer(Sys.getenv("INDRI_ENGINE_ITER", "400"))
 chains <- as.integer(Sys.getenv("INDRI_ENGINE_CHAINS", "2"))
 run_full <- Sys.getenv("INDRI_ENGINE_FULL", "1") == "1"
@@ -91,11 +93,11 @@ pairs <- upper.tri(data$corr_true)
 
 ## indri + sommer -----------------------------------------------------------
 
-message("== indri, sommer engine ==")
+message("== indri, sommer engine (", cores_sommer, " parallel blocks) ==")
 started <- Sys.time()
 fit_sommer <- fit_G(data$Y, A = data$A, s = s_sommer,
                     min_cooccurrence = min_cooccurrence, engine = "sommer",
-                    seed = 1000L + seed)
+                    cores = cores_sommer, seed = 1000L + seed)
 time_sommer <- as.numeric(difftime(Sys.time(), started, units = "mins"))
 
 ## indri + stanimal ----------------------------------------------------------
