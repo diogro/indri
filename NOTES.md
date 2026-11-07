@@ -8,9 +8,9 @@ all three engines — `stanimal` (posterior draws), `sommer` and `asreml` (REML)
 `examples/six_traits.R` runs the whole pipeline on a known 6 x 6 covariance
 (about three minutes) and compares it entry by entry with the truth.
 
-The `eigen_A` prototype for stanimal lives on the `indri-support` branch of
-`../stanimal` (not merged upstream). indri does not use it yet: the `stanimal`
-engine still passes `A` and lets the model decompose it once per chain.
+stanimal 0.8.0 takes the eigendecomposition of `A` as model data
+(`lmm_animal(eigen_A =)`); indri decomposes `A` once per `fit_G()` call and the
+`stanimal` engine passes it to every block (§5).
 
 Scope decision of record: **G only**, with **pluggable block engines**.
 
@@ -260,7 +260,7 @@ Only relevant to the `"stanimal"` engine.
 ### Prototype status
 
 What was actually built is route B, and generalised: on stanimal's
-`indri-support` branch (`88a905d`) *every* animal model takes `Q` and `lambda`
+`indri-support` branch, now stanimal 0.8.0, *every* animal model takes `Q` and `lambda`
 as data, `lmm_animal()` decomposes `A` once per fit in R (ascending, Stan's
 order, so fits are bit-identical to 0.7.4), and `eigen_A` accepts a
 precomputed pair for any structure or parametrization. The earlier duplicated
@@ -268,8 +268,8 @@ precomputed pair for any structure or parametrization. The earlier duplicated
 indri builds the pair once per `fit_G()` call (`indri_a_forms(need = "eigen")`)
 and the stanimal engine passes it when the installed stanimal accepts
 `eigen_A`. Measured saving: ~60 s per block at N = 4000, ~7 s at N = 2000,
-negligible below 1000 (STATUS.md). The branch still has to be merged into
-stanimal `master`.
+negligible below 1000 (STATUS.md). Released as stanimal 0.8.0 (`master`
+`9e0d831`).
 
 The paragraphs below describe the first prototype and are kept for the record.
 

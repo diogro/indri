@@ -9,24 +9,24 @@ next.
 | repo | branch | remote | what is on it |
 |---|---|---|---|
 | `indri` | `main` | `diogro/indri` (**private**) | the package, tests, examples, NOTES/STATUS |
-| `stanimal` | `indri-support` | `diogro/stanimal` | `animalModelGQR.stan`, `eigen_A`, `test-eigen-A.R` (+480/-1 over master) |
+| `stanimal` | `master` | `diogro/stanimal` | 0.8.0: every animal model takes the eigendecomposition of `A` as data; `lmm_animal(eigen_A =)` |
 | `limmbo` | `indri-session-fixes` | `diogro/limmbo` (fork of `meyer-lab-cshl/limmbo`) | pipeline fixes, pixi environment, AGENTS.md (+140/-34 over master) |
 
-All three are pushed. Heads of the two side branches at the time of writing:
-`stanimal/indri-support` `bdd30cf`, `limmbo` `indri-session-fixes` `4edd228`;
-check with `git ls-remote --heads origin` rather than trusting this line.
+All three are pushed. Heads at the time of writing: `stanimal/master`
+`9e0d831` (0.8.0), `limmbo` `indri-session-fixes` `4edd228`; check with
+`git ls-remote --heads origin` rather than trusting this line.
 
-Cloning on another machine — note that two of the branches are not the default
-branch of their repo:
+Cloning on another machine — note that the limmbo branch is not the default
+branch of its repo:
 
 ```sh
 git clone https://github.com/diogro/indri.git
-git clone git@github.com:diogro/stanimal.git && cd stanimal && git switch indri-support
+git clone git@github.com:diogro/stanimal.git
 git clone git@github.com:diogro/limmbo.git  && cd limmbo  && git switch indri-session-fixes
 ```
 
-`stanimal` also carries `master` (`39ece71`, the branch `indri-support` is cut
-from) and older `feature/0.7.0`/`roadmap` branches. In the `limmbo` checkout,
+`stanimal`'s `indri-support` branch has been fast-forwarded into `master` and
+is no longer needed; it also carries older `feature/0.7.0`/`roadmap` branches. In the `limmbo` checkout,
 `origin` is the fork; add the upstream if a PR is wanted:
 
 ```sh
@@ -41,7 +41,7 @@ available); 14 in the stanimal branch's new test file.
 | **M0** subset sampler, assembly, PSD projection, engine registry | done |
 | **M1** `fit_G()` on the stanimal engine, validated against the full model | **done, gate passed** |
 | **M2** sommer and ASReml engines | **done**: both implement the block contract; the two REML engines agree with each other and with stanimal |
-| **M3** share stanimal's eigendecomposition of `A` across blocks | **done**: stanimal takes `Q`/`lambda` as data in every animal model (`indri-support` `88a905d`, not yet merged to stanimal `master`); indri decomposes `A` once per `fit_G()` call and passes it as `eigen_A`. Saves one O(N^3) decomposition per block: ~60 s per block at N = 4000 |
+| **M3** share stanimal's eigendecomposition of `A` across blocks | **done**: stanimal takes `Q`/`lambda` as data in every animal model (stanimal 0.8.0); indri decomposes `A` once per `fit_G()` call and passes it as `eigen_A`. Saves one O(N^3) decomposition per block: ~60 s per block at N = 4000 |
 | **M4** uncertainty, weights, diagnostics | mostly: inverse-variance weights measured (a wash, equal stays default); interval coverage measured — the averaged `G_draws` is overconfident (0.40 at nominal 0.95), the mixture assembly reaches 0.89 against 0.80 for the full model (see below). Left: a `corrG_draws` output and the `spread` default |
 | **M5** performance | partly: parallel blocks and the core budget work; the PSD projection now uses an analytical gradient (the former K=30 bottleneck), no caching |
 
@@ -214,11 +214,7 @@ affected. See [REVIEW.md](REVIEW.md) §1.
    K = 10 (agrees with sommer to 1.000) but unmeasured at K = 30; sommer's
    `mmes` per-block cost degrades on near-boundary bivariate pairs at large K,
    which is worth characterising before recommending block sizes.
-4. **Merge stanimal `indri-support` into `master`.** indri's eigen sharing
-   switches on automatically with any stanimal that has `eigen_A`; until the
-   merge, that means installing the branch. The full stanimal suite passes on
-   the branch.
-5. **The next N-side cost: data transfer.** With the decomposition shared, the
+4. **The next N-side cost: data transfer.** With the decomposition shared, the
    remaining per-block overhead at N = 4000 is ~12 s, most of it CmdStan
    writing and reading the N x N `Q` as JSON for every block. Worth measuring
    before optimising.
@@ -290,8 +286,8 @@ script header. Results go to `results/compare_engines_*_seed<N>.csv`
 - Installing on a fresh machine:
 
   ```sh
-  # stanimal, from the branch with the eigen_A prototype (or master for stock)
-  git -C stanimal checkout indri-support
+  # stanimal >= 0.8.0 (master) shares the eigendecomposition across blocks;
+  # older versions still work, without the saving
   R CMD INSTALL stanimal/package
 
   R CMD INSTALL indri/package
