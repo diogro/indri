@@ -162,6 +162,26 @@ the *same* fits (`f3abee8`, seeds 1-6, 396 pairs, correlation scale):
 `fit_G(spread = "mixture")` is available; the default is still `"average"`.
 Per-seed results: `results/uncertainty_coverage_summary_seed{1..6}.csv`.
 
+## REML at a second size; c = 1 (2026-11-07)
+
+`examples/uncertainty_coverage.R` at K = 30, N = 1000 (200 families of five),
+s = 3, against the K = 12, N = 300 runs; sommer 6 seeds, asreml 3.
+
+| engine, K, N | c | 95% coverage (lowest seed) | width | median abs err |
+|---|---|---|---|---|
+| sommer, 30, 1000 | 1 | 0.969 (0.945) | 0.342 | 0.0487 |
+| sommer, 30, 1000 | 3 | 0.970 (0.949) | 0.341 | 0.0491 |
+| asreml, 30, 1000 | 1 | 0.971 (0.954) | 0.339 | 0.0490 |
+| asreml, 30, 1000 | 3 | 0.969 (0.949) | 0.339 | 0.0491 |
+| sommer, 12, 300 | 1 | 0.967 (0.939) | 0.690 | 0.1029 |
+| sommer, 12, 300 | 3 | 0.970 (0.939) | 0.690 | 0.1027 |
+
+- The slightly conservative calibration holds at the larger size; widths and
+  errors halve with more individuals, as they should.
+- At s = 3, three distinct contexts per pair are no better than one, in
+  accuracy or coverage, at both sizes, for about twice the blocks.
+  **REML default is now s = 3, c = 1**; stanimal keeps c = 3.
+
 ## REML uncertainty, and the sommer ordering bug (2026-11-07)
 
 **Bug, fixed (`4b5748a`).** The sommer engine built `factor(trait)`, whose

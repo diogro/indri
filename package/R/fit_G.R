@@ -23,9 +23,12 @@
 #'   engines, which measured slightly more accurate than pairs at the same or
 #'   lower cost; larger blocks cost more for little more.
 #' @param min_cooccurrence Minimum number of distinct subsets every trait pair
-#'   must appear in. Defaults to 3. Identical subsets are never repeated, since
-#'   a pair estimated twice in the same trait context adds nothing, so the
-#'   value is capped at what the block width allows (1 for two-trait blocks).
+#'   must appear in. The default depends on the engine: 3 for `"stanimal"`, 1
+#'   for the REML engines, where three distinct contexts per pair measured no
+#'   better than one (same accuracy and interval coverage at half the cost).
+#'   Identical subsets are never repeated, since a pair estimated twice in the
+#'   same trait context adds nothing, so the value is capped at what the block
+#'   width allows (1 for two-trait blocks).
 #' @param subsets Optional precomputed subset matrix, from [indri_subsets()].
 #' @param engine Block engine: `"stanimal"` (posterior draws), `"sommer"` or
 #'   `"asreml"` (REML point estimates).
@@ -392,8 +395,11 @@ fit_G <- function(Y, X = NULL, A, s = NULL, min_cooccurrence = NULL,
 # Subset size and co-occurrence when the caller gives neither. stanimal keeps
 # the sqrt(K) rule; the REML engines use s = 3 (4-trait blocks), which the
 # sweeps at K = 16 and 30 (examples/block_size_sweep.R) found slightly more
-# accurate than pairs at the same or lower cost. Every engine asks for each
-# pair in 3 distinct trait contexts (indri_subsets() never repeats a block).
+# accurate than pairs at the same or lower cost. stanimal asks for each pair
+# in 3 distinct trait contexts, the REML engines for 1: at s = 3 three
+# contexts gave the same accuracy and coverage as one (examples/
+# uncertainty_coverage.R, K = 12 and 30) at about twice the blocks.
+# indri_subsets() never repeats a block.
 .indri_engine_defaults <- function(engine, K) {
   caps <- engine$capabilities
   s <- caps$default_s %||% .indri_default_s(K)

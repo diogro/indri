@@ -15,10 +15,10 @@
       vcov = TRUE,
       a_form = "sparse_inverse",
       missing = FALSE,
-      # 4-trait blocks, each pair in 3 distinct ones; see
+      # 4-trait blocks, each pair in at least one; see
       # .indri_engine_defaults()
       default_s = 3L,
-      default_cooccurrence = 3L,
+      default_cooccurrence = 1L,
       # each worker checks out a licence seat; a standard licence has two
       default_cores = 2L
     ),
