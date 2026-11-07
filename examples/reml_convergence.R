@@ -11,8 +11,9 @@
 #                step that stalled often moves on from a fresh start)
 #        half    starting values G = E = P / 2, P the pair's phenotypic
 #                covariance: h2 = 0.5 and the phenotypic correlation split
-#                evenly (the REML engines cannot fit single traits, so there
-#                are no univariate fits to start from)
+#                evenly
+#        uni     starting variances from the two univariate fits, with the
+#                phenotypic correlation split evenly between G and E
 #        triple  the pair inside a 3-trait block, with the trait most
 #                correlated with the pair (phenotypically) added
 #
@@ -90,6 +91,17 @@ shrink <- function(m) {
   m
 }
 restart_values <- function(block) list(G = shrink(block$G), E = shrink(block$E))
+univariate <- lapply(seq_len(K), function(k) refit(k))
+uni_values <- function(idx) {
+  u <- univariate[idx]
+  if (any(vapply(u, is.null, logical(1)))) return(NULL)
+  g <- pmax(vapply(u, function(x) x$G[1, 1], numeric(1)), 0.05)
+  e <- pmax(vapply(u, function(x) x$E[1, 1], numeric(1)), 0.05)
+  r <- max(min(P_corr[idx[1], idx[2]], 0.9), -0.9)
+  cov2 <- function(v) matrix(c(v[1], r * sqrt(v[1] * v[2]),
+                               r * sqrt(v[1] * v[2]), v[2]), 2)
+  list(G = cov2(g), E = cov2(e))
+}
 half_values <- function(idx) {
   P <- stats::cov(Y_std[, idx])
   list(G = P / 2, E = P / 2)
@@ -112,12 +124,14 @@ for (b in seq_len(nrow(fit$subsets))) {
   attempts <- list(iter = list(idx = idx, control = more_iterations),
                    restart = list(idx = idx, control = list(
                      init = restart_values(fit$blocks[[b]]))),
-                   half = list(idx = idx, control = list(init = half_values(idx))))
+                   half = list(idx = idx, control = list(init = half_values(idx))),
+                   uni = list(idx = idx, control = list(init = uni_values(idx))))
   third <- setdiff(seq_len(K), idx)
   third <- third[which.max(pmax(abs(P_corr[idx[1], third]), abs(P_corr[idx[2], third])))]
   attempts$triple <- list(idx = sort(c(idx, third)), control = list())
   for (name in names(attempts)) {
     a <- attempts[[name]]
+    if (name == "uni" && is.null(a$control$init)) next
     out <- refit(a$idx, a$control)
     if (is.null(out)) next
     keep <- match(idx, a$idx)

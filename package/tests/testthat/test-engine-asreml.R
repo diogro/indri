@@ -51,3 +51,15 @@ test_that("asreml start values come from init when given", {
   m <- matrix(c(2, 0.5, 0.5, 1), 2)
   expect_equal(.indri_asreml_us_init(2L, m), c(2, 0.5, 1))
 })
+
+test_that("the asreml engine fits a single trait", {
+  skip_if_no_asreml()
+  data <- simulate_block_data(n_fam = 20, size = 5, K = 2L)
+  Y <- scale(data$Y)
+  forms <- indri_a_forms(data$A, need = "sparse_inverse")
+  X <- matrix(1, nrow(Y), 1, dimnames = list(rownames(Y), "intercept"))
+  one <- .indri_asreml_fit(Y[, 1, drop = FALSE], X, forms)
+  expect_equal(dim(one$G), c(1L, 1L))
+  expect_gt(one$G[1, 1], 0)
+  expect_equal(one$G[1, 1] + one$E[1, 1], 1, tolerance = 0.25)
+})

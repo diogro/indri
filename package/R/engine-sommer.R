@@ -52,9 +52,14 @@
     for (j in covars) long[[x_names[j]]] <- rep(X[, j], K)
   }
 
+  # A single trait is an ordinary univariate animal model: the formulas drop
+  # the `trait` factor (and its usm() structure) altogether.
+  single <- K == 1L
   terms <- character(0)
-  if (any(constant)) terms <- c(terms, "trait")
-  if (length(covars)) terms <- c(terms, paste0("trait:", x_names[covars]))
+  if (any(constant)) terms <- c(terms, if (single) "1" else "trait")
+  if (length(covars))
+    terms <- c(terms, if (single) x_names[covars]
+                      else paste0("trait:", x_names[covars]))
   if (!length(terms))
     stop("`X` has no columns; the sommer engine needs a design matrix.",
          call. = FALSE)
@@ -77,12 +82,17 @@
   init <- .indri_check_init(control$init, K)
   .env$G0 <- init$G
   .env$E0 <- init$E
-  random <- stats::as.formula(paste0(
-    "~ vsm(usm(trait", if (!is.null(init$G)) ", theta = G0", "), ism(id), ",
-    "Gu = Ainv)"), env = .env)
-  rcov <- stats::as.formula(paste0(
-    "~ vsm(usm(trait", if (!is.null(init$E)) ", theta = E0", "), ism(record))"),
-    env = .env)
+  if (single) {
+    random <- stats::as.formula("~ vsm(ism(id), Gu = Ainv)", env = .env)
+    rcov <- stats::as.formula("~ vsm(ism(record))", env = .env)
+  } else {
+    random <- stats::as.formula(paste0(
+      "~ vsm(usm(trait", if (!is.null(init$G)) ", theta = G0", "), ism(id), ",
+      "Gu = Ainv)"), env = .env)
+    rcov <- stats::as.formula(paste0(
+      "~ vsm(usm(trait", if (!is.null(init$E)) ", theta = E0", "), ",
+      "ism(record))"), env = .env)
+  }
 
   # .indri_core_plan() adds a `cores` budget that sommer's control object does
   # not understand; keep only the entries mmes_control() accepts.
@@ -106,10 +116,10 @@
   if (length(llik) != 1L || !is.finite(llik)) llik <- NA_real_
 
   list(
-    G = G$covariance,
-    E = E$covariance,
+    G = as.matrix(G$covariance),
+    E = as.matrix(E$covariance),
     draws = NULL,
-    se = G$covariance.se,
+    se = as.matrix(G$covariance.se),
     converged = isTRUE(fit$convergence),
     loglik = as.numeric(llik),
     time = elapsed

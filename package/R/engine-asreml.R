@@ -54,17 +54,23 @@
   }
   for (k in seq_len(s)) dat[[traits[k]]] <- Y[, k]
 
+  # A single trait is an ordinary univariate animal model: no `trait` factor,
+  # no us() structures, and asreml's default `units` residual.
+  single <- s == 1L
   terms <- character(0)
-  if (any(constant)) terms <- c(terms, "trait")
-  if (length(covars)) terms <- c(terms, paste0("trait:", x_names[covars]))
+  if (any(constant)) terms <- c(terms, if (single) "1" else "trait")
+  if (length(covars))
+    terms <- c(terms, if (single) x_names[covars]
+                      else paste0("trait:", x_names[covars]))
   if (!length(terms)) {
     # no intercept: trait-specific slopes only, and no global intercept
     terms <- c("0 +", paste0("trait:", x_names))
   }
 
+  response <- if (single) traits else
+    paste("cbind(", paste(traits, collapse = ", "), ")")
   fixed <- stats::as.formula(
-    paste("cbind(", paste(traits, collapse = ", "), ") ~ ",
-          paste(terms, collapse = " + ")),
+    paste(response, "~", paste(terms, collapse = " + ")),
     env = environment()
   )
   # Starting values: the identity unless `control$init = list(G =, E =)` gives
@@ -73,13 +79,15 @@
   init_G <- .indri_asreml_us_init(s, init$G)
   init_E <- .indri_asreml_us_init(s, init$E)
   random <- stats::as.formula(
-    paste("~ vm(id, Ainv):us(trait, init = c(",
-          paste(init_G, collapse = ", "), "))"),
+    if (single) "~ vm(id, Ainv)" else
+      paste("~ vm(id, Ainv):us(trait, init = c(",
+            paste(init_G, collapse = ", "), "))"),
     env = environment()
   )
   rcov <- stats::as.formula(
-    paste("~ units:us(trait, init = c(",
-          paste(init_E, collapse = ", "), "))"),
+    if (single) "~ units" else
+      paste("~ units:us(trait, init = c(",
+            paste(init_E, collapse = ", "), "))"),
     env = environment()
   )
 
@@ -102,7 +110,7 @@
 
   vc <- summary(fit)$varcomp
   gi <- grep("^vm\\(", rownames(vc))
-  ei <- grep("^units.*trait!trait", rownames(vc))
+  ei <- grep(if (single) "^units" else "^units.*trait!trait", rownames(vc))
 
   list(
     G = .indri_lower2mat(vc[gi, "component"], s),

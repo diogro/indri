@@ -67,3 +67,17 @@ test_that("starting covariances are validated and reach the REML fit", {
   # starting at the optimum, the fit stays there
   expect_equal(started$G, plain$G, tolerance = 1e-3)
 })
+
+test_that("the sommer engine fits a single trait", {
+  skip_if_not_installed("sommer")
+  data <- simulate_block_data(n_fam = 20, size = 5, K = 2L)
+  Y <- scale(data$Y)
+  forms <- indri_a_forms(data$A, need = "inverse")
+  X <- matrix(1, nrow(Y), 1, dimnames = list(rownames(Y), "intercept"))
+  one <- .indri_sommer_fit(Y[, 1, drop = FALSE], X, forms)
+  expect_equal(dim(one$G), c(1L, 1L))
+  expect_equal(dim(one$E), c(1L, 1L))
+  expect_gt(one$G[1, 1], 0)
+  # on standardised data G + E is about the phenotypic variance, 1
+  expect_equal(one$G[1, 1] + one$E[1, 1], 1, tolerance = 0.25)
+})
