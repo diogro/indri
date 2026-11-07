@@ -19,11 +19,13 @@
 #   INDRI_ENGINE_NFAM    families (60)
 #   INDRI_ENGINE_SIZE    sibship size (5)
 #   INDRI_ENGINE_S       subset size parameter for stanimal blocks (4)
-#   INDRI_ENGINE_S_SOMMER subset size parameter for sommer blocks (2)
-#   INDRI_ENGINE_S_ASREML subset size parameter for asreml blocks (2)
+#   INDRI_ENGINE_S_SOMMER subset size parameter for sommer blocks (package
+#                        default: 3)
+#   INDRI_ENGINE_S_ASREML subset size parameter for asreml blocks (package
+#                        default: 3)
 #   INDRI_ENGINE_MINCOOC minimum pair coverage for stanimal blocks (3)
-#   INDRI_ENGINE_MINCOOC_REML minimum pair coverage for sommer/asreml blocks (1;
-#                        a REML fit of the same pair is the same number)
+#   INDRI_ENGINE_MINCOOC_REML minimum number of distinct blocks per pair for
+#                        sommer/asreml (package default: 3)
 #   INDRI_ENGINE_SEED    simulation seed (1)
 #   INDRI_ENGINE_CORES   Stan process budget for the stanimal blocks (64)
 #   INDRI_ENGINE_CORES_SOMMER number of sommer blocks to run in parallel (16)
@@ -50,10 +52,15 @@ K <- as.integer(Sys.getenv("INDRI_ENGINE_K", "10"))
 n_fam <- as.integer(Sys.getenv("INDRI_ENGINE_NFAM", "60"))
 sibship_size <- as.integer(Sys.getenv("INDRI_ENGINE_SIZE", "5"))
 s <- as.integer(Sys.getenv("INDRI_ENGINE_S", "4"))
-s_sommer <- as.integer(Sys.getenv("INDRI_ENGINE_S_SOMMER", "2"))
-s_asreml <- as.integer(Sys.getenv("INDRI_ENGINE_S_ASREML", "2"))
+# NULL means "use the package's default for that engine"
+int_or_null <- function(name) {
+  v <- Sys.getenv(name, "")
+  if (nzchar(v)) as.integer(v) else NULL
+}
+s_sommer <- int_or_null("INDRI_ENGINE_S_SOMMER")
+s_asreml <- int_or_null("INDRI_ENGINE_S_ASREML")
 min_cooccurrence <- as.integer(Sys.getenv("INDRI_ENGINE_MINCOOC", "3"))
-min_cooccurrence_reml <- as.integer(Sys.getenv("INDRI_ENGINE_MINCOOC_REML", "1"))
+min_cooccurrence_reml <- int_or_null("INDRI_ENGINE_MINCOOC_REML")
 seed <- as.integer(Sys.getenv("INDRI_ENGINE_SEED", "1"))
 cores <- as.integer(Sys.getenv("INDRI_ENGINE_CORES", "64"))
 cores_sommer <- as.integer(Sys.getenv("INDRI_ENGINE_CORES_SOMMER", "16"))
@@ -164,8 +171,9 @@ times <- c(
 )
 
 summary_rows <- list()
-block_s <- c(indri_sommer = s_sommer, indri_stanimal = s,
-             indri_asreml = s_asreml)
+block_s <- c(indri_sommer = if (is.null(fit_sommer)) NA else fit_sommer$s,
+             indri_stanimal = s,
+             indri_asreml = if (is.null(fit_asreml)) NA else fit_asreml$s)
 for (method in names(estimates)) {
   estimate <- estimates[[method]]
   if (is.null(estimate)) next
