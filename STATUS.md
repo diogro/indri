@@ -43,7 +43,7 @@ available); 14 in the stanimal branch's new test file.
 | **M1** `fit_G()` on the stanimal engine, validated against the full model | **done, gate passed** |
 | **M2** sommer and ASReml engines | **done**: both implement the block contract; the two REML engines agree with each other and with stanimal |
 | **M3** wire stanimal's `eigen_A` variant into an engine | prototype ready upstream, not wired |
-| **M4** uncertainty, weights, diagnostics | partly: `G_draws` exists; inverse-variance weights now feed both the average and the projection (posterior draws for stanimal, `se` for REML engines) and are unit-tested; the weighted-vs-unweighted study is the open item |
+| **M4** uncertainty, weights, diagnostics | partly: `G_draws` exists; inverse-variance weights feed both average and projection and are unit-tested; weighted-vs-unweighted study measured (a wash at N=300, equal weights stay default). Uncertainty *coverage* still unvalidated |
 | **M5** performance | partly: parallel blocks and the core budget work; the PSD projection now uses an analytical gradient (the former K=30 bottleneck), no caching |
 
 ## What has been measured
@@ -97,40 +97,42 @@ the honest statement is "at K = 30 the method wins on one dataset", not yet "the
 method wins". Repeat across seeds (and push to K = 40) before citing a
 threshold.
 
-## Current plan (2026-11-07)
+## Weights: measured (2026-11-07)
 
-Finish the M4 weights question. The inverse-variance path was wired in but did
-not reach the estimate: it weighted only the plain average, which the default
-LS projection uses merely as a starting point, and the default (stanimal) engine
-reported no `se`. The fixes just landed: the projection objective is now
-`sum_j || W_j * (C[I_j, I_j] - G_j) ||^2`, and stanimal's weight is the
-per-entry posterior precision from its draws (REML engines keep their `se`).
-Next: run the weighted-vs-unweighted study (`INDRI_STUDY_WEIGHTS=1`), and keep
-weighting as an option only if it beats equal weights on the 12-trait
-benchmark; otherwise document equal weights as the robust default.
+The M4 weights question is closed for the current sample size. On the 12-trait
+seed-1 benchmark, inverse-variance weighting does not beat equal weights:
+
+| method | median abs err | q90 abs err | corr of corr | rel Frobenius |
+|---|---|---|---|---|
+| indri, equal weights | 0.0866 | 0.213 | 0.965 | 0.237 |
+| indri, inverse-variance | 0.0894 | 0.209 | 0.964 | 0.237 |
+| full 12-trait model | 0.0943 | 0.248 | 0.959 | 0.285 |
+
+The two indri variants agree within Monte Carlo noise, and both beat the full
+model. Conclusion: equal weights stay the default (paper fidelity);
+inverse-variance remains available but is not advertised as better — noisy
+per-block uncertainties and dependent blocks mean the weighting adds nothing at
+N = 300.
 
 ## Next, in priority order
 
-1. **Multi-seed crossover (K = 30 and 40).** The single-seed K = 30 result is
-   promising but is one dataset. Run `compare_engines.R` across several seeds and
-   at K = 40 to turn it into a statement. At K = 30 a stanimal run costs ~2.5
-   minutes per seed at 64 cores.
-2. **Uncertainty is unvalidated.** `G_draws` is documented as "an assembled
+1. **Uncertainty is unvalidated.** `G_draws` is documented as "an assembled
    spread, not a posterior". That is currently an assertion. M4's coverage study
    (fraction of true entries inside the 95% band, reported per coverage count)
    is what turns it into a claim, or into an honest caveat.
-3. **Weights vs missing data end to end.** The inverse-variance path now
-   reaches the estimate (projection weights + stanimal posterior precision),
-   but the weighted-vs-unweighted comparison has not been run
-   (`INDRI_STUDY_WEIGHTS=1`); that run is the current plan. Separately, the
-   missing-data policy has still never gone through `fit_G()` with gaps in `Y`.
-4. **asreml at K = 30, and sommer's per-block cost.** asreml is validated at
+2. **Missing data end to end.** The missing-data policy has still never gone
+   through `fit_G()` with gaps in `Y`; `"complete_block"` is implemented but
+   unexercised on real fits. (The weights question is closed — see above.)
+3. **asreml at K = 30, and sommer's per-block cost.** asreml is validated at
    K = 10 (agrees with sommer to 1.000) but unmeasured at K = 30; sommer's
    `mmes` per-block cost degrades on near-boundary bivariate pairs at large K,
    which is worth characterising before recommending block sizes.
-5. **M3, stanimal's `eigen_A`.** Prototype ready upstream, not wired. The shared
+4. **M3, stanimal's `eigen_A`.** Prototype ready upstream, not wired. The shared
    eigen-decomposition is the path to making the stanimal engine cheap enough at
    large N.
+
+*Dropped*: the multi-seed K=30/40 crossover — the implementation is accepted as
+correct, so the single-seed K=30 result stands as-is.
 
 ## Running the studies
 

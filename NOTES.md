@@ -537,9 +537,9 @@ model becomes the slow side.
   number is the deliverable, not a pass/fail gate.
 - **Weights** (M4): same simulated data, `weights = "none"` vs
   `"inverse_variance"`, reported on median per-entry error and correlation of
-  correlations. This is the only way to learn whether the noisy per-block
-  uncertainties improve on equal weights; run it before making weighting a
-  default or an advertised feature.
+  correlations. Measured on the 12-trait seed-1 benchmark: inverse-variance
+  (median |err| 0.0894, q90 0.209) does not beat equal weights (0.0866, 0.213)
+  — a wash within Monte Carlo noise. Equal weights stay the default.
 - **Do not** claim posterior calibration. Claim what is measured.
 
 ---
@@ -561,8 +561,8 @@ model becomes the slow side.
    weights the projection objective as well as the average
    (`sum_j || W_j * (C[I_j,I_j] - G_j) ||^2`), and the stanimal engine's weight
    is the per-entry posterior precision from its draws (REML engines keep their
-   `se`). *Default: still equal until the weighted-vs-unweighted benchmark
-   decides whether the weights help; see §10.*
+   `se`). *Default: equal — measured as a wash at N = 300 (see §10), so the
+   weighting remains an option rather than a recommendation.*
 5. **Uncertainty per engine.** `stanimal` -> draws; `sommer`/`asreml` -> delta
    method SEs propagated as a Gaussian ensemble. The independence caveat in
    propagating a per-entry `se` matrix (entries are correlated) must be stated.
