@@ -87,7 +87,8 @@ test_that("diagnostics reads logical and Rhat convergence", {
 
   # Unknown convergence (e.g. an rstan backend with no Rhat) stays optimistic,
   # matching the original behaviour.
-  expect_true(.indri_diagnostics(list(list(converged = NA_real_)))$converged)
+  # no block could tell: unknown, not converged
+  expect_true(is.na(.indri_diagnostics(list(list(converged = NA_real_)))$converged))
 })
 
 test_that("print and summary work on a fit", {
@@ -131,4 +132,26 @@ test_that("subset size, co-occurrence and workers default by engine", {
   cov <- attr(sub, "coverage")
   expect_gte(min(cov[upper.tri(cov)]), 1L)
   expect_lte(nrow(sub), choose(16, 2) + 1L)
+})
+
+test_that("diagnostics list the blocks that did not converge, by trait", {
+  blocks <- list(list(converged = TRUE), list(converged = FALSE),
+                 list(converged = 1.2), list(converged = NA))
+  subsets <- rbind(c(1L, 2L), c(1L, 3L), c(2L, 3L), c(1L, 2L))
+  d <- .indri_diagnostics(blocks, subsets, c("a", "b", "c"))
+  expect_false(d$converged)
+  expect_equal(d$n_unconverged, 2L)
+  expect_equal(d$n_unknown, 1L)
+  expect_equal(d$unconverged$block, c(2L, 3L))
+  expect_equal(d$unconverged$traits, c("a, c", "b, c"))
+  expect_equal(d$unconverged$rhat, c(NA, 1.2))
+})
+
+test_that("only stanimal blocks that did not mix are worth a warning", {
+  reml <- .indri_diagnostics(list(list(converged = FALSE), list(converged = TRUE)),
+                             rbind(1:2, 2:3))
+  expect_null(.indri_rhat_warning(reml, 2L))
+  stan <- .indri_diagnostics(list(list(converged = 1.2), list(converged = 1.01)),
+                             rbind(1:2, 2:3))
+  expect_match(.indri_rhat_warning(stan, 2L), "1 of 2 blocks have Rhat >= 1.05")
 })

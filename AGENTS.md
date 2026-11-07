@@ -110,6 +110,12 @@ documented because they are invisible from reading the code.
   blocks were measured to gain nothing and converge worse, and a REML refit of
   the same pair is the same number. Do not change them without a new sweep
   (`examples/block_size_sweep.R`).
+- **Non-converged REML blocks are reported, not refitted.** They were measured
+  to sit at the REML optimum without certifying it (same estimate from every
+  start, as accurate as converged pairs; STATUS.md). Do not add automatic
+  refits or block dropping without a new measurement. stanimal blocks with
+  Rhat >= 1.05 warn (`options(indri.warn_rhat = FALSE)`, which the test
+  helper sets because the suite's fits are short on purpose).
 - **asreml: one licence seat per process.** The default is two workers; the
   licence allows two processes on one machine at a time. Already loading
   asreml in the session takes a seat, so the default drops to one there. Tests

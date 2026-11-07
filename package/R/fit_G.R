@@ -225,6 +225,13 @@ fit_G <- function(Y, X = NULL, A, s = NULL, min_cooccurrence = NULL,
 
   # The engine may or may not carry trait names through; naming is indri's job.
   trait_names <- colnames(Y)
+  diagnostics <- .indri_diagnostics(blocks, subsets, trait_names)
+  # A stanimal block with Rhat >= 1.05 did not mix: that is a sampling problem
+  # worth a warning. REML blocks that report no convergence are listed in
+  # `diagnostics` only (see .indri_diagnostics()).
+  message <- .indri_rhat_warning(diagnostics, nrow(subsets))
+  if (!is.null(message) && isTRUE(getOption("indri.warn_rhat", TRUE)))
+    warning(message, call. = FALSE)
   dimnames(G) <- list(trait_names, trait_names)
   dimnames(assembled$G) <- list(trait_names, trait_names)
   corrG <- stats::cov2cor(G)
@@ -259,12 +266,12 @@ fit_G <- function(Y, X = NULL, A, s = NULL, min_cooccurrence = NULL,
     parallel = plan[c("cores", "chains", "blocks_in_parallel",
                       "per_block_cores")],
     blocks = blocks,
-    diagnostics = .indri_diagnostics(blocks),
+    diagnostics = diagnostics,
     call = call
   ), class = "indri_fit")
 }
 
-.indri_diagnostics <- function(blocks) {
+.indri_diagnostics <- function(blocks, subsets = NULL, trait_names = NULL) {
   values <- lapply(blocks, `[[`, "converged")
 
   # Rhat is only meaningful for engines that report it (stanimal returns the
@@ -279,7 +286,7 @@ fit_G <- function(Y, X = NULL, A, s = NULL, min_cooccurrence = NULL,
   # 1.05 threshold. NULL, length != 1 and NA mean "could not tell".
   block_ok <- vapply(values, function(v) {
     if (is.null(v) || length(v) != 1L) return(NA)
-    if (is.logical(v)) return(isTRUE(v))
+    if (is.logical(v)) return(if (is.na(v)) NA else v)
     if (is.numeric(v)) {
       if (!is.finite(v)) return(NA)
       return(v < 1.05)
@@ -287,10 +294,28 @@ fit_G <- function(Y, X = NULL, A, s = NULL, min_cooccurrence = NULL,
     NA
   }, logical(1))
 
+  # Which blocks said no. For the REML engines this is almost always "optimum
+  # reached, convergence not certified": examples/reml_convergence.R found the
+  # flagged pairs as accurate as the rest, at the same optimum from every
+  # starting point, and no refit (more iterations, other starts, a larger
+  # block) improved them. They are reported, not refitted or dropped.
+  bad <- which(block_ok %in% FALSE)
+  traits <- if (is.null(subsets)) rep(NA_character_, length(bad)) else
+    vapply(bad, function(i) {
+      idx <- subsets[i, ]
+      paste(if (is.null(trait_names)) idx else trait_names[idx],
+            collapse = ", ")
+    }, character(1))
+
   list(
     rhat = rhat,
     max_rhat = suppressWarnings(max(rhat, na.rm = TRUE)),
-    converged = if (all(is.na(block_ok))) TRUE else all(block_ok, na.rm = TRUE)
+    # NA when no block could tell (e.g. stanimal fits through rstan)
+    converged = if (all(is.na(block_ok))) NA else all(block_ok, na.rm = TRUE),
+    n_unconverged = length(bad),
+    n_unknown = sum(is.na(block_ok)),
+    unconverged = data.frame(block = bad, traits = traits,
+                             rhat = rhat[bad], stringsAsFactors = FALSE)
   )
 }
 
@@ -316,6 +341,17 @@ fit_G <- function(Y, X = NULL, A, s = NULL, min_cooccurrence = NULL,
   s <- caps$default_s %||% .indri_default_s(K)
   list(s = max(2L, min(as.integer(s), K)),
        min_cooccurrence = caps$default_cooccurrence %||% 3L)
+}
+
+# The warning for stanimal blocks that did not mix, or NULL. Silence it with
+# options(indri.warn_rhat = FALSE) (the test suite does: its fits are short on
+# purpose).
+.indri_rhat_warning <- function(diagnostics, n_blocks) {
+  slow <- sum(diagnostics$unconverged$rhat >= 1.05, na.rm = TRUE)
+  if (slow == 0L) return(NULL)
+  paste0(slow, " of ", n_blocks, " blocks have Rhat >= 1.05 (max ",
+         signif(diagnostics$max_rhat, 3), "); run longer chains. See ",
+         "`fit$diagnostics$unconverged`.")
 }
 
 # Correlation draws of one block: cov2cor() of every draw.

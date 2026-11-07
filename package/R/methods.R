@@ -14,6 +14,14 @@ print.indri_fit <- function(x, ...) {
   cat("  min eigenvalue:    ", signif(.indri_min_eigen(x$G), 4), "\n", sep = "")
   if (!is.null(x$diagnostics$max_rhat) && is.finite(x$diagnostics$max_rhat))
     cat("  max Rhat (G):      ", signif(x$diagnostics$max_rhat, 4), "\n", sep = "")
+  n_bad <- x$diagnostics$n_unconverged
+  if (!is.null(n_bad) && n_bad > 0L) {
+    reml <- x$engine %in% c("sommer", "asreml")
+    cat("  ", if (reml) "not certified:     " else "not converged:     ",
+        n_bad, " of ", nrow(x$subsets), " blocks",
+        if (reml) " (at the optimum as far as measured; see $diagnostics)"
+        else " (see $diagnostics$unconverged)", "\n", sep = "")
+  }
   cat("\nG (first entries):\n")
   show <- seq_len(min(4L, K))
   print(round(x$G[show, show, drop = FALSE], 3))

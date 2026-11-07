@@ -158,6 +158,37 @@ the *same* fits (`f3abee8`, seeds 1-6, 396 pairs, correlation scale):
 `fit_G(spread = "mixture")` is available; the default is still `"average"`.
 Per-seed results: `results/uncertainty_coverage_summary_seed{1..6}.csv`.
 
+## Non-converged REML pairs: measured (2026-11-07)
+
+`examples/reml_convergence.R`: every pair fitted once (s = 2, c = 1), then
+each pair whose fit reports no convergence refitted five ways. sommer K = 16
+(6 seeds) and K = 30 (4 seeds); asreml K = 16 (2 seeds) and K = 30 (1 seed).
+
+| | asreml: 26 of 678 pairs (3.8%) | sommer: 59 of 2,470 (2.4%) |
+|---|---|---|
+| abs error, converged vs not (median) | 0.107 vs 0.099 | 0.098 vs 0.115 (same q90) |
+| more iterations | 42% then certified; estimate moves 0.004 | stops at ~29 anyway; no change |
+| restart / h2 = 0.5 / univariate starts | 31-73% certified; estimate moves 0.006-0.017; error no better | identical estimate from every start |
+| pair inside a 3-trait block | never certified; no better | worse: 38 pairs worse, 19 better |
+
+- **"Not converged" means "optimum reached, not certified".** sommer stalls
+  ("AI-first optimization stalled ... convergence was not certified") with
+  the log-likelihood changing by ~1e-6 per step, and three very different
+  starts end at the same log-likelihood (to 5e-6) and the same estimate. The
+  flagged pairs are the hard ones (median true |r| 0.60 vs 0.38; some at
+  |r| ~ 1 or h2 near a boundary), not badly estimated ones.
+- **No refit improves accuracy**, and the occasional larger block makes it
+  worse. Dropping a pair is not an option either: with c = 1 its entry would
+  then rest on nothing.
+- **Decision: report, don't refit.** `fit$diagnostics$unconverged` lists the
+  blocks and their traits, `print()` shows the count ("not certified" for
+  REML), and only stanimal blocks with Rhat >= 1.05 raise a warning
+  (`options(indri.warn_rhat = FALSE)` silences it). `diagnostics$converged` is
+  now `NA`, not `TRUE`, when no block can tell (REVIEW §4).
+- The REML engines now fit single-trait blocks (formulas without the `trait`
+  factor) and take starting values (`engine_args = list(init = list(G =,
+  E =))`); asreml also takes `maxit` and `updates`.
+
 ## REML block size: measured, defaults changed (2026-11-07)
 
 `examples/block_size_sweep.R`, s in {2, 3, 4, 5} x c in {1, 3}, same data

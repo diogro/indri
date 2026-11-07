@@ -611,6 +611,10 @@ model becomes the slow side.
    coverage. The REML engines' Gaussian ensemble has the same averaging trap
    and is unmeasured.*
 6. **Missing data.** `"error"` vs `"complete_block"` default. *Default: `"error"`.*
+6b. **Non-converged REML blocks.** *Decided (2026-11-07, STATUS.md): reported
+    in `diagnostics`, not refitted or dropped; they are uncertified optima,
+    not bad estimates, and no refit tried (iterations, starts, larger block)
+    improved them.*
 6a. **Block size per engine.** *Decided (2026-11-07, STATUS.md): REML engines
     fit pairs once each (s = 2, c = 1); larger REML blocks gain no accuracy and
     converge worse (sommer fails outright). stanimal keeps the sqrt(K) rule

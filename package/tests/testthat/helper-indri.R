@@ -1,3 +1,6 @@
+# The fits in this suite are short on purpose; their Rhat warnings are noise.
+options(indri.warn_rhat = FALSE)
+
 skip_if_no_cmdstan <- function() {
   testthat::skip_on_cran()
   testthat::skip_if_not_installed("cmdstanr")

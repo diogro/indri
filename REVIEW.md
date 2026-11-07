@@ -13,7 +13,7 @@ Status of the findings (updated 2026-11-07):
 | 1 | subset sampler misses `min_cooccurrence` | **fixed** (`0837352`) |
 | 2 | averaged `G_draws` overconfident | **diagnosed and fixed** in `f3abee8` / `96f0894`: mixture 0.89 vs average 0.40; left: `corrG_draws`, flip the default |
 | 3 | LKJ prior confounds the full-model comparison | open — REML full-model baseline is STATUS item 1 |
-| 4 | doc drift | docs fixed; M3 done (generalised in stanimal, wired in indri); asreml `engine_args` / formula and the all-NA diagnostics flag still open |
+| 4 | doc drift | docs fixed; M3 done (generalised in stanimal, wired in indri); all-NA diagnostics flag fixed (now `NA`); asreml now takes `init`, `maxit`, `updates` from `engine_args`, and single-trait blocks; its no-columns formula still open |
 
 ## 1. Bug: `indri_subsets()` does not guarantee `min_cooccurrence`
 
