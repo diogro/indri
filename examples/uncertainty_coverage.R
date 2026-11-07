@@ -33,6 +33,11 @@
 #   INDRI_COVERAGE_FULL    1 to fit the full stanimal model as a reference
 #                          (1 for stanimal, 0 otherwise; same seeds, same data)
 #   INDRI_COVERAGE_DRAWS   draws per block for the REML engines (1000)
+#   INDRI_COVERAGE_K       traits (12)
+#   INDRI_COVERAGE_NFAM    families of 5 full sibs; N = 5 x NFAM (60, N = 300)
+#   INDRI_COVERAGE_S, INDRI_COVERAGE_C
+#                          REML subset size and distinct contexts per pair
+#                          (package defaults: 3 and 3)
 
 library(indri)
 
@@ -43,11 +48,16 @@ if (!requireNamespace("cmdstanr", quietly = TRUE))
 
 ## Settings ----------------------------------------------------------------
 
-K <- 12L
-n_fam <- 60L
+K <- as.integer(Sys.getenv("INDRI_COVERAGE_K", "12"))
+n_fam <- as.integer(Sys.getenv("INDRI_COVERAGE_NFAM", "60"))   # N = 5 n_fam
 sibship_size <- 5L
 s <- 4L
 min_cooccurrence <- 3L
+# REML block settings; empty means the package default (s = 3, c = 3)
+reml_s <- Sys.getenv("INDRI_COVERAGE_S", "")
+reml_c <- Sys.getenv("INDRI_COVERAGE_C", "")
+reml_s <- if (nzchar(reml_s)) as.integer(reml_s) else NULL
+reml_c <- if (nzchar(reml_c)) as.integer(reml_c) else NULL
 seeds <- as.integer(strsplit(Sys.getenv("INDRI_COVERAGE_SEEDS", "1,2,3"), ",")[[1]])
 cores <- as.integer(Sys.getenv("INDRI_COVERAGE_CORES", "1"))
 iter <- as.integer(Sys.getenv("INDRI_COVERAGE_ITER", "400"))
@@ -56,7 +66,12 @@ engine <- Sys.getenv("INDRI_COVERAGE_ENGINE", "stanimal")
 reml <- engine != "stanimal"
 run_full <- Sys.getenv("INDRI_COVERAGE_FULL", if (reml) "0" else "1") == "1"
 n_draws <- as.integer(Sys.getenv("INDRI_COVERAGE_DRAWS", "1000"))
-tag <- if (reml) paste0(engine, "_") else ""
+# File tag: engine, and any setting that differs from the original study
+tag <- paste0(
+  if (reml) paste0(engine, "_") else "",
+  if (K != 12L || n_fam != 60L) sprintf("K%d_N%d_", K, n_fam * sibship_size) else "",
+  if (!is.null(reml_s)) sprintf("s%d_", reml_s) else "",
+  if (!is.null(reml_c)) sprintf("c%d_", reml_c) else "")
 Sys.setenv(OMP_NUM_THREADS = "1")
 
 block_control <- list(chains = 1L, iter = iter, init = 0.5,
@@ -142,7 +157,8 @@ for (seed in seeds) {
   data <- simulate(seed)
 
   if (reml) {
-    fit <- fit_G(data$Y, A = data$A, engine = engine, cores = cores,
+    fit <- fit_G(data$Y, A = data$A, engine = engine, s = reml_s,
+                 min_cooccurrence = reml_c, cores = cores,
                  n_draws = n_draws, seed = 1000L + seed)
     arms <- list(fit$corrG_draws)
     names(arms) <- paste0("indri_", engine)
