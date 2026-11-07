@@ -39,9 +39,12 @@ engines, which measured slightly more accurate than pairs at the same or
 lower cost; larger blocks cost more for little more.}
 
 \item{min_cooccurrence}{Minimum number of distinct subsets every trait pair
-must appear in. Defaults to 3. Identical subsets are never repeated, since
-a pair estimated twice in the same trait context adds nothing, so the
-value is capped at what the block width allows (1 for two-trait blocks).}
+must appear in. The default depends on the engine: 3 for \code{"stanimal"}, 1
+for the REML engines, where three distinct contexts per pair measured no
+better than one (same accuracy and interval coverage at half the cost).
+Identical subsets are never repeated, since a pair estimated twice in the
+same trait context adds nothing, so the value is capped at what the block
+width allows (1 for two-trait blocks).}
 
 \item{subsets}{Optional precomputed subset matrix, from \code{\link[=indri_subsets]{indri_subsets()}}.}
 
