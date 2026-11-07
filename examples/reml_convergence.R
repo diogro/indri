@@ -7,9 +7,12 @@
 #   2. refits it three ways and records convergence and error:
 #        iter    more iterations (sommer maxIters 300; asreml maxit 50 with
 #                up to 5 update passes)
-#        start   starting values from the two univariate fits (genetic and
-#                residual variances) and the phenotypic correlation split
-#                evenly between G and E
+#        restart starting values at the non-converged estimate itself (an AI
+#                step that stalled often moves on from a fresh start)
+#        half    starting values G = E = P / 2, P the pair's phenotypic
+#                covariance: h2 = 0.5 and the phenotypic correlation split
+#                evenly (the REML engines cannot fit single traits, so there
+#                are no univariate fits to start from)
 #        triple  the pair inside a 3-trait block, with the trait most
 #                correlated with the pair (phenotypically) added
 #
@@ -76,16 +79,20 @@ refit <- function(idx, control = list()) {
   out
 }
 
-univariate <- lapply(seq_len(K), function(k) refit(k))
-
-start_values <- function(i, j) {
-  ui <- univariate[[i]]; uj <- univariate[[j]]
-  if (is.null(ui) || is.null(uj)) return(NULL)
-  g <- c(ui$G[1, 1], uj$G[1, 1]); e <- c(ui$E[1, 1], uj$E[1, 1])
-  g <- pmax(g, 0.05); e <- pmax(e, 0.05)
-  r <- max(min(P_corr[i, j], 0.9), -0.9)   # split evenly between G and E
-  list(G = matrix(c(g[1], r * sqrt(g[1] * g[2]), r * sqrt(g[1] * g[2]), g[2]), 2),
-       E = matrix(c(e[1], r * sqrt(e[1] * e[2]), r * sqrt(e[1] * e[2]), e[2]), 2))
+# A start must be positive definite: pull a near-singular estimate inwards.
+shrink <- function(m) {
+  r <- stats::cov2cor(m)[1, 2]
+  if (!is.finite(r) || abs(r) > 0.95) {
+    r <- sign(r) * 0.95
+    d <- sqrt(pmax(diag(m), 0.05))
+    m <- diag(d) %*% matrix(c(1, r, r, 1), 2) %*% diag(d)
+  }
+  m
+}
+restart_values <- function(block) list(G = shrink(block$G), E = shrink(block$E))
+half_values <- function(idx) {
+  P <- stats::cov(Y_std[, idx])
+  list(G = P / 2, E = P / 2)
 }
 
 more_iterations <- if (engine_name == "sommer") {
@@ -103,13 +110,14 @@ for (b in seq_len(nrow(fit$subsets))) {
 
   message("pair ", paste(idx, collapse = "-"), " did not converge; refitting")
   attempts <- list(iter = list(idx = idx, control = more_iterations),
-                   start = list(idx = idx, control = list(init = start_values(idx[1], idx[2]))))
+                   restart = list(idx = idx, control = list(
+                     init = restart_values(fit$blocks[[b]]))),
+                   half = list(idx = idx, control = list(init = half_values(idx))))
   third <- setdiff(seq_len(K), idx)
   third <- third[which.max(pmax(abs(P_corr[idx[1], third]), abs(P_corr[idx[2], third])))]
   attempts$triple <- list(idx = sort(c(idx, third)), control = list())
   for (name in names(attempts)) {
     a <- attempts[[name]]
-    if (name == "start" && is.null(a$control$init)) next
     out <- refit(a$idx, a$control)
     if (is.null(out)) next
     keep <- match(idx, a$idx)
