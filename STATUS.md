@@ -12,10 +12,9 @@ next.
 | `stanimal` | `indri-support` | `diogro/stanimal` | `animalModelGQR.stan`, `eigen_A`, `test-eigen-A.R` (+480/-1 over master) |
 | `limmbo` | `indri-session-fixes` | `diogro/limmbo` (fork of `meyer-lab-cshl/limmbo`) | pipeline fixes, pixi environment, AGENTS.md (+140/-34 over master) |
 
-All three are pushed and the working trees are clean. Heads at the time of
-writing: `indri` `51bac4d`, `stanimal/indri-support` `bdd30cf`, `limmbo`
-`indri-session-fixes` `4edd228`; check with `git ls-remote --heads origin`
-rather than trusting this line.
+All three are pushed. Heads of the two side branches at the time of writing:
+`stanimal/indri-support` `bdd30cf`, `limmbo` `indri-session-fixes` `4edd228`;
+check with `git ls-remote --heads origin` rather than trusting this line.
 
 Cloning on another machine — note that two of the branches are not the default
 branch of their repo:
@@ -34,7 +33,7 @@ from) and older `feature/0.7.0`/`roadmap` branches. In the `limmbo` checkout,
 git remote add upstream https://github.com/meyer-lab-cshl/limmbo
 ```
 
-160+ test assertions pass in `indri` (the asreml tests skip where no licence is
+About 1,760 test assertions pass in `indri` (the asreml tests skip where no licence is
 available); 14 in the stanimal branch's new test file.
 
 | Milestone | State |
@@ -43,7 +42,7 @@ available); 14 in the stanimal branch's new test file.
 | **M1** `fit_G()` on the stanimal engine, validated against the full model | **done, gate passed** |
 | **M2** sommer and ASReml engines | **done**: both implement the block contract; the two REML engines agree with each other and with stanimal |
 | **M3** wire stanimal's `eigen_A` variant into an engine | prototype ready upstream, not wired |
-| **M4** uncertainty, weights, diagnostics | mostly: `G_draws` exists; inverse-variance weights measured (a wash, equal stays default); interval coverage measured (indri band overconfident — see below). Diagnostics reported per block; the `G_draws` interval claim needs an honest caveat or removal |
+| **M4** uncertainty, weights, diagnostics | mostly: inverse-variance weights measured (a wash, equal stays default); interval coverage measured — the averaged `G_draws` is overconfident (0.40 at nominal 0.95), the mixture assembly reaches 0.89 against 0.80 for the full model (see below). Left: a `corrG_draws` output and the `spread` default |
 | **M5** performance | partly: parallel blocks and the core budget work; the PSD projection now uses an analytical gradient (the former K=30 bottleneck), no caching |
 
 ## What has been measured
@@ -125,10 +124,9 @@ is substantially more overconfident: its mean band width is ~0.17 versus ~0.46
 for the full model, and coverage *falls* as a pair's coverage count rises (the
 `10+` band runs 25-35%), because averaging more blocks narrows the spread.
 
-Conclusion: `G_draws` is a relative spread across dependent blocks, not a
-credible interval. Do not present it as one; document it as such and consider
-dropping the interval claim from the API narrative until a calibrated
-alternative exists.
+Conclusion at the time: `G_draws` is a relative spread, not a credible
+interval. *Superseded by the next subsection*: the narrowing is an artefact of
+averaging, and the mixture assembly removes it.
 
 ### The fix: a mixture assembly (2026-11-07, six seeds)
 
@@ -170,26 +168,31 @@ affected. See [REVIEW.md](REVIEW.md) §1.
 
 ## Next, in priority order
 
-0. **A calibrated `G_draws`.** The overconfidence measured above is what
-   averaging independent-chain draws across blocks fitted to the same data
-   predicts (variance shrinks by ~1/c while the block errors are nearly
-   perfectly correlated). Try a mixture assembly — each draw takes each entry
-   from one randomly chosen covering block — as a second arm of
-   `uncertainty_coverage.R`. See [REVIEW.md](REVIEW.md) §2, and §3 for the LKJ
-   prior confound in the full-model comparisons.
-1. **Missing data end to end.** The missing-data policy has still never gone
+0. **Finish the mixture assembly.** What was measured is the mixture of each
+   block's *correlation* draws; `fit_G(spread = "mixture")` mixes
+   *covariance* draws, whose `cov2cor()` can leave [-1, 1]. Add a
+   `corrG_draws` output built per block, as in the study, then make
+   `spread = "mixture"` the default (recommended) and document both outputs as
+   pointwise intervals (a mixed draw need not be PSD).
+1. **A REML full-model baseline.** The stanimal full model's LKJ prior shrinks
+   each correlation harder as K grows (prior sd 0.38 at 6 traits, 0.28 at 12,
+   0.18 at 30), so "indri beats the full model" partly compares priors. Refit
+   the K = 12 and K = 30 references with sommer or asreml on all traits. See
+   [REVIEW.md](REVIEW.md) §3.
+2. **Missing data end to end.** The missing-data policy has still never gone
    through `fit_G()` with gaps in `Y`; `"complete_block"` is implemented but
    unexercised on real fits.
-2. **asreml at K = 30, and sommer's per-block cost.** asreml is validated at
+3. **asreml at K = 30, and sommer's per-block cost.** asreml is validated at
    K = 10 (agrees with sommer to 1.000) but unmeasured at K = 30; sommer's
    `mmes` per-block cost degrades on near-boundary bivariate pairs at large K,
    which is worth characterising before recommending block sizes.
-3. **M3, stanimal's `eigen_A`.** Prototype ready upstream, not wired. The shared
+4. **M3, stanimal's `eigen_A`.** Prototype ready upstream, not wired. The shared
    eigen-decomposition is the path to making the stanimal engine cheap enough at
    large N.
 
-*Dropped*: the multi-seed K=30/40 crossover — the implementation is accepted as
-correct, so the single-seed K=30 result stands as-is.
+*Dropped*: the multi-seed K=30/40 crossover. That run was about how general
+the accuracy/time crossover is, not about correctness, so without it the K = 30
+result is a single-seed observation: do not cite "the method wins at K = 30".
 
 ## Running the studies
 
@@ -202,9 +205,14 @@ INDRI_STUDY_SEEDS=3 INDRI_STUDY_CORES=2 Rscript examples/validation_12_traits.R
 # the optional inverse-variance comparison, on seed 1
 INDRI_STUDY_SEEDS=1 INDRI_STUDY_WEIGHTS=1 Rscript examples/validation_12_traits.R
 
-# the uncertainty coverage study (indri G_draws band vs full-model posterior)
-INDRI_COVERAGE_SEEDS=1,2,3 INDRI_COVERAGE_CORES=32 Rscript examples/uncertainty_coverage.R
+# the uncertainty coverage study (average / mixture / inflated indri bands vs
+# the full-model posterior); one seed per process, ~3 minutes each on meyer
+INDRI_COVERAGE_SEEDS=1 INDRI_COVERAGE_CORES=48 Rscript examples/uncertainty_coverage.R
 ```
+
+The coverage study also saves its fits (block draws, subsets, truth, full-model
+correlation draws) to `results/uncertainty_coverage_fits_seed<N>.rds`
+(git-ignored), so a new assembly can be scored without refitting.
 
 Each run writes `results/validation_12_traits_{summary,entries}_seed<N>.csv`
 and `results/uncertainty_coverage_summary_seed<N>.csv`; those files are tracked
@@ -265,11 +273,12 @@ script header. Results go to `results/compare_engines_*_seed<N>.csv`
 From NOTES section 11, still open: default engine; whether stanimal stays
 `Suggests:` (currently yes); whether the factor/horseshoe prior is exposed for
 block fits; the missing-data default (`"error"` today); GPL-3 licence; and
-whether to create the GitHub remote (`gh` is authenticated as `diogro`).
+the `spread` default (`"average"` today, `"mixture"` recommended — see Next,
+item 0).
 
-## Two failure modes worth remembering
+## Failure modes worth remembering
 
-Both cost real debugging time and neither is visible from reading the code:
+Each cost real debugging time and none is visible from reading the code:
 
 - **`parallel::mclapply()` around cmdstanr kills the run silently.** The forked
   children conflict with the `processx` supervisor. Blocks use PSOCK workers.

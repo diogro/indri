@@ -6,6 +6,15 @@ results mean. Overall the code is in good shape: the engine contract is clean,
 the global standardisation is careful, and the analytical PSD gradient is
 correct (derivation checked against the objective).
 
+Status of the findings (updated 2026-11-07):
+
+| # | finding | state |
+|---|---|---|
+| 1 | subset sampler misses `min_cooccurrence` | **fixed** (`0837352`) |
+| 2 | averaged `G_draws` overconfident | **diagnosed and fixed** in `f3abee8` / `96f0894`: mixture 0.89 vs average 0.40; left: `corrG_draws`, flip the default |
+| 3 | LKJ prior confounds the full-model comparison | open — REML full-model baseline is STATUS item 1 |
+| 4 | doc drift | docs fixed; asreml `engine_args` / formula and the all-NA diagnostics flag still open |
+
 ## 1. Bug: `indri_subsets()` does not guarantee `min_cooccurrence`
 
 Swept 20 seeds over K in {6, 8, 10, 12, 20, 30, 40}, s in {2, 3, 4},
@@ -108,11 +117,11 @@ Dropping it is fine as long as nothing cites "the method wins at K = 30".
 
 ## 4. Plan and doc drift (minor)
 
-- **M3**: NOTES §5 records route A (indri owns `indriBlock.stan`) as chosen;
+- **M3** *(docs fixed: NOTES §5 now records route B)*: NOTES §5 records route A (indri owns `indriBlock.stan`) as chosen;
   what was built is route B (the `eigen_A` hook on stanimal's `indri-support`
   branch). Depending on it requires merging that branch into stanimal
   `master`. By the §5 cost table, M3 only matters above N of about 4000.
-- **STATUS**: "create the GitHub remote" is listed as open but the remote
+- **STATUS** *(fixed)*: "create the GitHub remote" is listed as open but the remote
   exists; the recorded head `51bac4d` is stale; "Two failure modes worth
   remembering" lists four.
 - **asreml engine**: silently ignores `engine_args`; its no-columns fallback
@@ -122,10 +131,9 @@ Dropping it is fine as long as nothing cites "the method wins at K = 30".
 
 ## Suggested order
 
-1. Fix the sampler and its test — cheap, and affects every result made with
-   the default `s`.
-2. Run the coverage study with both draw assemblies (averaged and mixture)
-   before quoting an M4 number.
+1. ~~Fix the sampler and its test.~~ Done.
+2. ~~Run the coverage study with both draw assemblies.~~ Done: mixture wins.
+   Follow-up: `corrG_draws`, then `spread = "mixture"` as the default.
 3. Re-baseline the K = 30 claim against a REML full model.
 
 Then the existing STATUS items (missing data end to end, asreml at K = 30).

@@ -24,8 +24,8 @@ Rscript -e 'devtools::document("package")'  # regenerate man/ after editing roxy
 Rscript -e 'devtools::test("package")'      # run the suite (asreml tests skip w/o licence)
 ```
 
-Run the tests from the repository root. The suite is the spec: ~200 assertions
-cover the subset sampler, the assembly, the PSD projection, the three engines,
+Run the tests from the repository root. The suite is the spec: ~1,760
+assertions cover the subset sampler, the assembly, the PSD projection, the three engines,
 parallelism, scale consistency and diagnostics.
 
 ## Layout
@@ -33,8 +33,8 @@ parallelism, scale consistency and diagnostics.
 | path | role |
 |---|---|
 | `package/R/fit_G.R` | public entry point `fit_G()`; global standardisation, core budget, diagnostics |
-| `package/R/subsets.R` | `indri_subsets()` — deterministic trait-pair coverage sampler |
-| `package/R/assemble.R` | `indri_assemble()`, `indri_assemble_draws()`, `.indri_weights()` |
+| `package/R/subsets.R` | `indri_subsets()` — deterministic trait-pair coverage sampler, with a greedy top-up that guarantees `min_cooccurrence` |
+| `package/R/assemble.R` | `indri_assemble()`, `indri_assemble_draws()` (`"average"` / `"mixture"`), `.indri_weights()` |
 | `package/R/project_psd.R` | `indri_project_psd()` — closest PSD matrix by least squares, analytic gradient |
 | `package/R/a_forms.R` | relationship-matrix forms: dense, inverse, sparse inverse |
 | `package/R/engines.R` | engine registry (`indri_engine()`, `indri_engines()`) |
@@ -98,31 +98,61 @@ documented because they are invisible from reading the code.
   projection (`indri_project_psd(..., weights = ...)`). It was measured to be a
   wash at N = 300, so equal weights stay the default — do not make weighting the
   default without a new measurement.
-- `G_draws` is an assembled spread across dependent blocks, **not** a posterior.
-  The coverage study measured ~43% pointwise coverage at nominal 95% (vs ~81%
-  for the full model). Do not document it as credible intervals.
+- **Never average block draws to get a spread.** Blocks are fitted to the same
+  individuals, so their errors are nearly perfectly correlated while their
+  chains are independent; averaging draw `d` over `c` blocks divides the spread
+  by ~`sqrt(c)`. Measured: averaged draws cover 0.40 at nominal 0.95, the
+  mixture assembly (`spread = "mixture"`: each entry from one random covering
+  block) 0.89, the full model 0.80. Mixed draws are pointwise (a mixed matrix
+  need not be PSD), and none of these is a joint posterior. The default is
+  still `"average"` pending a `corrG_draws` output — see STATUS.md.
+- `indri_subsets()` guarantees every pair is covered `min_cooccurrence` times;
+  LiMMBo's construction alone does not (it only guarantees `ceiling(c / 2)`).
+  Keep the top-up, and keep the test that sweeps seeds — a single seed passed
+  while the guarantee was broken.
 
 ## Running studies (remote machine)
 
 Long runs go to `meyer` via SSH; background Copilot commands on the remote
 stall, so run remote commands over `ssh` and pull results back with `scp`.
 
+The checkout is `~/projects/indri` (plural). It syncs through GitHub only:
+commit and push locally first.
+
 ```sh
-# sync + reinstall
-ssh meyer 'cd ~/projects/indri && git fetch origin && git reset --hard origin/main && R CMD INSTALL package'
+# sync + reinstall (meyer has no local changes, so a fast-forward suffices;
+# check `git status --short` there first if in doubt)
+ssh meyer 'cd ~/projects/indri && git pull --ff-only origin main && R CMD INSTALL package'
 
 # run a study (async via the tool), e.g. the M1 gate or the coverage study
 ssh meyer 'cd ~/projects/indri && INDRI_STUDY_SEEDS=1 INDRI_STUDY_CORES=32 Rscript examples/validation_12_traits.R'
 ssh meyer 'cd ~/projects/indri && INDRI_COVERAGE_SEEDS=1,2,3 INDRI_COVERAGE_CORES=32 Rscript examples/uncertainty_coverage.R'
 
-# pull results back
-scp meyer:~/projects/indri/results/<file>.csv results/
+# long runs: one seed per process, detached so a dropped connection is harmless
+ssh meyer 'cd ~/projects/indri && for s in 1 2 3; do INDRI_COVERAGE_SEEDS=$s INDRI_COVERAGE_CORES=48 nohup Rscript examples/uncertainty_coverage.R > results/uncertainty_coverage_seed$s.log 2>&1 & done'
+
+# pull results back in ONE connection
+ssh meyer 'cd ~/projects/indri/results && tar cf - <files>' | tar xf - -C results/
 ```
+
+Remote gotchas:
+
+- **meyer rate-limits SSH.** A burst of separate `scp`/`ssh` calls gets the
+  host to refuse connections for a minute or so. Batch commands into one
+  `ssh` and transfer files with one `tar` stream.
+- **`pgrep -f <script>` matches its own wait loop.** A remote
+  `while pgrep -f uncertainty_coverage.R; do sleep 30; done` never exits,
+  because the loop's own command line contains the pattern. Wait on the
+  summary CSVs appearing, or use `pgrep -f '^Rscript examples/...'`.
+- The 12-trait coverage study takes ~3 minutes per seed at 48 cores.
 
 Tracked results (`results/validation_12_traits_*.csv`,
 `results/uncertainty_coverage_*.csv`) are whitelisted in `.gitignore`; the
-benchmark overwrites them, so after a run `git reset --hard origin/main` on
-meyer before pulling, and commit the pulled CSVs.
+benchmark overwrites them on meyer, so pull the CSVs back, commit them
+locally, and discard meyer's modified copies (`git checkout -- results/` there)
+before the next fast-forward. A *new* results file that you committed from
+meyer's output is still untracked there and blocks the fast-forward ("would be
+overwritten"); check it matches the committed copy (`md5sum`) and remove it.
 
 ## Conventions
 

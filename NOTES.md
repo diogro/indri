@@ -116,6 +116,17 @@ uncertainty through, not a posterior over the joint matrix. Document this in the
 man page and in anything published. Measuring what it actually covers
 (section 10) is the honest way to justify it.
 
+How the block draws are combined matters more than anything else here. Blocks
+are fitted to the *same* individuals, so their estimation errors are nearly
+perfectly correlated, while their chains are independent. Averaging draw `d`
+across the `c` blocks that cover an entry therefore divides the spread by about
+`sqrt(c)` without removing any real uncertainty — measured at 40% coverage for a
+nominal 95% band. The **mixture** assembly (each entry of draw `d` taken from
+one randomly chosen covering block) keeps the block spread and measured 89%,
+against 80% for the full model (§10). Mixed draws are pointwise: entries are
+drawn independently, so a mixed matrix need not be PSD, and they support
+per-entry intervals, not functionals of the whole matrix.
+
 ---
 
 ## 4. Architecture
@@ -174,7 +185,9 @@ Four properties that make the assembly valid:
    per-draw averages equals the average of the block means, so the point estimate
    is the same whether you assemble draws or means first. Project the **mean**
    (nonlinear; do not project draw-by-draw if you care about smoothness of the
-   spread) and report spread from the unprojected ensemble.
+   spread) and report spread from the unprojected ensemble. That holds for the
+   *average* of the draws; the spread itself must come from a mixture, not an
+   average (section 3).
 
 ---
 
@@ -240,11 +253,17 @@ Only relevant to the `"stanimal"` engine.
 
 | Route | Verdict |
 |---|---|
-| **A. indri owns the Stan file and the sampler call** | **Chosen.** No upstream change, works at any N. Cost: indri takes on the R-side data prep for its own model variant (validation, sample matching, missing-data mask, `x_mean_weight`). |
+| **A. indri owns the Stan file and the sampler call** | Originally chosen, **not what was built** (see Prototype status). No upstream change, works at any N. Cost: indri takes on the R-side data prep for its own model variant (validation, sample matching, missing-data mask, `x_mean_weight`). |
 | B. Add a `q_lambda = list(Q=, lambda=)` hook to stanimal | Cleanest for indri, but needs an upstream PR. Keep as an option; do not depend on it. |
 | C. Pass `A = diag(sort(eigenvalues))` so Stan's decomposition is free | **Rejected.** Requires pre-rotating Y/X, but `Y_std` is computed *before* rotation on the individual axis, so pre-rotation changes standardisation; and the missing-data mask is per (individual, trait), which rotation destroys. |
 
 ### Prototype status
+
+What was actually built is route B: the `eigen_A` hook lives in stanimal, on
+the `indri-support` branch of the fork. indri can only rely on it once that
+branch is merged into stanimal `master`; until then M3 means either that merge
+or falling back to route A. By the cost table above it only matters above
+N of about 4,000.
 
 `lmm_animal(eigen_A = list(Q=, lambda=))` is implemented on the `indri-support`
 branch of `../stanimal`, together with `animalModelGQR.stan`. Validated by
@@ -493,7 +512,7 @@ engines).
 | **M1** | `fit_G()` on the `stanimal` engine + global standardisation + LS projection — **done, gate passed** | (a) a 2-trait block equals the full 2-trait `lmm_animal()` within MC error, after undoing the global scale; (b) on a 12-trait simulation with known G, median per-entry relative error (correlation scale) within 2x the full 12-trait stanimal fit; (c) entries estimated by different blocks agree within MC error — **the scale-consistency test**; (d) runs end-to-end on the shipped `ratones` data |
 | **M2** | `sommer` and `asreml` engines behind the contract | Each engine, on the same 3-trait block and the same data, gives G within REML tolerance of the other and of `stanimal` (MC error); `"asreml"` errors informatively when the licence is absent; no engine is imported at package load |
 | **M3** | `engine = "stanimal_qr"` using `eigen_A` (prototype in stanimal's `indri-support` branch) | **Deterministic** equivalence: same data, fixed parameter vector, `log_prob()` matches the stock model to machine precision. Not a posterior comparison |
-| **M4** | Uncertainty + weights + diagnostics | **done**: per-block convergence table (Rhat/divergences or REML convergence), pair-coverage report, `G_draws`; equal vs inverse-variance weights compared on simulation (a wash — equal stays default); interval coverage measured (overconfident — `G_draws` documented as a spread, not an interval) |
+| **M4** | Uncertainty + weights + diagnostics | **mostly done**: per-block convergence table (Rhat/divergences or REML convergence), pair-coverage report, `G_draws`; equal vs inverse-variance weights compared on simulation (a wash — equal stays default); interval coverage measured: averaged draws 0.40, mixture 0.89, full model 0.80 at nominal 0.95. Left: `corrG_draws` and making `spread = "mixture"` the default |
 | **M5** | Performance | Block caching keyed by (subset, engine, hyperparameters); parallel schedule over blocks; target wall clock <= 2x the equivalent number of independent block fits with that engine |
 
 M1 is the number that decides whether the project continues: if assembled G is
@@ -539,8 +558,12 @@ model becomes the slow side.
   band covers the true correlation in ~43% of entries at the nominal 95% level
   (per seed 53%, 48%, 29%), against ~81% for the full model (85%, 82%, 77%);
   indri's mean width is ~0.17 vs ~0.46 for the full model, and its coverage
-  falls as the pair's coverage count rises. `G_draws` is a spread, not
-  calibrated uncertainty — do not report it as a credible interval.*
+  falls as the pair's coverage count rises.* *Diagnosed and fixed (six seeds,
+  396 pairs): the narrowing is the averaging (§3). On the same fits the mixture
+  assembly covers 0.89 (width 0.52), the average scaled by sqrt(coverage) 0.90,
+  the plain average 0.40 (width 0.16), the full model 0.80 (width 0.49); the
+  mixture's coverage is flat across pair-coverage bands. Still below nominal —
+  report the measured number, not "95%".*
 - **Weights** (M4): same simulated data, `weights = "none"` vs
   `"inverse_variance"`, reported on median per-entry error and correlation of
   correlations. Measured on the 12-trait seed-1 benchmark: inverse-variance
@@ -573,16 +596,19 @@ model becomes the slow side.
    method SEs propagated as a Gaussian ensemble. The independence caveat in
    propagating a per-entry `se` matrix (entries are correlated) must be stated.
    *Default: propagate as documented, or `"none"` if the user prefers point
-   estimates. Measured: the assembled stanimal band is overconfident (~43%
-   pointwise coverage vs ~81% for the full model at nominal 95%), so present
-   it as a relative spread, not an interval.*
+   estimates. For draws, assemble by mixture, not by average: averaged draws
+   cover 0.40 at nominal 0.95, mixed draws 0.89 (full model 0.80); see §3 and
+   §10. Present mixed bands as pointwise intervals with their measured
+   coverage. The REML engines' Gaussian ensemble has the same averaging trap
+   and is unmeasured.*
 6. **Missing data.** `"error"` vs `"complete_block"` default. *Default: `"error"`.*
 7. **stanimal as dependency.** `Imports:` for the default engine vs `Suggests:`
    with a runtime check. Now that three engines exist, `Suggests:` is more
    defensible. *Default: `Suggests:`, checked at call time.*
 8. **Licence**: GPL-3, to match stanimal.
-9. **Remote**: `gh repo create diogro/indri --private` — not done; needs a
-   decision on public/private and org.
+9. **Remote**: *done* — `diogro/indri`, private.
+10. **`spread` default.** `"average"` (today) vs `"mixture"`. *Recommended:
+    `"mixture"`, once `corrG_draws` exists, since that is what was measured.*
 
 ---
 
@@ -609,7 +635,9 @@ model becomes the slow side.
 - **Licensed dependency.** ASReml-R cannot be in CI. Its tests must skip
   gracefully, and the engine must fail with an actionable message.
 - **The uncertainty story is the weak point** and the one a reviewer will attack.
-  Measure it (M4) rather than defending it.
+  Measure it (M4) rather than defending it. Measured: the mixture band reaches
+  0.89 at nominal 0.95. The remaining gap is shared with the full model, which
+  points at prior shrinkage and short chains rather than the assembly.
 - **Missing data interacts with subsetting**, differently per engine. A gap-heavy
   trait is weakly identified in a 4-trait block under `stanimal`, and silently
   loses rows under the REML engines.

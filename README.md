@@ -9,8 +9,9 @@ into a single positive semi-definite matrix. The per-subset fit is pluggable, so
 the same estimator runs on a Bayesian sampler or on a REML engine.
 
 > **Status:** working package, M1/M2/M4 measured. `G` itself is validated
-> (within ~2× the full model's error at 12 traits, and beating it at 30);
-> the assembled uncertainty is *not* calibrated — see the caveats below and
+> (within ~2× the full model's error at 12 traits, and better than it on one
+> 30-trait seed); the default averaged uncertainty is overconfident, while
+> `spread = "mixture"` covers ~89% at nominal 95% — see the caveats below and
 > [STATUS.md](STATUS.md).
 
 ## Install
@@ -76,7 +77,7 @@ Add fixed effects with a design matrix: `fit_G(Y, X = X, A = A, ...)`, where
 | slot | what it is |
 |---|---|
 | `G`, `corrG` | the assembled estimate, covariance and correlation scale |
-| `G_draws` | assembled spread across dependent blocks (stanimal only) |
+| `G_draws` | block posterior draws assembled by `spread` (`"average"` or `"mixture"`; stanimal only) |
 | `coverage` | how many subsets covered each trait pair |
 | `subsets` | the trait subsets that were fitted |
 | `diagnostics` | per-block convergence (Rhat for stanimal, flags for REML) |
@@ -88,11 +89,12 @@ Add fixed effects with a design matrix: `fit_G(Y, X = X, A = A, ...)`, where
 
 - **Scale.** `G` is reported on the standardised scale; multiply back with
   `diag(y_sd) %*% G %*% diag(y_sd)` for the original units.
-- **Uncertainty is a spread, not a posterior.** `G_draws` averages overlapping
-  blocks whose traits are shared, so it is not a joint posterior. Measured on a
-  12-trait simulation it covers the truth in ~43% of entries at the nominal 95%
-  level (the full model: ~81%). Treat it as a relative spread, not as credible
-  intervals.
+- **Uncertainty: use `spread = "mixture"`.** Blocks are fitted to the same
+  data, so averaging their draws (the current default) narrows the band by
+  about the square root of a pair's coverage: ~40% coverage at nominal 95% on
+  a 12-trait simulation. The mixture assembly covers ~89% (the full model:
+  ~80%). Neither is a joint posterior, and mixed draws are pointwise — a mixed
+  matrix need not be positive semi-definite.
 - **Point estimate is the headline.** The assembled `G` itself is the
   well-validated output; at 30 traits it beat the full model on both accuracy
   and wall clock in the current measurements.
