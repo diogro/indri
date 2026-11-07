@@ -85,6 +85,12 @@
 #'   functions of the whole matrix. Neither is a posterior over the joint
 #'   matrix.
 #'
+#' @references
+#' Meyer, H. V., Casale, F. P., Stegle, O., and Birney, E. (2018). LiMMBo:
+#' a simple, scalable approach for linear mixed models in high-dimensional
+#' genetic association studies. bioRxiv, preprint.
+#' \doi{10.1101/255497}
+#'
 #' @examples
 #' \donttest{
 #' # This example fits six small Stan models and needs stanimal and CmdStan.

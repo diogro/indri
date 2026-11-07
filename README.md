@@ -6,7 +6,8 @@ large trait sets — without ever fitting one giant multivariate animal model.
 It does this LiMMBo's way: split the traits into many small, overlapping
 subsets, fit a small animal model on each, then reassemble the subset estimates
 into a single positive semi-definite matrix. The per-subset fit is pluggable, so
-the same estimator runs on a Bayesian sampler or on a REML engine.
+the same estimator runs on a Bayesian sampler or on a REML engine. See the
+[original LiMMBo paper](#reference) for the method.
 
 > **Status:** working package, M1/M2/M4 measured. `G` itself is validated
 > (within ~2× the full model's error at 12 traits, and better than it on one
@@ -123,3 +124,10 @@ matrix `Y`, a design `X` and a known relationship matrix `A`.
 
 Out of scope for now: `E`/`P` reporting, association testing, breeding values,
 missing-data imputation, model comparison.
+
+## Reference
+
+Meyer, H. V., Casale, F. P., Stegle, O., and Birney, E. (2018). LiMMBo:
+a simple, scalable approach for linear mixed models in high-dimensional genetic
+association studies. *bioRxiv*, preprint.
+<https://www.biorxiv.org/content/10.1101/255497v1>
