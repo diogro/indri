@@ -13,7 +13,7 @@ Status of the findings (updated 2026-11-07):
 | 1 | subset sampler misses `min_cooccurrence` | **fixed** (`0837352`) |
 | 2 | averaged `G_draws` overconfident | **diagnosed and fixed** in `f3abee8` / `96f0894`: mixture 0.89 vs average 0.40; left: `corrG_draws`, flip the default |
 | 3 | LKJ prior confounds the full-model comparison | open — REML full-model baseline is STATUS item 1 |
-| 4 | doc drift | docs fixed; asreml `engine_args` / formula and the all-NA diagnostics flag still open |
+| 4 | doc drift | docs fixed; M3 done (generalised in stanimal, wired in indri); asreml `engine_args` / formula and the all-NA diagnostics flag still open |
 
 ## 1. Bug: `indri_subsets()` does not guarantee `min_cooccurrence`
 
@@ -117,7 +117,7 @@ Dropping it is fine as long as nothing cites "the method wins at K = 30".
 
 ## 4. Plan and doc drift (minor)
 
-- **M3** *(docs fixed: NOTES §5 now records route B)*: NOTES §5 records route A (indri owns `indriBlock.stan`) as chosen;
+- **M3** *(done: stanimal `88a905d` generalises route B to every animal model, indri `a651747` shares the decomposition)*: NOTES §5 records route A (indri owns `indriBlock.stan`) as chosen;
   what was built is route B (the `eigen_A` hook on stanimal's `indri-support`
   branch). Depending on it requires merging that branch into stanimal
   `master`. By the §5 cost table, M3 only matters above N of about 4000.

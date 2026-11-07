@@ -41,7 +41,7 @@ available); 14 in the stanimal branch's new test file.
 | **M0** subset sampler, assembly, PSD projection, engine registry | done |
 | **M1** `fit_G()` on the stanimal engine, validated against the full model | **done, gate passed** |
 | **M2** sommer and ASReml engines | **done**: both implement the block contract; the two REML engines agree with each other and with stanimal |
-| **M3** wire stanimal's `eigen_A` variant into an engine | prototype ready upstream, not wired |
+| **M3** share stanimal's eigendecomposition of `A` across blocks | **done**: stanimal takes `Q`/`lambda` as data in every animal model (`indri-support` `88a905d`, not yet merged to stanimal `master`); indri decomposes `A` once per `fit_G()` call and passes it as `eigen_A`. Saves one O(N^3) decomposition per block: ~60 s per block at N = 4000 |
 | **M4** uncertainty, weights, diagnostics | mostly: inverse-variance weights measured (a wash, equal stays default); interval coverage measured — the averaged `G_draws` is overconfident (0.40 at nominal 0.95), the mixture assembly reaches 0.89 against 0.80 for the full model (see below). Left: a `corrG_draws` output and the `spread` default |
 | **M5** performance | partly: parallel blocks and the core budget work; the PSD projection now uses an analytical gradient (the former K=30 bottleneck), no caching |
 
@@ -158,6 +158,34 @@ the *same* fits (`f3abee8`, seeds 1-6, 396 pairs, correlation scale):
 `fit_G(spread = "mixture")` is available; the default is still `"average"`.
 Per-seed results: `results/uncertainty_coverage_summary_seed{1..6}.csv`.
 
+## M3, shared eigendecomposition: measured (2026-11-07)
+
+`examples/eigen_A_timing.R`: one six-trait block, four chains, 200 iterations,
+median of two runs, reference BLAS/LAPACK.
+
+| N | old: Stan, per chain | new: R, once per fit | shared `eigen_A` | slowest chain |
+|---|---|---|---|---|
+| 500 | 7.5 s | 7.6 s | 7.5 s | 5.7 s |
+| 1000 | 12.0 s | 12.3 s | 11.4 s | 9.0 s |
+| 2000 | 32.9 s | 34.8 s | 27.4 s | 23.0 s |
+| 4000 | 107 s | 111 s | **50 s** | 38.3 s |
+
+- The models are unchanged: the slowest chain takes the same time in every
+  mode. All the difference is fixed overhead outside sampling.
+- For a single stanimal fit, "new" is no faster than "old": stock stanimal ran
+  its four per-chain decompositions in parallel, so the wall-clock cost was
+  about one decomposition either way (the saving there is CPU, 4x).
+- Sharing removes the decomposition from every block: ~60 s per block at
+  N = 4000, ~7 s at N = 2000, nothing measurable below N = 1000. A 46-block
+  fit at N = 4000 drops from roughly 82 to 39 block-minutes. The decomposition
+  grows as N^3 and sampling roughly as N, so the ratio grows with N.
+- `eigen()` here runs on reference LAPACK (62 s at N = 4000); an optimised
+  BLAS would shrink both the cost and the saving.
+- Blocks fitted with the shared decomposition are bit-identical to a direct
+  `lmm_animal()` fit (`test-scale-consistency.R`), and stanimal fits are
+  bit-identical to 0.7.4 (a custom model that decomposes `A` the old way
+  reproduces the built-in one draw for draw).
+
 ## Subset coverage bug: fixed (2026-11-07)
 
 `indri_subsets()` did not guarantee `min_cooccurrence`: the LiMMBo
@@ -186,9 +214,14 @@ affected. See [REVIEW.md](REVIEW.md) §1.
    K = 10 (agrees with sommer to 1.000) but unmeasured at K = 30; sommer's
    `mmes` per-block cost degrades on near-boundary bivariate pairs at large K,
    which is worth characterising before recommending block sizes.
-4. **M3, stanimal's `eigen_A`.** Prototype ready upstream, not wired. The shared
-   eigen-decomposition is the path to making the stanimal engine cheap enough at
-   large N.
+4. **Merge stanimal `indri-support` into `master`.** indri's eigen sharing
+   switches on automatically with any stanimal that has `eigen_A`; until the
+   merge, that means installing the branch. The full stanimal suite passes on
+   the branch.
+5. **The next N-side cost: data transfer.** With the decomposition shared, the
+   remaining per-block overhead at N = 4000 is ~12 s, most of it CmdStan
+   writing and reading the N x N `Q` as JSON for every block. Worth measuring
+   before optimising.
 
 *Dropped*: the multi-seed K=30/40 crossover. That run was about how general
 the accuracy/time crossover is, not about correctness, so without it the K = 30

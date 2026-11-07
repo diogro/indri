@@ -86,6 +86,17 @@ documented because they are invisible from reading the code.
 6. **stanimal specifics.** It returns `draws`, not `se`; `fit_G()` derives
    inverse-variance weights from the per-entry posterior variance when `se` is
    absent. Block Rhat comes from `posterior::rhat`, and only for `CmdStanMCMC`.
+   The engine passes one shared eigendecomposition of `A`
+   (`indri_a_forms(need = "eigen")`, ascending order) as `eigen_A` when the
+   installed stanimal accepts it; keep the ascending order, or blocks stop
+   being bit-identical to a direct `lmm_animal()` fit.
+7. **Decide capabilities in the main process, not in `engine$fit`.** PSOCK
+   workers load the *installed* indri, not a `devtools::load_all()` copy, so a
+   helper added in the working tree is missing on the workers and the parallel
+   tests fail with "could not find function". The engine's capability check
+   runs at construction; `fit` only looks at what `a_forms` carries. Reinstall
+   (`R CMD INSTALL package`) before running the parallel tests after changing
+   engine code.
 
 ## `fit_G()` behaviour to preserve
 

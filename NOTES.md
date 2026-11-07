@@ -259,11 +259,19 @@ Only relevant to the `"stanimal"` engine.
 
 ### Prototype status
 
-What was actually built is route B: the `eigen_A` hook lives in stanimal, on
-the `indri-support` branch of the fork. indri can only rely on it once that
-branch is merged into stanimal `master`; until then M3 means either that merge
-or falling back to route A. By the cost table above it only matters above
-N of about 4,000.
+What was actually built is route B, and generalised: on stanimal's
+`indri-support` branch (`88a905d`) *every* animal model takes `Q` and `lambda`
+as data, `lmm_animal()` decomposes `A` once per fit in R (ascending, Stan's
+order, so fits are bit-identical to 0.7.4), and `eigen_A` accepts a
+precomputed pair for any structure or parametrization. The earlier duplicated
+`animalModelGQR.stan` is gone, which removes the vendoring-drift risk (§12).
+indri builds the pair once per `fit_G()` call (`indri_a_forms(need = "eigen")`)
+and the stanimal engine passes it when the installed stanimal accepts
+`eigen_A`. Measured saving: ~60 s per block at N = 4000, ~7 s at N = 2000,
+negligible below 1000 (STATUS.md). The branch still has to be merged into
+stanimal `master`.
+
+The paragraphs below describe the first prototype and are kept for the record.
 
 `lmm_animal(eigen_A = list(Q=, lambda=))` is implemented on the `indri-support`
 branch of `../stanimal`, together with `animalModelGQR.stan`. Validated by
@@ -486,7 +494,7 @@ package/
   R/engines/sommer.R     block fit via sommer::mmes()
   R/engines/asreml.R     block fit via asreml::asreml()
   R/methods.R            print / summary / plot / compare_engines
-  inst/stan/indriBlock.stan        (M3)
+  (no Stan file: M3 went through stanimal's `eigen_A`, see §5)
   tests/testthat/        test-subsets, test-assemble, test-project, test-scale,
                          test-engine-stanimal, test-engine-sommer,
                          test-engine-asreml, test-cross-engine, test-qr-equivalence
@@ -511,7 +519,7 @@ engines).
 | **M0** | Skeleton + `indri_subsets()` — **done** | Every pair covered `>= c`; valid 1-based indices; deterministic given a seed; caller's RNG state restored; errors cleanly on `s < 2`, `c < 1`, `s > K`. Note: bit-for-bit reproduction of limmbo's `multiple_set_covers_all` is **not** achievable — its permutation comes from numpy's global generator, so LiMMBo's own subsets are not reproducible run to run. indri implements the same construction with a seeded generator, which is a deliberate divergence. Second divergence: LiMMBo's construction covers each pair only `ceiling(c / 2)` times by design and misses `c` in about half of settings (always for s = 2); indri tops up with greedy subsets until the guarantee holds (see REVIEW.md §1) |
 | **M1** | `fit_G()` on the `stanimal` engine + global standardisation + LS projection — **done, gate passed** | (a) a 2-trait block equals the full 2-trait `lmm_animal()` within MC error, after undoing the global scale; (b) on a 12-trait simulation with known G, median per-entry relative error (correlation scale) within 2x the full 12-trait stanimal fit; (c) entries estimated by different blocks agree within MC error — **the scale-consistency test**; (d) runs end-to-end on the shipped `ratones` data |
 | **M2** | `sommer` and `asreml` engines behind the contract | Each engine, on the same 3-trait block and the same data, gives G within REML tolerance of the other and of `stanimal` (MC error); `"asreml"` errors informatively when the licence is absent; no engine is imported at package load |
-| **M3** | `engine = "stanimal_qr"` using `eigen_A` (prototype in stanimal's `indri-support` branch) | **Deterministic** equivalence: same data, fixed parameter vector, `log_prob()` matches the stock model to machine precision. Not a posterior comparison |
+| **M3** | Share the eigendecomposition of `A` across stanimal blocks — **done** | stanimal takes `Q`/`lambda` as data in every animal model; a block fitted with the shared pair is bit-identical to a direct `lmm_animal()` fit; stock stanimal fits are bit-identical to 0.7.4; saving measured (~60 s per block at N = 4000). The original acceptance test (deterministic `log_prob()` equivalence) is subsumed by the bit-identical draws |
 | **M4** | Uncertainty + weights + diagnostics | **mostly done**: per-block convergence table (Rhat/divergences or REML convergence), pair-coverage report, `G_draws`; equal vs inverse-variance weights compared on simulation (a wash — equal stays default); interval coverage measured: averaged draws 0.40, mixture 0.89, full model 0.80 at nominal 0.95. Left: `corrG_draws` and making `spread = "mixture"` the default |
 | **M5** | Performance | Block caching keyed by (subset, engine, hyperparameters); parallel schedule over blocks; target wall clock <= 2x the equivalent number of independent block fits with that engine |
 
@@ -641,9 +649,8 @@ model becomes the slow side.
 - **Missing data interacts with subsetting**, differently per engine. A gap-heavy
   trait is weakly identified in a 4-trait block under `stanimal`, and silently
   loses rows under the REML engines.
-- **Vendoring drift.** `indriBlock.stan` will diverge from `animalModelG.stan` as
-  stanimal evolves. The deterministic `log_prob()` test in M3 is the guard; re-run
-  it whenever the stanimal version changes.
+- **Vendoring drift.** *Retired*: indri ships no Stan file, and stanimal no
+  longer carries a duplicated model for `eigen_A` (§5).
 
 ---
 
