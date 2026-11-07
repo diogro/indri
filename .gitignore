@@ -11,4 +11,5 @@
 examples/figures/
 results/*
 !results/validation_12_traits_*.csv
+!results/uncertainty_coverage_*.csv
 *.rds

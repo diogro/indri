@@ -43,7 +43,7 @@ available); 14 in the stanimal branch's new test file.
 | **M1** `fit_G()` on the stanimal engine, validated against the full model | **done, gate passed** |
 | **M2** sommer and ASReml engines | **done**: both implement the block contract; the two REML engines agree with each other and with stanimal |
 | **M3** wire stanimal's `eigen_A` variant into an engine | prototype ready upstream, not wired |
-| **M4** uncertainty, weights, diagnostics | partly: `G_draws` exists; inverse-variance weights feed both average and projection and are unit-tested; weighted-vs-unweighted study measured (a wash at N=300, equal weights stay default). Uncertainty *coverage* still unvalidated |
+| **M4** uncertainty, weights, diagnostics | mostly: `G_draws` exists; inverse-variance weights measured (a wash, equal stays default); interval coverage measured (indri band overconfident — see below). Diagnostics reported per block; the `G_draws` interval claim needs an honest caveat or removal |
 | **M5** performance | partly: parallel blocks and the core budget work; the PSD projection now uses an analytical gradient (the former K=30 bottleneck), no caching |
 
 ## What has been measured
@@ -114,20 +114,32 @@ inverse-variance remains available but is not advertised as better — noisy
 per-block uncertainties and dependent blocks mean the weighting adds nothing at
 N = 300.
 
+## Uncertainty coverage: measured (2026-11-07)
+
+The M4 uncertainty question is now measured, not asserted. On the 12-trait
+simulation (`examples/uncertainty_coverage.R`, three seeds), the 95% band of
+indri's assembled `G_draws` covers the true correlation in **~43%** of entries
+(per seed: 53%, 48%, 29%), against **~81%** for the full model (85%, 82%, 77%).
+Neither is pointwise calibrated at the nominal 95%, but indri's assembled spread
+is substantially more overconfident: its mean band width is ~0.17 versus ~0.46
+for the full model, and coverage *falls* as a pair's coverage count rises (the
+`10+` band runs 25-35%), because averaging more blocks narrows the spread.
+
+Conclusion: `G_draws` is a relative spread across dependent blocks, not a
+credible interval. Do not present it as one; document it as such and consider
+dropping the interval claim from the API narrative until a calibrated
+alternative exists.
+
 ## Next, in priority order
 
-1. **Uncertainty is unvalidated.** `G_draws` is documented as "an assembled
-   spread, not a posterior". That is currently an assertion. M4's coverage study
-   (fraction of true entries inside the 95% band, reported per coverage count)
-   is what turns it into a claim, or into an honest caveat.
-2. **Missing data end to end.** The missing-data policy has still never gone
+1. **Missing data end to end.** The missing-data policy has still never gone
    through `fit_G()` with gaps in `Y`; `"complete_block"` is implemented but
-   unexercised on real fits. (The weights question is closed — see above.)
-3. **asreml at K = 30, and sommer's per-block cost.** asreml is validated at
+   unexercised on real fits.
+2. **asreml at K = 30, and sommer's per-block cost.** asreml is validated at
    K = 10 (agrees with sommer to 1.000) but unmeasured at K = 30; sommer's
    `mmes` per-block cost degrades on near-boundary bivariate pairs at large K,
    which is worth characterising before recommending block sizes.
-4. **M3, stanimal's `eigen_A`.** Prototype ready upstream, not wired. The shared
+3. **M3, stanimal's `eigen_A`.** Prototype ready upstream, not wired. The shared
    eigen-decomposition is the path to making the stanimal engine cheap enough at
    large N.
 
@@ -144,11 +156,14 @@ INDRI_STUDY_SEEDS=3 INDRI_STUDY_CORES=2 Rscript examples/validation_12_traits.R
 
 # the optional inverse-variance comparison, on seed 1
 INDRI_STUDY_SEEDS=1 INDRI_STUDY_WEIGHTS=1 Rscript examples/validation_12_traits.R
+
+# the uncertainty coverage study (indri G_draws band vs full-model posterior)
+INDRI_COVERAGE_SEEDS=1,2,3 INDRI_COVERAGE_CORES=32 Rscript examples/uncertainty_coverage.R
 ```
 
-Each run writes `results/validation_12_traits_{summary,entries}_seed<N>.csv`;
-those files are tracked so results survive a dead run. Everything else under
-`results/` is ignored.
+Each run writes `results/validation_12_traits_{summary,entries}_seed<N>.csv`
+and `results/uncertainty_coverage_summary_seed<N>.csv`; those files are tracked
+so results survive a dead run. Everything else under `results/` is ignored.
 
 `INDRI_STUDY_CORES` is the total process budget passed to `fit_G()`, not a
 worker count. Each block supplies `chains` processes (four by default for

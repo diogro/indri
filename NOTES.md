@@ -493,7 +493,7 @@ engines).
 | **M1** | `fit_G()` on the `stanimal` engine + global standardisation + LS projection — **done, gate passed** | (a) a 2-trait block equals the full 2-trait `lmm_animal()` within MC error, after undoing the global scale; (b) on a 12-trait simulation with known G, median per-entry relative error (correlation scale) within 2x the full 12-trait stanimal fit; (c) entries estimated by different blocks agree within MC error — **the scale-consistency test**; (d) runs end-to-end on the shipped `ratones` data |
 | **M2** | `sommer` and `asreml` engines behind the contract | Each engine, on the same 3-trait block and the same data, gives G within REML tolerance of the other and of `stanimal` (MC error); `"asreml"` errors informatively when the licence is absent; no engine is imported at package load |
 | **M3** | `engine = "stanimal_qr"` using `eigen_A` (prototype in stanimal's `indri-support` branch) | **Deterministic** equivalence: same data, fixed parameter vector, `log_prob()` matches the stock model to machine precision. Not a posterior comparison |
-| **M4** | Uncertainty + weights + diagnostics | Per-block convergence table (Rhat/divergences or REML convergence), pair-coverage report, `G_draws`/`G_se`; equal vs inverse-variance weights compared on simulation; interval coverage study documented in the man page |
+| **M4** | Uncertainty + weights + diagnostics | **done**: per-block convergence table (Rhat/divergences or REML convergence), pair-coverage report, `G_draws`; equal vs inverse-variance weights compared on simulation (a wash — equal stays default); interval coverage measured (overconfident — `G_draws` documented as a spread, not an interval) |
 | **M5** | Performance | Block caching keyed by (subset, engine, hyperparameters); parallel schedule over blocks; target wall clock <= 2x the equivalent number of independent block fits with that engine |
 
 M1 is the number that decides whether the project continues: if assembled G is
@@ -534,7 +534,13 @@ model becomes the slow side.
   estimate where the Python stack is available.
 - **Interval coverage** (M4): fraction of true entries inside the 95% band,
   reported per coverage count and per engine. Expect this to be optimistic; the
-  number is the deliverable, not a pass/fail gate.
+  number is the deliverable, not a pass/fail gate. *Measured
+  (`examples/uncertainty_coverage.R`, 12 traits, three seeds): indri's assembled
+  band covers the true correlation in ~43% of entries at the nominal 95% level
+  (per seed 53%, 48%, 29%), against ~81% for the full model (85%, 82%, 77%);
+  indri's mean width is ~0.17 vs ~0.46 for the full model, and its coverage
+  falls as the pair's coverage count rises. `G_draws` is a spread, not
+  calibrated uncertainty — do not report it as a credible interval.*
 - **Weights** (M4): same simulated data, `weights = "none"` vs
   `"inverse_variance"`, reported on median per-entry error and correlation of
   correlations. Measured on the 12-trait seed-1 benchmark: inverse-variance
@@ -567,7 +573,9 @@ model becomes the slow side.
    method SEs propagated as a Gaussian ensemble. The independence caveat in
    propagating a per-entry `se` matrix (entries are correlated) must be stated.
    *Default: propagate as documented, or `"none"` if the user prefers point
-   estimates.*
+   estimates. Measured: the assembled stanimal band is overconfident (~43%
+   pointwise coverage vs ~81% for the full model at nominal 95%), so present
+   it as a relative spread, not an interval.*
 6. **Missing data.** `"error"` vs `"complete_block"` default. *Default: `"error"`.*
 7. **stanimal as dependency.** `Imports:` for the default engine vs `Suggests:`
    with a runtime check. Now that three engines exist, `Suggests:` is more
