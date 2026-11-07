@@ -43,7 +43,9 @@
 
   long <- data.frame(
     id = factor(rep(ids, K)),
-    trait = factor(rep(traits, each = N)),
+    # levels in column order: factor() would sort them alphabetically, and
+    # sommer returns its matrices in level order
+    trait = factor(rep(traits, each = N), levels = traits),
     value = as.vector(Y),
     record = factor(rep(seq_len(N), K)),
     stringsAsFactors = FALSE
@@ -115,11 +117,19 @@
   llik <- tail(fit$llik, 1)
   if (length(llik) != 1L || !is.finite(llik)) llik <- NA_real_
 
+  # Return every matrix in the column order of Y. sommer labels them by trait
+  # level; reorder by name in case its order ever differs from the levels.
+  in_order <- function(m) {
+    m <- as.matrix(m)
+    if (!single && !is.null(rownames(m)) && setequal(rownames(m), traits))
+      m <- m[traits, traits, drop = FALSE]
+    m
+  }
   list(
-    G = as.matrix(G$covariance),
-    E = as.matrix(E$covariance),
+    G = in_order(G$covariance),
+    E = in_order(E$covariance),
     draws = NULL,
-    se = as.matrix(G$covariance.se),
+    se = in_order(G$covariance.se),
     converged = isTRUE(fit$convergence),
     loglik = as.numeric(llik),
     time = elapsed

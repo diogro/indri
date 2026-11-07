@@ -81,3 +81,22 @@ test_that("the sommer engine fits a single trait", {
   # on standardised data G + E is about the phenotypic variance, 1
   expect_equal(one$G[1, 1] + one$E[1, 1], 1, tolerance = 0.25)
 })
+
+test_that("sommer blocks come back in column order, not alphabetical order", {
+  skip_if_not_installed("sommer")
+  # Regression: factor() sorted the trait levels, so a block of trait2 and
+  # trait10 came back as (trait10, trait2) and indri placed it the wrong way
+  # round. Here trait2 has a large genetic variance and trait10 a small one.
+  set.seed(2)
+  A <- kronecker(diag(40), matrix(0.5, 5, 5)); diag(A) <- 1
+  N <- nrow(A); ids <- paste0("id", seq_len(N))
+  u <- t(chol(A)) %*% matrix(rnorm(N * 3), N) %*% diag(sqrt(c(2, 0.1, 0.8)))
+  Y <- u + matrix(rnorm(N * 3), N) * 0.5
+  Y <- sweep(Y, 2, colMeans(Y))
+  dimnames(Y) <- list(ids, c("trait2", "trait10", "trait1"))
+  X <- matrix(1, N, 1, dimnames = list(ids, "intercept"))
+  out <- .indri_sommer_fit(Y, X, indri_a_forms(A, need = "inverse"))
+  expect_equal(rownames(out$G), colnames(Y))
+  expect_true(out$G[1, 1] > out$G[3, 3] && out$G[3, 3] > out$G[2, 2])
+  expect_equal(rownames(out$se), colnames(Y))
+})
