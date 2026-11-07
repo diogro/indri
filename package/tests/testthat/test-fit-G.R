@@ -27,19 +27,85 @@ test_that("fit_G assembles a usable covariance matrix end to end", {
   expect_equal(unname(rownames(fit$G)), unname(colnames(data$Y)))
 })
 
-test_that("the reported G is on the standardised scale and back-transforms", {
-  skip_if_no_cmdstan()
-  skip_if_no_stanimal()
-  data <- simulate_block_data(n_fam = 8, size = 5, K = 3L)
-  fit <- fit_G(data$Y, A = data$A,
-               subsets = t(utils::combn(3L, 2L)), engine = "stanimal",
-               engine_args = list(chains = 1L, iter = 200L, cores = 1L,
-                                  seed = 2L, refresh = 0, show_messages = FALSE))
+test_that("the standardised-to-original conversion keeps NA, NULL, draws and names", {
+  y_sd <- c(a = 2, b = 10, c = 0.5)
+  G_std <- matrix(c(1, 0.5, NA, 0.5, 1, 0.2, NA, 0.2, 1), 3,
+                  dimnames = list(names(y_sd), names(y_sd)))
+  G <- .indri_to_original(G_std, y_sd)
+  expect_equal(G, G_std * outer(y_sd, y_sd))
+  expect_true(is.na(G[1, 3]) && is.na(G[3, 1]))
+  expect_equal(dimnames(G), dimnames(G_std))
+  expect_null(.indri_to_original(NULL, y_sd))
+  draws <- array(rep(c(G_std), 4) * rep(1:4, each = 9), c(3, 3, 4),
+                 dimnames = list(names(y_sd), names(y_sd), NULL))
+  back <- .indri_to_original(draws, y_sd)
+  expect_equal(dim(back), dim(draws))
+  expect_equal(dimnames(back), dimnames(draws))
+  for (d in 1:4) expect_equal(back[, , d], draws[, , d] * outer(y_sd, y_sd))
+})
 
-  original_scale <- diag(fit$y_sd) %*% fit$G %*% diag(fit$y_sd)
-  expect_equal(unname(diag(original_scale)), unname(fit$y_sd^2 * diag(fit$G)),
+test_that("assembled covariances come back in the units of Y", {
+  skip_if_not_installed("sommer")
+  data <- simulate_block_data(n_fam = 30, size = 5, K = 4L)
+  # very unequal scales, named traits that do not sort in column order
+  Y <- sweep(data$Y, 2L, c(1, 50, 0.02, 3), "*") + 100
+  colnames(Y) <- c("wing", "tail", "beak", "leg")
+  X <- cbind(intercept = 1, size = rnorm(nrow(Y)))
+  subsets <- rbind(c(2L, 4L, 1L), c(1L, 3L, 4L), c(2L, 3L, 1L))
+
+  recompute <- function(fit, assembly, weights, spread) {
+    blocks <- fit$blocks
+    K <- ncol(Y)
+    avg <- indri_assemble(blocks, fit$subsets, K, weights = weights)$G
+    G_std <- if (assembly == "ls") {
+      indri_project_psd(blocks, fit$subsets, K, init = avg,
+                        weights = weights)$matrix
+    } else {
+      m <- min(eigen((avg + t(avg)) / 2, only.values = TRUE)$values)
+      if (m < 0) avg + (-m + 1e-8) * diag(K) else avg
+    }
+    draws <- indri_assemble_draws(lapply(blocks, `[[`, "draws"), fit$subsets,
+                                  K, method = spread, seed = 7L)
+    list(G = G_std, G_bar = avg, draws = draws)
+  }
+  for (assembly in c("ls", "average")) for (weights in c("none", "inverse_variance"))
+    for (spread in c("mixture", "average")) {
+      info <- paste(assembly, weights, spread)
+      fit <- fit_G(Y, X = X, A = data$A, subsets = subsets, engine = "sommer",
+                   assembly = assembly, weights = weights, spread = spread,
+                   cores = 1L, n_draws = 30L, seed = 7L)
+      std <- recompute(fit, assembly, weights, spread)
+      D <- outer(fit$y_sd, fit$y_sd)
+      expect_equal(unname(fit$G), unname(std$G * D), tolerance = 1e-10,
+                   label = info)
+      expect_equal(unname(fit$G_bar), unname(std$G_bar * D), tolerance = 1e-10,
+                   label = info)
+      for (d in c(1L, 30L))
+        expect_equal(unname(fit$G_draws[, , d]), unname(std$draws[, , d] * D),
+                     tolerance = 1e-10, label = info)
+      expect_equal(unname(fit$corrG), unname(stats::cov2cor(std$G)),
+                   tolerance = 1e-12, label = info)
+      expect_equal(unname(fit$sigma_G), unname(sqrt(diag(fit$G))), label = info)
+      expect_equal(dimnames(fit$G), list(colnames(Y), colnames(Y)))
+      expect_equal(fit$G, t(fit$G), tolerance = 1e-10)
+      if (assembly == "ls") expect_gt(min_eigen(fit$G), -1e-6 * max(diag(fit$G)))
+      # the raw blocks stay on the standardised scale
+      expect_lt(max(diag(fit$blocks[[1]]$G) + diag(fit$blocks[[1]]$E)), 2)
+    }
+  # the scale is the data's, so the tail variance is ~2500 times the wing's
+  expect_gt(fit$G["tail", "tail"] / fit$G["wing", "wing"], 100)
+
+  # the complete-rows missing-data path converts with the scales of the rows kept
+  Y_gap <- Y
+  Y_gap[c(3, 17), 2] <- NA
+  fit <- fit_G(Y_gap, X = X, A = data$A, subsets = subsets, engine = "sommer",
+               missing = "complete_block", cores = 1L, n_draws = 30L,
+               seed = 7L)
+  kept <- stats::complete.cases(Y_gap)
+  expect_equal(unname(fit$y_sd), unname(apply(Y_gap[kept, ], 2L, sd)))
+  std <- recompute(fit, "ls", "none", "mixture")
+  expect_equal(unname(fit$G), unname(std$G * outer(fit$y_sd, fit$y_sd)),
                tolerance = 1e-10)
-  expect_gt(min_eigen(original_scale), -1e-8)
 })
 
 test_that("fit_G refuses what it cannot do", {

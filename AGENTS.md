@@ -101,8 +101,11 @@ documented because they are invisible from reading the code.
 ## `fit_G()` behaviour to preserve
 
 - Traits are **globally standardised once** before subsetting, so every engine
-  sees identical numbers; the returned `G` is on that standardised scale
-  (back-transform with `diag(y_sd) %*% G %*% diag(y_sd)`).
+  sees identical numbers. Fitting, weights, assembly, the PSD projection and
+  all draws run on that scale; `fit_G()` converts only the assembled
+  covariances (`G`, `G_bar`, `G_draws`, `sigma_G`) to the units of `Y` at the
+  end, and never re-projects on the original scale (the projection objective
+  depends on units). `blocks` stay standardised.
 - **Defaults for `s`, `min_cooccurrence` and `cores` come from the engine**
   (`.indri_engine_defaults()`, `.indri_default_cores()`): every engine uses
   `.indri_default_s(K) = max(2, min(K - 1, floor(sqrt(K)), 3))` (REML engines

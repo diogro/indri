@@ -167,6 +167,21 @@ the *same* fits (`f3abee8`, seeds 1-6, 396 pairs, correlation scale):
 `fit_G(spread = "mixture")` is available; the default is still `"average"`.
 Per-seed results: `results/uncertainty_coverage_summary_seed{1..6}.csv`.
 
+## Breaking: G in the units of Y (2026-11-07)
+
+`fit_G()` now returns `G`, `G_bar`, `G_draws` and `sigma_G` in the units of
+the phenotype columns (`G_ORIGINAL_SCALE_PLAN.md`). Estimation is unchanged:
+traits are still standardised once, and fitting, weights, assembly, the PSD
+projection and every draw run on that scale; the assembled covariances are
+converted at the end, entry (i, j) times `y_sd[i] * y_sd[j]`, and not
+re-projected. `corrG`, `corrG_draws`, coverage and diagnostics are unchanged,
+and `blocks` stay on the standardised scale.
+
+**Scripts that multiplied `fit$G` by `diag(y_sd)` must stop** (they would now
+apply the scale twice). Saved fits are not migrated: fits from indri at or
+before `4e8a719` hold a standardised `G`. Study results recorded above are on
+the correlation scale and unaffected.
+
 ## stanimal at 35 traits: s = 3, LKJ 1 (2026-11-07)
 
 `examples/uncertainty_coverage.R`, K = 35, `random_covariance(method =

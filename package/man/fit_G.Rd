@@ -100,8 +100,10 @@ Ignored for \code{"stanimal"}.}
 seed is passed through \code{engine_args}.}
 }
 \value{
-An object of class \code{indri_fit}. The estimate is \code{G} (and \code{corrG}).
-\code{G_draws} and \code{corrG_draws}
+An object of class \code{indri_fit}. The estimate is \code{G}, in the units
+of \code{Y}, with \code{corrG} its correlation matrix; \code{G_bar} (the average before
+projection) and \code{sigma_G} are in the units of \code{Y} too, while \code{blocks}
+holds the raw standardised-scale block fits. \code{G_draws} and \code{corrG_draws}
 (traits x traits x draws) carry the assembled block uncertainty, from
 the posterior draws of \code{"stanimal"} blocks or from the normal sampling
 approximation of the REML blocks (see \code{n_draws}); use
@@ -121,9 +123,13 @@ covariance, so the many small fits replace one large one.
 \details{
 Traits are standardised once, using every observed value, before the subsets
 are drawn. Every engine therefore sees the same numbers and estimates the same
-matrix on the same scale, whatever it does internally. The returned \code{G} is on
-that standardised scale; multiply it back with
-\code{diag(y_sd) \%*\% G \%*\% diag(y_sd)} for the original units.
+matrix on the same scale, whatever it does internally; the fixed effects in
+\code{X} are handled inside each block fit. Assembly and the positive
+semi-definite projection also run on that scale, and the assembled
+covariances (\code{G}, \code{G_bar}, \code{G_draws}, \code{sigma_G}) are then returned in the
+units of \code{Y}. The raw block fits in \code{blocks} stay on the standardised scale:
+do not combine them directly with the assembled outputs (\code{y_sd} converts
+between the two).
 }
 \examples{
 \donttest{
@@ -155,9 +161,9 @@ if (requireNamespace("stanimal", quietly = TRUE) &&
   fit$coverage
   fit$diagnostics
 
-  # G is on the standardised scale; restore the original trait units.
-  G_original <- diag(fit$y_sd) \%*\% fit$G \%*\% diag(fit$y_sd)
-  G_original
+  # G is in the units of Y; the standardised-scale estimate, if needed:
+  G_std <- diag(1 / fit$y_sd) \%*\% fit$G \%*\% diag(1 / fit$y_sd)
+  fit$sigma_G
 
   # Pointwise correlation spread, not a joint posterior interval.
   quantile(fit$corrG_draws[1, 2, ], c(0.025, 0.975))

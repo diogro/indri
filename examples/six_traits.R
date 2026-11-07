@@ -102,9 +102,8 @@ table_out <- data.frame(
 )
 print(table_out, row.names = FALSE)
 
-# Variances: indri reports G on the standardised scale, so back-transform with
-# the per-trait scales it recorded.
-G_original <- diag(fit$y_sd) %*% fit$G %*% diag(fit$y_sd)
+# Variances: fit$G is in the units of the traits, so it compares directly.
+G_original <- fit$G
 cat("\ngenetic variances, truth vs estimate:\n")
 print(data.frame(trait = trait_names,
                  true = round(diag(G_true), 2),

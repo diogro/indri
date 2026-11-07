@@ -153,9 +153,12 @@ Four properties that make the assembly valid:
    standardise at all). So indri standardises **once, globally**, before
    subsetting: `Y_std[, k] = (Y[, k] - mean_k) / sd_k` using all observed values
    of trait k, and keeps `y_sd` on the object. Every block, from every engine,
-   then sees the same numbers and estimates the same G on the same scale; the
-   reported `G` is on the standardised scale and can be back-transformed by the
-   caller with `quad_form_diag(G, y_sd)`. This replaces an earlier design that
+   then sees the same numbers and estimates the same G on the same scale.
+   Assembly and the PSD projection run on that scale too; only then are the
+   assembled covariances (`G`, `G_bar`, `G_draws`, `sigma_G`) converted to the
+   units of `Y`, entry (i, j) times `y_sd[i] * y_sd[j]`. They are not projected
+   again: the unweighted projection objective depends on the units. Raw blocks
+   stay standardised. This replaces an earlier design that
    relied on stanimal's per-block standardisation — that worked, but it made
    the estimator's validity depend on an internal of one engine.
 
@@ -464,7 +467,7 @@ Returns an `indri_fit`:
 | `engine`, `engine_args` | what ran |
 | `subsets` | b x s index matrix |
 | `coverage` | K x K pair counts, plus pairs below threshold |
-| `y_sd` | per-trait scale, for back-transformation |
+| `y_sd` | per-trait scale of the internal standardisation (raw blocks are on it) |
 | `blocks` | raw block fits (E included, debugging only) |
 | `diagnostics` | per-block convergence (Rhat/divergences, or REML convergence), projection status, dropped rows |
 

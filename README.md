@@ -60,12 +60,9 @@ fit <- fit_G(
 )
 
 fit             # summary print
-fit$G           # assembled G, on the standardised scale
+fit$G           # assembled G, in the units of Y
 fit$corrG       # ... as correlations
-fit$y_sd        # per-trait scales used for standardisation
-
-# back to the original units
-G_original <- diag(fit$y_sd) %*% fit$G %*% diag(fit$y_sd)
+fit$y_sd        # per-trait scales used for the internal standardisation
 ```
 
 Add fixed effects with a design matrix: `fit_G(Y, X = X, A = A, ...)`, where
@@ -82,7 +79,7 @@ Add fixed effects with a design matrix: `fit_G(Y, X = X, A = A, ...)`, where
 | `coverage` | how many subsets covered each trait pair |
 | `subsets` | the trait subsets that were fitted |
 | `diagnostics` | per-block convergence (Rhat for stanimal, flags for REML) |
-| `y_mean`, `y_sd` | the global standardisation, for back-transforming `G` |
+| `y_mean`, `y_sd` | the internal standardisation (the raw `blocks` are on that scale) |
 
 `print()`, `summary()` and `plot()` are provided.
 
@@ -97,8 +94,11 @@ Add fixed effects with a design matrix: `fit_G(Y, X = X, A = A, ...)`, where
   (a standard licence allows two processes, on one machine at a time); pass
   `cores = 1` if yours has one seat.
 
-- **Scale.** `G` is reported on the standardised scale; multiply back with
-  `diag(y_sd) %*% G %*% diag(y_sd)` for the original units.
+- **Scale.** `G`, `G_bar`, `G_draws` and `sigma_G` are in the units of `Y`.
+  indri still standardises every trait once and fits, assembles and projects
+  on that scale; only the assembled outputs are converted. The raw fits in
+  `fit$blocks` stay standardised (`fit$y_sd` converts). Fits made before this
+  change (indri up to `4e8a719`) returned `G` standardised.
 - **Uncertainty: use `spread = "mixture"`.** Blocks are fitted to the same
   data, so averaging their draws (the current default) narrows the band by
   about the square root of a pair's coverage: ~40% coverage at nominal 95% on

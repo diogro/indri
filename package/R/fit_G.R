@@ -7,9 +7,13 @@
 #'
 #' Traits are standardised once, using every observed value, before the subsets
 #' are drawn. Every engine therefore sees the same numbers and estimates the same
-#' matrix on the same scale, whatever it does internally. The returned `G` is on
-#' that standardised scale; multiply it back with
-#' `diag(y_sd) %*% G %*% diag(y_sd)` for the original units.
+#' matrix on the same scale, whatever it does internally; the fixed effects in
+#' `X` are handled inside each block fit. Assembly and the positive
+#' semi-definite projection also run on that scale, and the assembled
+#' covariances (`G`, `G_bar`, `G_draws`, `sigma_G`) are then returned in the
+#' units of `Y`. The raw block fits in `blocks` stay on the standardised scale:
+#' do not combine them directly with the assembled outputs (`y_sd` converts
+#' between the two).
 #'
 #' @param Y Phenotype matrix, individuals in rows and traits in columns. Gaps are
 #'   allowed when the engine can handle them; see `missing`.
@@ -73,8 +77,10 @@
 #' @param seed Optional seed for the subset construction. The engine's sampler
 #'   seed is passed through `engine_args`.
 #'
-#' @return An object of class `indri_fit`. The estimate is `G` (and `corrG`).
-#'   `G_draws` and `corrG_draws`
+#' @return An object of class `indri_fit`. The estimate is `G`, in the units
+#'   of `Y`, with `corrG` its correlation matrix; `G_bar` (the average before
+#'   projection) and `sigma_G` are in the units of `Y` too, while `blocks`
+#'   holds the raw standardised-scale block fits. `G_draws` and `corrG_draws`
 #'   (traits x traits x draws) carry the assembled block uncertainty, from
 #'   the posterior draws of `"stanimal"` blocks or from the normal sampling
 #'   approximation of the REML blocks (see `n_draws`); use
@@ -121,9 +127,9 @@
 #'   fit$coverage
 #'   fit$diagnostics
 #'
-#'   # G is on the standardised scale; restore the original trait units.
-#'   G_original <- diag(fit$y_sd) %*% fit$G %*% diag(fit$y_sd)
-#'   G_original
+#'   # G is in the units of Y; the standardised-scale estimate, if needed:
+#'   G_std <- diag(1 / fit$y_sd) %*% fit$G %*% diag(1 / fit$y_sd)
+#'   fit$sigma_G
 #'
 #'   # Pointwise correlation spread, not a joint posterior interval.
 #'   quantile(fit$corrG_draws[1, 2, ], c(0.025, 0.975))
@@ -299,10 +305,19 @@ fit_G <- function(Y, X = NULL, A, s = NULL, min_cooccurrence = NULL,
   message <- .indri_rhat_warning(diagnostics, nrow(subsets))
   if (!is.null(message) && isTRUE(getOption("indri.warn_rhat", TRUE)))
     warning(message, call. = FALSE)
-  dimnames(G) <- list(trait_names, trait_names)
-  dimnames(assembled$G) <- list(trait_names, trait_names)
+  # Everything above runs on the standardised scale: block fits, weights,
+  # averaging, the PSD projection, the REML draws and the correlation draws.
+  # Correlations come from the standardised G (they are dimensionless); the
+  # covariance outputs are then returned in the units of Y. Not projected
+  # again: the unweighted projection objective depends on the units, so a
+  # projection on the original scale would be a different estimate.
   corrG <- stats::cov2cor(G)
   dimnames(corrG) <- list(trait_names, trait_names)
+  G <- .indri_to_original(G, y_sd)
+  G_bar <- .indri_to_original(assembled$G, y_sd)
+  G_draws <- .indri_to_original(G_draws, y_sd)
+  dimnames(G) <- list(trait_names, trait_names)
+  dimnames(G_bar) <- list(trait_names, trait_names)
   if (!is.null(G_draws)) {
     dimnames(G_draws) <- list(trait_names, trait_names, NULL)
     dimnames(corrG_draws) <- list(trait_names, trait_names, NULL)
@@ -310,7 +325,7 @@ fit_G <- function(Y, X = NULL, A, s = NULL, min_cooccurrence = NULL,
 
   structure(list(
     G = G,
-    G_bar = assembled$G,
+    G_bar = G_bar,
     G_draws = G_draws,
     corrG = corrG,
     corrG_draws = corrG_draws,
@@ -425,6 +440,20 @@ fit_G <- function(Y, X = NULL, A, s = NULL, min_cooccurrence = NULL,
   paste0(slow, " of ", n_blocks, " blocks have Rhat >= 1.05 (max ",
          signif(diagnostics$max_rhat, 3), "); run longer chains. See ",
          "`fit$diagnostics$unconverged`.")
+}
+
+# Standardised-scale covariance (a K x K matrix, or K x K x D draws) to the
+# units of Y: entry (i, j) times y_sd[i] * y_sd[j]. NULL stays NULL and NA
+# (uncovered) stays NA.
+.indri_to_original <- function(x, y_sd) {
+  if (is.null(x)) return(NULL)
+  scale <- outer(y_sd, y_sd)
+  if (length(dim(x)) == 3L) {
+    out <- x
+    for (d in seq_len(dim(x)[3L])) out[, , d] <- x[, , d] * scale
+    return(out)
+  }
+  x * scale
 }
 
 # A K x K matrix with the trait names on both dimensions.

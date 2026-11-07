@@ -60,8 +60,8 @@ test_that("the fit records the scale that undoes the standardisation", {
   expect_equal(unname(fit$y_sd), unname(apply(data$Y, 2L, stats::sd)))
   expect_equal(unname(fit$y_mean), unname(colMeans(data$Y)))
 
-  # G is reported on the standardised scale, and undoing the scaling cannot
-  # change a correlation
+  # blocks stay on the standardised scale; undoing the scaling cannot change
+  # a correlation
   block <- fit$blocks[[1L]]$G
   back <- diag(fit$y_sd[1:2]) %*% block %*% diag(fit$y_sd[1:2])
   expect_equal(unname(stats::cov2cor(back)), unname(stats::cov2cor(block)),

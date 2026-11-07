@@ -34,9 +34,8 @@ Rscript -e 'devtools::install_local("package")'
 - **`min eigenvalue of G`** — positive. The plain average of overlapping subset
   blocks is not a covariance matrix, and `indri_project_psd()` is what makes it
   one.
-- **The genetic variances** — reported on the standardised scale and
-  back-transformed with `diag(y_sd) %*% G %*% diag(y_sd)`, which is all the
-  `y_sd` slot on the fit is for.
+- **The genetic variances** — `fit$G` is in the units of the traits, so its
+  diagonal compares directly with the true genetic variances.
 
 ## Making it faster or slower
 
