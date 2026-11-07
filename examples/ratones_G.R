@@ -2,13 +2,13 @@
 # matrix G and compare it with the phenotypic covariance matrix P.
 #
 # The data ships with stanimal (ratones_morpho and ratones_pedigree): 329 mice,
-# 35 skull traits, five lines. The relationship matrix is built from the
-# pedigree with nadiv.
+# 35 skull traits, five lines. AGE, SEX and LIN are fitted as fixed effects; the
+# relationship matrix is built from the pedigree with stanimal::makeA().
 #
 # Run from the repository root:
 #   Rscript examples/ratones_G.R
 #
-# Needs stanimal, nadiv and CmdStan. Environment overrides:
+# Needs stanimal and CmdStan. Environment overrides:
 #   INDRI_RATONES_CORES   Stan process budget (64)
 #   INDRI_RATONES_ITER    iterations per chain (1000)
 #   INDRI_RATONES_CHAINS  chains per block (4)
@@ -18,8 +18,6 @@ library(indri)
 
 if (!requireNamespace("stanimal", quietly = TRUE))
   stop("This example needs stanimal")
-if (!requireNamespace("nadiv", quietly = TRUE))
-  stop("This example needs nadiv to build the relationship matrix")
 if (!requireNamespace("cmdstanr", quietly = TRUE))
   stop("This example needs cmdstanr and a CmdStan installation")
 
@@ -38,10 +36,13 @@ meta <- c(".id", "ID", "SEX", "GER", "LIN", "MADRE", "PADRE", "AGE", "P49",
 traits <- setdiff(names(ratones_morpho), meta)
 Y <- as.matrix(ratones_morpho[, traits])
 
+# Fixed effects: age, sex and line.
+X <- stats::model.matrix(~ AGE + SEX + LIN, data = ratones_morpho)
+
 # Additive relationship matrix from the pedigree, aligned to the phenotyped
-# mice. nadiv needs the pedigree sorted (offspring after parents): prepPed().
-ped <- nadiv::prepPed(ratones_pedigree)
-A <- as.matrix(nadiv::makeA(ped))[rownames(ratones_morpho), rownames(ratones_morpho)]
+# mice. stanimal::makeA() sorts the pedigree itself.
+A <- stanimal::makeA(ratones_pedigree)[rownames(ratones_morpho),
+                                       rownames(ratones_morpho)]
 
 message("N = ", nrow(Y), " individuals, ", ncol(Y), " traits")
 
@@ -50,14 +51,17 @@ message("N = ", nrow(Y), " individuals, ", ncol(Y), " traits")
 # The default subset size caps at 4, so a 35-trait fit runs as ~400 six-trait
 # blocks. The stanimal engine returns posterior draws per block.
 fit <- fit_G(
-  Y, A = A, engine = "stanimal",
+  Y, X = X, A = A, engine = "stanimal",
   engine_args = list(chains = chains, iter = iter, init = 0.5,
                      refresh = 0, show_messages = FALSE),
   cores = cores, seed = seed
 )
 
 corrG <- fit$corrG                     # additive genetic correlations
-corrP <- stats::cor(Y)                 # phenotypic correlations
+# Phenotypic correlation of the same size-corrected traits, so that G and P
+# are comparable.
+resid <- stats::residuals(stats::lm(Y ~ 0 + X))
+corrP <- stats::cor(resid)
 pairs <- upper.tri(corrP)
 
 cat("\n== G (indri) vs P (phenotypic) ==\n")
