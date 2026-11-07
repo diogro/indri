@@ -160,7 +160,7 @@ indri_assemble <- function(blocks, subsets, K = NULL,
 #' draws <- list(make_draws(c(0.1, 0.2, 0.3, 0.4)),
 #'               make_draws(c(0.5, 0.6, 0.7, 0.8)))
 #' averaged <- indri_assemble_draws(draws, subsets)
-#' mixed <- indri_assemble_draws(draws, subsets, method = "mixture", seed = 1)
+#' mixed <- indri_assemble_draws(draws, subsets, method = "mixture")
 #' averaged[1, 2, ]
 #' mixed[1, 2, ]
 #' # Mixture entries are pointwise draws, not a joint PSD matrix posterior.

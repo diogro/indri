@@ -35,7 +35,7 @@
 #'   pair counts in the `coverage` attribute.
 #'
 #' @examples
-#' subsets <- indri_subsets(K = 6, s = 3, min_cooccurrence = 3, seed = 42)
+#' subsets <- indri_subsets(K = 6, s = 3, min_cooccurrence = 3)
 #' subsets
 #' ncol(subsets)  # Actual block width; it can be larger than s.
 #' coverage <- attr(subsets, "coverage")

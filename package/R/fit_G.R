@@ -91,7 +91,6 @@
 #' if (requireNamespace("stanimal", quietly = TRUE) &&
 #'     requireNamespace("cmdstanr", quietly = TRUE) &&
 #'     !is.na(cmdstanr::cmdstan_version(error_on_NA = FALSE))) {
-#'   set.seed(42)
 #'   K <- 4L
 #'   N <- 60L
 #'   # Twelve families of five full siblings.
@@ -106,10 +105,11 @@
 #'   Y <- genetic + residual + X[, "group"] %o% c(0.2, -0.2, 0.1, 0)
 #'   colnames(Y) <- paste0("trait", seq_len(K))
 #'
-#'   # Estimate from all pairs; increase chains and iterations for real work.
+#'   # These short chains are for a quick example, not reliable inference.
+#'   # For real work, use more chains and iterations and check diagnostics.
 #'   fit <- fit_G(Y, X = X, A = A, subsets = t(utils::combn(K, 2)),
-#'                engine = "stanimal", cores = 1, seed = 42,
-#'                engine_args = list(chains = 2, iter = 400, seed = 42, init = 0.5,
+#'                engine = "stanimal", cores = 1,
+#'                engine_args = list(chains = 2, iter = 400,
 #'                                   refresh = 0, show_messages = FALSE))
 #'   fit$corrG
 #'   fit$coverage
