@@ -33,6 +33,8 @@
 #   INDRI_COVERAGE_FULL    1 to fit the full stanimal model as a reference
 #                          (1 for stanimal, 0 otherwise; same seeds, same data)
 #   INDRI_COVERAGE_DRAWS   draws per block for the REML engines (1000)
+#   INDRI_COVERAGE_LKJ     stanimal lkj_prior for the blocks (stanimal default 2)
+#   INDRI_COVERAGE_S_STAN  stanimal subset size parameter (4)
 #   INDRI_COVERAGE_K       traits (12)
 #   INDRI_COVERAGE_NFAM    families of 5 full sibs; N = 5 x NFAM (60, N = 300)
 #   INDRI_COVERAGE_S, INDRI_COVERAGE_C
@@ -51,8 +53,10 @@ if (!requireNamespace("cmdstanr", quietly = TRUE))
 K <- as.integer(Sys.getenv("INDRI_COVERAGE_K", "12"))
 n_fam <- as.integer(Sys.getenv("INDRI_COVERAGE_NFAM", "60"))   # N = 5 n_fam
 sibship_size <- 5L
-s <- 4L
+s <- as.integer(Sys.getenv("INDRI_COVERAGE_S_STAN", "4"))     # stanimal blocks
 min_cooccurrence <- 3L
+lkj <- Sys.getenv("INDRI_COVERAGE_LKJ", "")                   # stanimal lkj_prior
+lkj <- if (nzchar(lkj)) as.numeric(lkj) else NULL
 # REML block settings; empty means the package default (s = 3, c = 3)
 reml_s <- Sys.getenv("INDRI_COVERAGE_S", "")
 reml_c <- Sys.getenv("INDRI_COVERAGE_C", "")
@@ -71,11 +75,14 @@ tag <- paste0(
   if (reml) paste0(engine, "_") else "",
   if (K != 12L || n_fam != 60L) sprintf("K%d_N%d_", K, n_fam * sibship_size) else "",
   if (!is.null(reml_s)) sprintf("s%d_", reml_s) else "",
-  if (!is.null(reml_c)) sprintf("c%d_", reml_c) else "")
+  if (!is.null(reml_c)) sprintf("c%d_", reml_c) else "",
+  if (!reml && s != 4L) sprintf("sstan%d_", s) else "",
+  if (!reml && !is.null(lkj)) sprintf("lkj%s_", format(lkj)) else "")
 Sys.setenv(OMP_NUM_THREADS = "1")
 
 block_control <- list(chains = 1L, iter = iter, init = 0.5,
                       refresh = 0, show_messages = FALSE)
+if (!is.null(lkj)) block_control$lkj_prior <- lkj
 dir.create("results", showWarnings = FALSE)
 
 simulate <- function(seed) {
@@ -183,6 +190,10 @@ for (seed in seeds) {
     out
   }))
   indri_rows$seed <- seed
+  # shrinkage: slope of the point estimate on the truth (1 = unbiased scale)
+  pairs <- upper.tri(data$corr_true)
+  indri_rows$slope <- unname(coef(stats::lm(fit$corrG[pairs] ~
+                                              data$corr_true[pairs]))[2])
 
   full_draws <- NULL
   full_rows <- NULL
@@ -196,6 +207,9 @@ for (seed in seeds) {
     full_rows <- coverage_rows(full_bands$lo, full_bands$hi, data$corr_true)
     full_rows$seed <- seed
     full_rows$method <- "full"
+    full_mean <- apply(full_draws, c(1L, 2L), mean)
+    full_rows$slope <- unname(coef(stats::lm(full_mean[pairs] ~
+                                               data$corr_true[pairs]))[2])
     rm(full)
   }
 
@@ -210,7 +224,8 @@ for (seed in seeds) {
 }
 
 summary <- do.call(rbind, rows)
-summary <- summary[, c("seed", "method", "band", "n_pairs", "coverage", "mean_width")]
+summary <- summary[, c("seed", "method", "band", "n_pairs", "coverage", "mean_width",
+                       "slope")]
 utils::write.csv(
   summary,
   sprintf("results/uncertainty_coverage_summary_%sseed%s.csv", tag,
