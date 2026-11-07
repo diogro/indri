@@ -54,16 +54,26 @@
 #'   arguments runs one block at a time with four chains in parallel, while
 #'   `cores = 4` with `engine_args = list(chains = 1)` runs four blocks at once.
 #'   `chains` is never changed here; only how many run concurrently.
-#' @param spread How `G_draws` combines the block posteriors: `"average"`
-#'   averages draw `d` across the covering blocks, `"mixture"` takes each entry
-#'   from one covering block at random. Averaging is overconfident by roughly
-#'   the square root of a pair's coverage; see [indri_assemble_draws()].
+#' @param spread How `G_draws` and `corrG_draws` combine the block posteriors.
+#'   `"mixture"` (the default) takes each entry of each draw from one covering
+#'   block at random; `"average"` averages draw `d` across the covering blocks.
+#'   Blocks are fitted to the same individuals, so averaging their independent
+#'   chains is overconfident by roughly the square root of a pair's coverage:
+#'   on a 12-trait simulation the averaged 95% band covered the true
+#'   correlation 40% of the time and the mixture 89% (the full model: 80%).
+#'   See [indri_assemble_draws()].
 #' @param seed Optional seed for the subset construction. The engine's sampler
 #'   seed is passed through `engine_args`.
 #'
-#' @return An object of class `indri_fit`. The estimate is `G`; `G_draws` carries
-#'   the assembled block uncertainty, which is a spread across dependent blocks
-#'   and **not** a posterior over the joint matrix.
+#' @return An object of class `indri_fit`. The estimate is `G` (and `corrG`).
+#'   For engines that return posterior draws, `G_draws` and `corrG_draws`
+#'   (traits x traits x draws) carry the assembled block uncertainty; use
+#'   `corrG_draws` for intervals on correlations, since it mixes each block's
+#'   own correlation draws and stays within \[-1, 1\]. Mixed draws are
+#'   pointwise: their entries are drawn independently, so a single draw need
+#'   not be positive semi-definite, and they support per-entry intervals, not
+#'   functions of the whole matrix. Neither is a posterior over the joint
+#'   matrix.
 #'
 #' @export
 fit_G <- function(Y, X = NULL, A, s = NULL, min_cooccurrence = NULL,
@@ -71,7 +81,7 @@ fit_G <- function(Y, X = NULL, A, s = NULL, min_cooccurrence = NULL,
                   assembly = c("ls", "average"),
                   weights = c("none", "inverse_variance"),
                   missing = c("error", "complete_block"),
-                  spread = c("average", "mixture"),
+                  spread = c("mixture", "average"),
                   cores = NULL, seed = NULL) {
   call <- match.call()
   assembly <- match.arg(assembly)
@@ -197,11 +207,20 @@ fit_G <- function(Y, X = NULL, A, s = NULL, min_cooccurrence = NULL,
   }
 
   G_draws <- NULL
+  corrG_draws <- NULL
   if (isTRUE(engine$capabilities$draws)) {
     block_draws <- lapply(blocks, `[[`, "draws")
-    if (all(!vapply(block_draws, is.null, logical(1L))))
+    if (all(!vapply(block_draws, is.null, logical(1L)))) {
       G_draws <- indri_assemble_draws(block_draws, subsets, K,
                                       method = spread, seed = seed)
+      # Correlations are mixed from each block's own correlation draws, as in
+      # the coverage study, so every entry is a real correlation.
+      block_corr <- lapply(block_draws, .indri_corr_draws)
+      corrG_draws <- indri_assemble_draws(
+        block_corr, subsets, K, method = spread,
+        seed = if (is.null(seed)) NULL else seed + 1L)
+      for (k in seq_len(K)) corrG_draws[k, k, ] <- 1
+    }
   }
 
   # The engine may or may not carry trait names through; naming is indri's job.
@@ -210,14 +229,17 @@ fit_G <- function(Y, X = NULL, A, s = NULL, min_cooccurrence = NULL,
   dimnames(assembled$G) <- list(trait_names, trait_names)
   corrG <- stats::cov2cor(G)
   dimnames(corrG) <- list(trait_names, trait_names)
-  if (!is.null(G_draws))
+  if (!is.null(G_draws)) {
     dimnames(G_draws) <- list(trait_names, trait_names, NULL)
+    dimnames(corrG_draws) <- list(trait_names, trait_names, NULL)
+  }
 
   structure(list(
     G = G,
     G_bar = assembled$G,
     G_draws = G_draws,
     corrG = corrG,
+    corrG_draws = corrG_draws,
     sigma_G = sqrt(pmax(diag(G), 0)),
     counts = assembled$counts,
     coverage = indri_pair_coverage(subsets, K),
@@ -294,6 +316,13 @@ fit_G <- function(Y, X = NULL, A, s = NULL, min_cooccurrence = NULL,
   s <- caps$default_s %||% .indri_default_s(K)
   list(s = max(2L, min(as.integer(s), K)),
        min_cooccurrence = caps$default_cooccurrence %||% 3L)
+}
+
+# Correlation draws of one block: cov2cor() of every draw.
+.indri_corr_draws <- function(draws) {
+  out <- draws
+  for (d in seq_len(dim(draws)[3L])) out[, , d] <- stats::cov2cor(draws[, , d])
+  out
 }
 
 # Default subset size: grow with K like sqrt(K), but never past 4. Larger

@@ -16,7 +16,7 @@ fit_G(
   assembly = c("ls", "average"),
   weights = c("none", "inverse_variance"),
   missing = c("error", "complete_block"),
-  spread = c("average", "mixture"),
+  spread = c("mixture", "average"),
   cores = NULL,
   seed = NULL
 )
@@ -63,10 +63,14 @@ projection.}
 \code{"error"}, or \code{"complete_block"} to drop incomplete individuals once, before
 subsetting, so every block sees the same rows.}
 
-\item{spread}{How \code{G_draws} combines the block posteriors: \code{"average"}
-averages draw \code{d} across the covering blocks, \code{"mixture"} takes each entry
-from one covering block at random. Averaging is overconfident by roughly
-the square root of a pair's coverage; see \code{\link[=indri_assemble_draws]{indri_assemble_draws()}}.}
+\item{spread}{How \code{G_draws} and \code{corrG_draws} combine the block posteriors.
+\code{"mixture"} (the default) takes each entry of each draw from one covering
+block at random; \code{"average"} averages draw \code{d} across the covering blocks.
+Blocks are fitted to the same individuals, so averaging their independent
+chains is overconfident by roughly the square root of a pair's coverage:
+on a 12-trait simulation the averaged 95\% band covered the true
+correlation 40\% of the time and the mixture 89\% (the full model: 80\%).
+See \code{\link[=indri_assemble_draws]{indri_assemble_draws()}}.}
 
 \item{cores}{Total number of concurrent processes for the whole fit,
 not the number of subsets to run at once. Defaults to 1, except for
@@ -86,9 +90,15 @@ arguments runs one block at a time with four chains in parallel, while
 seed is passed through \code{engine_args}.}
 }
 \value{
-An object of class \code{indri_fit}. The estimate is \code{G}; \code{G_draws} carries
-the assembled block uncertainty, which is a spread across dependent blocks
-and \strong{not} a posterior over the joint matrix.
+An object of class \code{indri_fit}. The estimate is \code{G} (and \code{corrG}).
+For engines that return posterior draws, \code{G_draws} and \code{corrG_draws}
+(traits x traits x draws) carry the assembled block uncertainty; use
+\code{corrG_draws} for intervals on correlations, since it mixes each block's
+own correlation draws and stays within [-1, 1]. Mixed draws are
+pointwise: their entries are drawn independently, so a single draw need
+not be positive semi-definite, and they support per-entry intervals, not
+functions of the whole matrix. Neither is a posterior over the joint
+matrix.
 }
 \description{
 Fits a multivariate animal model on many small trait subsets and reassembles

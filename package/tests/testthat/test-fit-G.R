@@ -15,6 +15,12 @@ test_that("fit_G assembles a usable covariance matrix end to end", {
   expect_equal(unname(diag(fit$corrG)), rep(1, 4L), tolerance = 1e-8)
   expect_gt(min_eigen(fit$G), -1e-8)
   expect_equal(dim(fit$G_draws), c(4L, 4L, dim(fit$G_draws)[3]))
+  # correlation draws: mixed per block, so every entry is a correlation
+  expect_equal(fit$spread, "mixture")
+  expect_equal(dim(fit$corrG_draws), dim(fit$G_draws))
+  expect_true(all(abs(fit$corrG_draws) <= 1 + 1e-12))
+  expect_true(all(fit$corrG_draws[cbind(1:4, 1:4, 1L)] == 1))
+  expect_equal(dimnames(fit$corrG_draws)[1:2], dimnames(fit$G)) 
   expect_equal(length(fit$y_sd), 4L)
   expect_true(all(fit$counts[upper.tri(fit$counts)] >= 1))
   expect_true(all(fit$coverage[upper.tri(fit$coverage)] >= 1))
