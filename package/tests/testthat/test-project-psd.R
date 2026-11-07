@@ -54,6 +54,28 @@ test_that("the fit is closer to the blocks than the average it started from", {
   expect_lte(loss(fit$matrix), loss(start %*% t(start)) + 1e-8)
 })
 
+test_that("the analytical gradient matches finite differences", {
+  G <- known_G()
+  subsets <- covering_subsets()
+  set.seed(2)
+  blocks <- lapply(blocks_from(G, subsets), function(g) {
+    list(G = g + matrix(stats::rnorm(length(g), sd = 0.1), nrow(g)))
+  })
+  K <- 4L
+  parts <- .indri_psd_parts(blocks, subsets, K)
+  theta <- stats::runif(nrow(parts$lt), 0.1, 1)
+
+  ana <- .indri_psd_gradient(theta, K, parts)
+  eps <- 1e-6
+  num <- vapply(seq_along(theta), function(k) {
+    up <- theta; up[k] <- up[k] + eps
+    dn <- theta; dn[k] <- dn[k] - eps
+    (.indri_psd_objective(up, K, parts) - .indri_psd_objective(dn, K, parts)) /
+      (2 * eps)
+  }, numeric(1))
+  expect_equal(ana, num, tolerance = 1e-4)
+})
+
 test_that("missing entries in the average do not break the start", {
   subsets <- matrix(c(1L, 2L, 3L, 4L), nrow = 2, byrow = TRUE)
   blocks <- list(list(G = diag(2)), list(G = diag(2) * 2))
