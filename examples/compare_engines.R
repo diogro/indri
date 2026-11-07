@@ -143,7 +143,9 @@ time_stanimal <- as.numeric(difftime(Sys.time(), started, units = "mins"))
 ## indri + asreml -----------------------------------------------------------
 
 if (run_asreml) {
-  if (!requireNamespace("asreml", quietly = TRUE))
+  # Check that asreml is installed without loading it: loading checks out a
+  # licence seat in this process, which the two block workers then lack.
+  if (!nzchar(system.file(package = "asreml")))
     stop("This study needs asreml to run the asreml engine; it is licensed and ",
          "not on CRAN")
   message("== indri, asreml engine (", cores_asreml, " parallel blocks) ==")
