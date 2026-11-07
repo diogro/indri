@@ -17,8 +17,7 @@ test_that("the stanimal engine returns a covariance and its draws", {
 })
 
 test_that("engines that are designed but not implemented say so", {
-  expect_error(indri_engine("sommer"), "not implemented")
   expect_error(indri_engine("asreml"), "not implemented")
   expect_error(indri_engine("nonsense"), "Unknown engine")
-  expect_equal(indri_engines(), "stanimal")
+  expect_equal(indri_engines(), c("stanimal", "sommer"))
 })

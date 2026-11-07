@@ -22,8 +22,8 @@
 #' @param min_cooccurrence Minimum number of times every trait pair must be
 #'   sampled.
 #' @param subsets Optional precomputed subset matrix, from [indri_subsets()].
-#' @param engine Block engine: `"stanimal"` today, with `"sommer"` and
-#'   `"asreml"` designed and not yet implemented.
+#' @param engine Block engine: `"stanimal"` (posterior draws) or `"sommer"`
+#'   (REML point estimates); `"asreml"` is designed and not yet implemented.
 #' @param engine_args List of arguments passed to the engine's fit function.
 #' @param assembly `"ls"` fits the closest positive semi-definite matrix to all
 #'   the subset estimates; `"average"` keeps the plain average, nudged onto the

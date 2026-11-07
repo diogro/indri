@@ -45,7 +45,7 @@ test_that("fit_G refuses what it cannot do", {
   expect_error(fit_G(data$Y, A = data$A[1:5, 1:5],
                      subsets = t(utils::combn(3L, 2L))),
                "individuals")
-  expect_error(fit_G(data$Y, A = data$A, subsets = NULL, engine = "sommer"),
+  expect_error(fit_G(data$Y, A = data$A, subsets = NULL, engine = "asreml"),
                "not implemented")
   expect_error(fit_G(data$Y, A = data$A,
                      subsets = matrix(rep(1:3, 2), 2, byrow = TRUE)),

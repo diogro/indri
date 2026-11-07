@@ -1,0 +1,106 @@
+# sommer engine: one multivariate animal model per trait subset, fitted with
+# sommer::mmes() in long format. REML point estimates with delta-method standard
+# errors, which the assembly can use for inverse-variance weighting.
+
+.indri_engine_sommer <- function() {
+  list(
+    name = "sommer",
+    capabilities = list(
+      draws = FALSE,
+      se = TRUE,
+      a_form = "inverse",
+      missing = FALSE
+    ),
+    fit = .indri_sommer_fit
+  )
+}
+
+.indri_sommer_fit <- function(Y, X, a_forms, control = list()) {
+  if (!requireNamespace("sommer", quietly = TRUE))
+    stop("The `sommer` engine needs the sommer package. Install it, or ",
+         "choose a different engine.", call. = FALSE)
+
+  N <- nrow(Y)
+  K <- ncol(Y)
+  ids <- rownames(Y)
+  traits <- colnames(Y)
+  if (is.null(ids)) ids <- as.character(seq_len(N))
+  if (is.null(traits)) traits <- paste0("trait", seq_len(K))
+
+  # mmes() matches Gu against the `id` levels, so the inverse relationship
+  # matrix has to carry the individual names.
+  Ainv <- a_forms$inverse
+  dimnames(Ainv) <- list(ids, ids)
+
+  # Fixed effects: trait-specific intercepts (when X has an intercept column)
+  # plus trait-specific slopes for every other column. Long format below.
+  x_names <- make.names(colnames(X), unique = TRUE)
+  constant <- apply(X, 2L, function(v) all(v == v[1L]))
+  covars <- which(!constant)
+
+  long <- data.frame(
+    id = factor(rep(ids, K)),
+    trait = factor(rep(traits, each = N)),
+    value = as.vector(Y),
+    record = factor(rep(seq_len(N), K)),
+    stringsAsFactors = FALSE
+  )
+  if (length(covars)) {
+    for (j in covars) long[[x_names[j]]] <- rep(X[, j], K)
+  }
+
+  terms <- character(0)
+  if (any(constant)) terms <- c(terms, "trait")
+  if (length(covars)) terms <- c(terms, paste0("trait:", x_names[covars]))
+  if (!length(terms))
+    stop("`X` has no columns; the sommer engine needs a design matrix.",
+         call. = FALSE)
+
+  fixed <- stats::as.formula(
+    paste("value ~ 0 +", paste(terms, collapse = " + ")),
+    env = environment()
+  )
+
+  # sommer evaluates the structure calls in the formula's environment, and its
+  # internal evaluator re-emits them with bare names (vsm/usm/ism), so bind the
+  # helpers there and let `Ainv` resolve through the parent frame.
+  .env <- new.env(parent = environment())
+  .env$vsm <- sommer::vsm
+  .env$usm <- sommer::usm
+  .env$ism <- sommer::ism
+  random <- stats::as.formula(
+    "~ vsm(usm(trait), ism(id), Gu = Ainv)", env = .env)
+  rcov <- stats::as.formula(
+    "~ vsm(usm(trait), ism(record))", env = .env)
+
+  # .indri_core_plan() adds a `cores` budget that sommer's control object does
+  # not understand; keep only the entries mmes_control() accepts.
+  control_names <- names(formals(sommer::mmes_control))
+  ctrl <- utils::modifyList(
+    list(diagnostics = list(verbose = FALSE)),
+    control[intersect(names(control), control_names)]
+  )
+  mmes_control <- do.call(sommer::mmes_control, ctrl)
+
+  started <- proc.time()[["elapsed"]]
+  fit <- sommer::mmes(fixed, random = random, rcov = rcov, data = long,
+                      control = mmes_control)
+  elapsed <- proc.time()[["elapsed"]] - started
+
+  # covmatrix_mmes() term 1 is the animal effect (G), term 2 the residual (E).
+  G <- sommer::covmatrix_mmes(fit, 1, se = TRUE)
+  E <- sommer::covmatrix_mmes(fit, 2)
+
+  llik <- tail(fit$llik, 1)
+  if (length(llik) != 1L || !is.finite(llik)) llik <- NA_real_
+
+  list(
+    G = G$covariance,
+    E = E$covariance,
+    draws = NULL,
+    se = G$covariance.se,
+    converged = isTRUE(fit$convergence),
+    loglik = as.numeric(llik),
+    time = elapsed
+  )
+}

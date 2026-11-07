@@ -12,6 +12,10 @@ skip_if_no_stanimal <- function() {
   testthat::skip_if_not_installed("stanimal")
 }
 
+skip_if_no_sommer <- function() {
+  testthat::skip_if_not_installed("sommer")
+}
+
 # A 4-trait covariance matrix with a clear structure, and the trait subsets that
 # cover every pair. Blocks that are exact submatrices of this matrix are what a
 # perfect engine would return, which is how the assembly steps are tested

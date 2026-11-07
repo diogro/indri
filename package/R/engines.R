@@ -19,8 +19,7 @@ indri_engine <- function(name = "stanimal") {
     stop("`engine` must be a single engine name.", call. = FALSE)
   switch(name,
     stanimal = .indri_engine_stanimal(),
-    sommer = stop("The `sommer` engine is designed but not implemented yet; ",
-                  "it is milestone M2 in NOTES.md.", call. = FALSE),
+    sommer = .indri_engine_sommer(),
     asreml = stop("The `asreml` engine is designed but not implemented yet; ",
                   "it is milestone M2 in NOTES.md.", call. = FALSE),
     stop("Unknown engine `", name, "`. Implemented: ",
@@ -32,5 +31,5 @@ indri_engine <- function(name = "stanimal") {
 #' @return `indri_engines()` returns the names of the implemented engines.
 #' @export
 indri_engines <- function() {
-  "stanimal"
+  c("stanimal", "sommer")
 }
