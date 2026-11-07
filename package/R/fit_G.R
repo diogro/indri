@@ -18,10 +18,10 @@
 #'   have row names they are matched by name.
 #' @param s Subset size parameter. Controls how many trait pairs each subset
 #'   covers, not the number of traits in a subset; see [indri_subsets()].
-#'   The default depends on the engine: `min(floor(sqrt(K)), 4)`, clamped to at
-#'   least 2, for `"stanimal"`, and 3 (blocks of four traits) for the REML
-#'   engines, which measured slightly more accurate than pairs at the same or
-#'   lower cost; larger blocks cost more for little more.
+#'   Defaults to `min(floor(sqrt(K)), 3)`, at least 2 and kept narrow enough
+#'   that a block never covers every trait: blocks of up to four traits. Larger
+#'   blocks shrank the stanimal correlations more (and undercovered) and gave
+#'   the REML engines nothing for their extra cost.
 #' @param min_cooccurrence Minimum number of distinct subsets every trait pair
 #'   must appear in. The default depends on the engine: 3 for `"stanimal"`, 1
 #'   for the REML engines, where three distinct contexts per pair measured no
@@ -471,10 +471,12 @@ fit_G <- function(Y, X = NULL, A, s = NULL, min_cooccurrence = NULL,
   out
 }
 
-# Default subset size: grow with K like sqrt(K), but never past 4. Larger
-# blocks stop buying accuracy (and get slower) at K = 50, so 4 is the cap.
+# Default subset size: grow with K like sqrt(K), but never past 3 (4-trait
+# blocks). At K = 35 the stanimal engine covered nominally with s = 3 and
+# undercovered with s = 4 (0.96 vs 0.94 at LKJ 1, 0.94 vs 0.88 at LKJ 2), and
+# was more accurate; the REML engines measured the same or better at s = 3.
 .indri_default_s <- function(K) {
-  max(2L, min(K - 1L, floor(sqrt(K)), 4L))
+  max(2L, min(K - 1L, floor(sqrt(K)), 3L))
 }
 
 # Match A to the individuals in Y, by name when both have names.

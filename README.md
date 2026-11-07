@@ -88,10 +88,11 @@ Add fixed effects with a design matrix: `fit_G(Y, X = X, A = A, ...)`, where
 
 ## Caveats worth knowing before you use it
 
-- **Block size depends on the engine.** By default the REML engines (sommer,
-  asreml) fit every trait pair once in a bivariate model; stanimal fits
-  overlapping blocks of up to six traits, each pair about three times. Larger
-  REML blocks were measured to add nothing and to converge poorly.
+- **Blocks are small by default.** Every engine fits overlapping blocks of up
+  to four traits (`s = 3`): stanimal with each pair in three distinct blocks
+  and `lkj_prior = 1`, the REML engines with each pair in at least one. Larger
+  blocks were measured to shrink stanimal's correlations (and undercover) and
+  to give the REML engines nothing for their cost.
 - **asreml needs a licence seat per worker.** It runs two workers by default
   (a standard licence allows two processes, on one machine at a time); pass
   `cores = 1` if yours has one seat.

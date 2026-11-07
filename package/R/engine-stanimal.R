@@ -26,7 +26,12 @@
     stop("The `stanimal` engine needs the stanimal package. Install it, or ",
          "choose a different engine.", call. = FALSE)
 
-  args <- utils::modifyList(list(chains = 4L, iter = 3000L), control)
+  # lkj_prior = 1 (uniform over correlation matrices) unless the caller says
+  # otherwise: stanimal's default of 2 shrank block correlations towards zero
+  # (estimate-on-truth slope 0.81 vs 0.85 at K = 35), undercovered, and
+  # understated integration (eigenvalue variance 69% vs 74% of the truth).
+  args <- utils::modifyList(list(chains = 4L, iter = 3000L, lkj_prior = 1),
+                            control)
   # a_forms carries `eigen` only when the engine asked for it, which it does
   # only when stanimal takes it (decided once, in the main process: a PSOCK
   # worker may not see the same helpers)

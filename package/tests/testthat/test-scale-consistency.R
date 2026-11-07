@@ -29,8 +29,10 @@ test_that("a block is exactly the model fitted on the standardised columns", {
     "not in any subset")
 
   Y_std <- standardise_like_indri(data$Y)
+  # the engine fits with lkj_prior = 1 by default
   direct <- stanimal::lmm_animal(Y_std[, 1:2, drop = FALSE],
                                  matrix(1, data$N, 1L), data$A,
+                                 lkj_prior = 1,
                                  chains = 1L, iter = 200L, cores = 1L,
                                  seed = 4L, init = 0.5, refresh = 0,
                                  show_messages = FALSE)

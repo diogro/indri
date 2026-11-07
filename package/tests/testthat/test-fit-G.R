@@ -60,9 +60,9 @@ test_that("the default subset size grows with K but caps at 4", {
   expect_equal(.indri_default_s(3L), 2L)
   expect_equal(.indri_default_s(4L), 2L)
   expect_equal(.indri_default_s(12L), 3L)
-  expect_equal(.indri_default_s(16L), 4L)
-  expect_equal(.indri_default_s(30L), 4L)
-  expect_equal(.indri_default_s(50L), 4L)
+  expect_equal(.indri_default_s(16L), 3L)
+  expect_equal(.indri_default_s(30L), 3L)
+  expect_equal(.indri_default_s(50L), 3L)
 })
 
 test_that("diagnostics reads logical and Rhat convergence", {
@@ -108,7 +108,7 @@ test_that("print and summary work on a fit", {
 
 test_that("subset size, co-occurrence and workers default by engine", {
   stanimal <- .indri_engine_defaults(indri_engine("stanimal"), 16L)
-  expect_equal(stanimal, list(s = 4L, min_cooccurrence = 3L))
+  expect_equal(stanimal, list(s = 3L, min_cooccurrence = 3L))
   expect_equal(.indri_engine_defaults(indri_engine("stanimal"), 9L)$s, 3L)
 
   # REML: 4-trait blocks, each pair in at least one (s capped at K)
@@ -158,4 +158,9 @@ test_that("only stanimal blocks that did not mix are worth a warning", {
   stan <- .indri_diagnostics(list(list(converged = 1.2), list(converged = 1.01)),
                              rbind(1:2, 2:3))
   expect_match(.indri_rhat_warning(stan, 2L), "1 of 2 blocks have Rhat >= 1.05")
+})
+
+test_that("the stanimal engine fits blocks with lkj_prior = 1 unless told otherwise", {
+  body <- paste(deparse(.indri_stanimal_fit), collapse = " ")
+  expect_match(body, "lkj_prior = 1", fixed = TRUE)
 })

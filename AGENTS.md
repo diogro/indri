@@ -104,9 +104,11 @@ documented because they are invisible from reading the code.
   sees identical numbers; the returned `G` is on that standardised scale
   (back-transform with `diag(y_sd) %*% G %*% diag(y_sd)`).
 - **Defaults for `s`, `min_cooccurrence` and `cores` come from the engine**
-  (`.indri_engine_defaults()`, `.indri_default_cores()`): stanimal uses
-  `.indri_default_s(K) = max(2, min(K - 1, floor(sqrt(K)), 4))`; sommer and
-  asreml use s = 3; every engine asks for c = 3 distinct contexts per pair.
+  (`.indri_engine_defaults()`, `.indri_default_cores()`): every engine uses
+  `.indri_default_s(K) = max(2, min(K - 1, floor(sqrt(K)), 3))` (REML engines
+  s = 3 explicitly); stanimal asks for c = 3 distinct contexts per pair, the
+  REML engines for c = 1. The stanimal engine passes `lkj_prior = 1` unless
+  `engine_args` overrides it (stanimal's own default is 2).
   Default s is clamped so blocks stay narrower than K. Do not change them
   without a new sweep (`examples/block_size_sweep.R`).
 - **Engine output must follow the column order of `Y`.** sommer once returned

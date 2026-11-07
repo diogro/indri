@@ -617,7 +617,9 @@ model becomes the slow side.
     improved them.*
 6a. **Block size per engine.** *Decided (2026-11-07, STATUS.md), revised
     after the sommer ordering fix: REML engines use s = 3 (4-trait blocks)
-    with c = 3 distinct contexts per pair; stanimal keeps the sqrt(K) rule.
+    with c = 1 (c = 3 measured no better); stanimal uses s = 3 too, with c = 3
+    and lkj_prior = 1 (K = 35 study: s = 4 and LKJ 2 both shrank correlations,
+    undercovered and understated integration).
     Subsets are never repeated, and c is capped by the block width. (The
     first decision, pairs once each, rested on a sommer sweep corrupted by
     the ordering bug.) asreml defaults to two workers, one licence seat each.*

@@ -167,6 +167,35 @@ the *same* fits (`f3abee8`, seeds 1-6, 396 pairs, correlation scale):
 `fit_G(spread = "mixture")` is available; the default is still `"average"`.
 Per-seed results: `results/uncertainty_coverage_summary_seed{1..6}.csv`.
 
+## stanimal at 35 traits: s = 3, LKJ 1 (2026-11-07)
+
+`examples/uncertainty_coverage.R`, K = 35, `random_covariance(method =
+"partial")`, N = 300, 6 seeds (3 for the s = 4 LKJ 2 arm so far: its other
+three seeds also run the full model, still going). Eigenvalue variance is
+`evolqg::CalcEigenVar()` of the correlation matrix; the truth averages 0.23.
+
+| arm | 95% coverage | width | slope | median abs err | eigenvalue variance, est / true |
+|---|---|---|---|---|---|
+| sommer s = 3, c = 1 | 0.964 | 0.719 | 0.933 | 0.1018 | 0.83 |
+| **stanimal s = 3, LKJ 1** | **0.959** | 0.574 | 0.848 | **0.0961** | 0.74 |
+| stanimal s = 3, LKJ 2 | 0.937 | 0.554 | 0.808 | 0.1035 | 0.69 |
+| stanimal s = 4, LKJ 1 | 0.935 | 0.549 | 0.809 | 0.1008 | 0.69 |
+| stanimal s = 4, LKJ 2 (old default) | 0.882 | 0.530 | 0.773 | 0.1113 | 0.64 |
+
+At K = 12 (N = 300): s = 4 LKJ 2 0.894 / slope 0.80; s = 4 LKJ 1 0.919;
+s = 4 LKJ 0.5 0.929; s = 3 LKJ 1 0.952 / 0.88; s = 2 LKJ 1 0.942 / 0.92.
+
+- stanimal's undercoverage was shrinkage: slope of estimate on truth below 1,
+  and every miss had the truth further from zero than the band.
+- **Every estimate understates integration**, in step with the shrinkage;
+  sampling noise alone would inflate it. REML loses 17%, so some of the loss
+  is the assembly (averaging and PSD projection), not the prior. Open: measure
+  how much the projection alone shrinks integration.
+- **Defaults now: s = 3 for every engine; stanimal c = 3 with
+  `lkj_prior = 1`** (passed by indri's engine; stanimal's own default stays 2).
+- Mixed draws are pointwise and give no interval for a whole-matrix quantity
+  such as eigenvalue variance; only a full model's draws do.
+
 ## REML at a second size; c = 1 (2026-11-07)
 
 `examples/uncertainty_coverage.R` at K = 30, N = 1000 (200 families of five),

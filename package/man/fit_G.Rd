@@ -33,10 +33,10 @@ have row names they are matched by name.}
 
 \item{s}{Subset size parameter. Controls how many trait pairs each subset
 covers, not the number of traits in a subset; see \code{\link[=indri_subsets]{indri_subsets()}}.
-The default depends on the engine: \code{min(floor(sqrt(K)), 4)}, clamped to at
-least 2, for \code{"stanimal"}, and 3 (blocks of four traits) for the REML
-engines, which measured slightly more accurate than pairs at the same or
-lower cost; larger blocks cost more for little more.}
+Defaults to \code{min(floor(sqrt(K)), 3)}, at least 2 and kept narrow enough
+that a block never covers every trait: blocks of up to four traits. Larger
+blocks shrank the stanimal correlations more (and undercovered) and gave
+the REML engines nothing for their extra cost.}
 
 \item{min_cooccurrence}{Minimum number of distinct subsets every trait pair
 must appear in. The default depends on the engine: 3 for \code{"stanimal"}, 1
