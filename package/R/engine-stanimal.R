@@ -8,7 +8,10 @@
     capabilities = list(
       draws = TRUE,
       se = FALSE,
-      a_form = "dense",
+      # the eigendecomposition is shared by every block when stanimal can take
+      # it, so the O(N^3) step runs once per fit_G() call instead of once per
+      # block (and, before stanimal took it as data, once per chain)
+      a_form = if (.indri_stanimal_takes_eigen()) c("dense", "eigen") else "dense",
       missing = TRUE,
       # what lmm_animal() uses when the caller does not say otherwise, so that
       # fit_G() can divide a core budget without oversubscribing
@@ -24,6 +27,10 @@
          "choose a different engine.", call. = FALSE)
 
   args <- utils::modifyList(list(chains = 4L, iter = 3000L), control)
+  # a_forms carries `eigen` only when the engine asked for it, which it does
+  # only when stanimal takes it (decided once, in the main process: a PSOCK
+  # worker may not see the same helpers)
+  if (!is.null(a_forms$eigen)) args$eigen_A <- a_forms$eigen
   fit <- do.call(stanimal::lmm_animal,
                  c(list(Y = Y, X = X, A = a_forms$dense), args))
 
@@ -54,4 +61,11 @@
     value <- max(posterior::rhat(draws), na.rm = TRUE)
     if (is.finite(value)) value else NA_real_
   }, error = function(e) NA_real_)
+}
+
+# stanimal accepts a precomputed eigendecomposition of A from the version that
+# takes it as model data; older versions decompose A themselves.
+.indri_stanimal_takes_eigen <- function() {
+  requireNamespace("stanimal", quietly = TRUE) &&
+    "eigen_A" %in% names(formals(stanimal::lmm_animal))
 }

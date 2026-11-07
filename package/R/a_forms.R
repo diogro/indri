@@ -1,17 +1,22 @@
 #' Relationship matrices in the forms the engines want
 #'
 #' The engines do not agree on how the relationship matrix arrives: a Bayesian
-#' model takes it dense, sommer takes its inverse marked as such, and ASReml
-#' takes a sparse three-column inverse. Build the forms once per run so that a
+#' model takes it dense or as its eigendecomposition, sommer takes its inverse
+#' marked as such, and ASReml takes a sparse three-column inverse. Build the forms once per run so that a
 #' loop over many trait subsets pays for each one only once.
 #'
 #' @param A Square relationship matrix.
 #' @param need Which forms to build. `"dense"` is always returned.
 #'
-#' @return A list with some of `dense`, `inverse` and `sparse_inverse`.
+#' @return A list with some of `dense`, `inverse`, `sparse_inverse` and
+#'   `eigen`. `eigen` is `list(Q, lambda)`, the eigenvectors and eigenvalues of
+#'   `A` in ascending order, as `stanimal::lmm_animal(eigen_A = )` takes them
+#'   (and in the order stanimal would compute them itself, so a block fitted
+#'   with it is identical to one fitted without).
 #'
 #' @export
-indri_a_forms <- function(A, need = c("dense", "inverse", "sparse_inverse")) {
+indri_a_forms <- function(A, need = c("dense", "inverse", "sparse_inverse",
+                                     "eigen")) {
   need <- match.arg(need, several.ok = TRUE)
   A <- as.matrix(A)
   if (nrow(A) != ncol(A))
@@ -27,6 +32,12 @@ indri_a_forms <- function(A, need = c("dense", "inverse", "sparse_inverse")) {
   }
   if ("sparse_inverse" %in% need) {
     out$sparse_inverse <- .indri_sparse_inverse(A)
+  }
+  if ("eigen" %in% need) {
+    e <- eigen(A, symmetric = TRUE)
+    ascending <- rev(seq_len(nrow(A)))
+    out$eigen <- list(Q = e$vectors[, ascending, drop = FALSE],
+                      lambda = e$values[ascending])
   }
   out
 }

@@ -35,3 +35,20 @@ test_that("bad relationship matrices are refused", {
   expect_error(indri_a_forms(matrix(c(1, NA, NA, 1), 2), need = "dense"),
                "missing")
 })
+
+test_that("the eigen form is the ascending decomposition stanimal takes", {
+  A <- matrix(c(2, 0.5, 0.2, 0.5, 1, 0.1, 0.2, 0.1, 1.5), 3, 3)
+  forms <- indri_a_forms(A, need = c("dense", "eigen"))
+  e <- forms$eigen
+  expect_false(is.unsorted(e$lambda))
+  expect_equal(e$Q %*% (e$lambda * t(e$Q)), A, tolerance = 1e-12)
+  expect_equal(crossprod(e$Q), diag(3), tolerance = 1e-12)
+  expect_null(indri_a_forms(A, need = "dense")$eigen)
+})
+
+test_that("the stanimal engine shares the decomposition when stanimal takes it", {
+  skip_if_not_installed("stanimal")
+  engine <- indri_engine("stanimal")
+  takes <- "eigen_A" %in% names(formals(stanimal::lmm_animal))
+  expect_identical("eigen" %in% engine$capabilities$a_form, takes)
+})

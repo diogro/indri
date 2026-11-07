@@ -4,7 +4,7 @@
 \alias{indri_a_forms}
 \title{Relationship matrices in the forms the engines want}
 \usage{
-indri_a_forms(A, need = c("dense", "inverse", "sparse_inverse"))
+indri_a_forms(A, need = c("dense", "inverse", "sparse_inverse", "eigen"))
 }
 \arguments{
 \item{A}{Square relationship matrix.}
@@ -12,11 +12,15 @@ indri_a_forms(A, need = c("dense", "inverse", "sparse_inverse"))
 \item{need}{Which forms to build. \code{"dense"} is always returned.}
 }
 \value{
-A list with some of \code{dense}, \code{inverse} and \code{sparse_inverse}.
+A list with some of \code{dense}, \code{inverse}, \code{sparse_inverse} and
+\code{eigen}. \code{eigen} is \code{list(Q, lambda)}, the eigenvectors and eigenvalues of
+\code{A} in ascending order, as \code{stanimal::lmm_animal(eigen_A = )} takes them
+(and in the order stanimal would compute them itself, so a block fitted
+with it is identical to one fitted without).
 }
 \description{
 The engines do not agree on how the relationship matrix arrives: a Bayesian
-model takes it dense, sommer takes its inverse marked as such, and ASReml
-takes a sparse three-column inverse. Build the forms once per run so that a
+model takes it dense or as its eigendecomposition, sommer takes its inverse
+marked as such, and ASReml takes a sparse three-column inverse. Build the forms once per run so that a
 loop over many trait subsets pays for each one only once.
 }
