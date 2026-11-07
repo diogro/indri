@@ -9,7 +9,7 @@ fit_G(
   X = NULL,
   A,
   s = NULL,
-  min_cooccurrence = 3L,
+  min_cooccurrence = NULL,
   subsets = NULL,
   engine = "stanimal",
   engine_args = list(),
@@ -17,7 +17,7 @@ fit_G(
   weights = c("none", "inverse_variance"),
   missing = c("error", "complete_block"),
   spread = c("average", "mixture"),
-  cores = 1L,
+  cores = NULL,
   seed = NULL
 )
 }
@@ -32,10 +32,15 @@ have row names they are matched by name.}
 
 \item{s}{Subset size parameter. Controls how many trait pairs each subset
 covers, not the number of traits in a subset; see \code{\link[=indri_subsets]{indri_subsets()}}.
-Defaults to \code{min(floor(sqrt(K)), 4)}, clamped to at least 2.}
+The default depends on the engine: \code{min(floor(sqrt(K)), 4)}, clamped to at
+least 2, for \code{"stanimal"}, and 2 (blocks of two traits) for the REML
+engines, whose multi-trait fits converge poorly (sommer's badly) and were
+measured to gain no accuracy from larger blocks.}
 
 \item{min_cooccurrence}{Minimum number of times every trait pair must be
-sampled.}
+sampled. The default depends on the engine: 3 for \code{"stanimal"}, 1 for the
+REML engines. A REML fit of the same pair on the same data is the same
+number, so with two-trait blocks repeats add cost and nothing else.}
 
 \item{subsets}{Optional precomputed subset matrix, from \code{\link[=indri_subsets]{indri_subsets()}}.}
 
@@ -63,8 +68,14 @@ averages draw \code{d} across the covering blocks, \code{"mixture"} takes each e
 from one covering block at random. Averaging is overconfident by roughly
 the square root of a pair's coverage; see \code{\link[=indri_assemble_draws]{indri_assemble_draws()}}.}
 
-\item{cores}{Total number of concurrent Stan processes for the whole fit,
-not the number of subsets to run at once. The budget is divided between
+\item{cores}{Total number of concurrent processes for the whole fit,
+not the number of subsets to run at once. Defaults to 1, except for
+\code{"asreml"}, which defaults to 2: every worker checks out its own ASReml
+licence seat, and a standard licence allows two at once, on one machine at
+a time. When asreml is already loaded in the session (which usually holds
+a seat) the default drops to 1 and the blocks are fitted in-session. Use
+\code{cores = 1} with a single-seat licence; more workers than free seats stop
+with a licence error. The budget is divided between
 blocks and chains: a block fit supplies \code{chains} processes by default (four
 for \code{"stanimal"}, its own default), so \code{cores = 4} with the default engine
 arguments runs one block at a time with four chains in parallel, while

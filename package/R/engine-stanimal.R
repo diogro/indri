@@ -31,6 +31,19 @@
   # only when stanimal takes it (decided once, in the main process: a PSOCK
   # worker may not see the same helpers)
   if (!is.null(a_forms$eigen)) args$eigen_A <- a_forms$eigen
+  # Each block writes its CSVs to its own directory, removed once the draws
+  # are extracted. cmdstanr names output files from the minute, the process id
+  # and one runif(), so two fits in one session that start from the same
+  # random state within a minute get the same path, and the first fit's
+  # cleanup deletes the second one's output. That showed up as intermittent
+  # "file does not exist" test failures; it also keeps hundreds of block CSVs
+  # from piling up in tempdir().
+  if (!isFALSE(args$cmd_stan) && is.null(args$output_dir)) {
+    output_dir <- tempfile("indri-block-")
+    dir.create(output_dir)
+    on.exit(unlink(output_dir, recursive = TRUE), add = TRUE)
+    args$output_dir <- output_dir
+  }
   fit <- do.call(stanimal::lmm_animal,
                  c(list(Y = Y, X = X, A = a_forms$dense), args))
 

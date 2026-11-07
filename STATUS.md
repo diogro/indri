@@ -158,6 +158,42 @@ the *same* fits (`f3abee8`, seeds 1-6, 396 pairs, correlation scale):
 `fit_G(spread = "mixture")` is available; the default is still `"average"`.
 Per-seed results: `results/uncertainty_coverage_summary_seed{1..6}.csv`.
 
+## REML block size: measured, defaults changed (2026-11-07)
+
+`examples/block_size_sweep.R`, s in {2, 3, 4, 5} x c in {1, 3}, same data
+within each seed. sommer: K = 16 (6 seeds), K = 30 (4 seeds). asreml: K = 16
+(seeds 1-2), K = 30 (seed 1). Correlation scale; `conv` is the share of blocks
+whose fit reports convergence.
+
+| engine, K | s (block width) | conv | median abs err | corr of corr |
+|---|---|---|---|---|
+| asreml, 16 | 2 (2) / 3 (4) / 4 (6) | 0.91 / 0.55 / 0.09 | 0.111 / 0.100 / 0.107 | 0.950 / 0.953 / 0.945 |
+| asreml, 30 | 2 / 3 / 4 | 0.99 / 0.80 / 0.28 | 0.101 / 0.103 / 0.111 | 0.930 / 0.930 / 0.923 |
+| sommer, 16 | 2 / 3 / 4 / 5 | 0.90 / 0.57 / 0.12 / 0.02 | 0.106 / 0.355 / 0.371 / 0.383 | 0.950 / 0.20 / -0.04 / 0.02 |
+| sommer, 30 | 2 / 3 / 4 / 5 | 0.98 / 0.80 / 0.36 / 0.08 | 0.105 / 0.256 / 0.282 / 0.313 | 0.929 / 0.33 / 0.25 / 0.13 |
+
+(c = 1 rows; c = 3 is within 0.01 everywhere.)
+
+- **No gain from larger blocks for REML.** asreml is level across s (the s = 3
+  edge at K = 16 is 2 seeds and within noise), and its convergence falls with
+  block size. sommer's multi-trait `mmes` fits mostly fail to converge and the
+  estimate collapses. Pairs are the only setting where both engines converge.
+- **c = 1 with pairs.** At s = 2 every pair was fitted exactly c times on the
+  same data, so the repeats are identical numbers: c = 1 matches c = 3 in every
+  seed (|difference| < 0.0002) at a third of the blocks (sommer K = 30: 66.7 s
+  to 24.5 s; asreml K = 30: 351 s to 118 s).
+- **Defaults now depend on the engine** (`.indri_engine_defaults()`): sommer and
+  asreml use s = 2, c = 1; stanimal keeps `min(floor(sqrt(K)), 4)` and c = 3
+  (its repeats are independent chains, and its larger blocks are measured).
+- **asreml runs two workers by default.** The licence allows two concurrent
+  processes, on one machine at a time; a third, or any process on a second
+  machine while the first holds a seat, fails with "All licenses in use (-22)".
+  `fit_G()` drops to one in-session worker when asreml is already loaded (the
+  session then holds a seat) and turns a worker licence failure into an
+  actionable error.
+- Earlier engine comparisons used s = 2 for the REML engines explicitly, so
+  their numbers are unaffected; their c = 3 only tripled the cost.
+
 ## M3, shared eigendecomposition: measured (2026-11-07)
 
 `examples/eigen_A_timing.R`: one six-trait block, four chains, 200 iterations,

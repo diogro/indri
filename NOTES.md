@@ -441,8 +441,9 @@ large-K fits stall, not the engines.
 
 ```r
 fit_G(Y, X = NULL, A,
-      s = NULL,                     # subset size; default min(floor(sqrt(K)), 4)
-      min_cooccurrence = 3,         # c
+      s = NULL,                     # subset size; engine default (stanimal
+                                    #   min(floor(sqrt(K)), 4); REML engines 2)
+      min_cooccurrence = NULL,      # c; engine default (stanimal 3, REML 1)
       subsets = NULL,               # precomputed b x s matrix, for reproducibility
       engine = c("stanimal", "sommer", "asreml"),
       engine_args = list(),         # forwarded to the engine (iter, chains, priors, ...)
@@ -610,6 +611,10 @@ model becomes the slow side.
    coverage. The REML engines' Gaussian ensemble has the same averaging trap
    and is unmeasured.*
 6. **Missing data.** `"error"` vs `"complete_block"` default. *Default: `"error"`.*
+6a. **Block size per engine.** *Decided (2026-11-07, STATUS.md): REML engines
+    fit pairs once each (s = 2, c = 1); larger REML blocks gain no accuracy and
+    converge worse (sommer fails outright). stanimal keeps the sqrt(K) rule
+    and c = 3. asreml defaults to two workers, one licence seat each.*
 7. **stanimal as dependency.** `Imports:` for the default engine vs `Suggests:`
    with a runtime check. Now that three engines exist, `Suggests:` is more
    defensible. *Default: `Suggests:`, checked at call time.*

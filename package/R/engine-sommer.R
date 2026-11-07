@@ -9,7 +9,10 @@
       draws = FALSE,
       se = TRUE,
       a_form = "inverse",
-      missing = FALSE
+      missing = FALSE,
+      # pairs, once each; see .indri_engine_defaults()
+      default_s = 2L,
+      default_cooccurrence = 1L
     ),
     fit = .indri_sommer_fit
   )

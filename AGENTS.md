@@ -103,8 +103,22 @@ documented because they are invisible from reading the code.
 - Traits are **globally standardised once** before subsetting, so every engine
   sees identical numbers; the returned `G` is on that standardised scale
   (back-transform with `diag(y_sd) %*% G %*% diag(y_sd)`).
-- Default subset size is capped:
-  `.indri_default_s(K) = max(2, min(K - 1, floor(sqrt(K)), 4))`.
+- **Defaults for `s`, `min_cooccurrence` and `cores` come from the engine**
+  (`.indri_engine_defaults()`, `.indri_default_cores()`): stanimal uses
+  `.indri_default_s(K) = max(2, min(K - 1, floor(sqrt(K)), 4))` and c = 3;
+  sommer and asreml use pairs once each (s = 2, c = 1), because larger REML
+  blocks were measured to gain nothing and converge worse, and a REML refit of
+  the same pair is the same number. Do not change them without a new sweep
+  (`examples/block_size_sweep.R`).
+- **asreml: one licence seat per process.** The default is two workers; the
+  licence allows two processes on one machine at a time. Already loading
+  asreml in the session takes a seat, so the default drops to one there. Tests
+  that run asreml in parallel must not assume more than two seats.
+- **Each stanimal block gets its own CmdStan `output_dir`**, deleted after the
+  draws are read. cmdstanr names files from the minute, the PID and one
+  `runif()`, so two fits from the same random state collide, and one fit's
+  cleanup deletes the other's CSV (seen as intermittent "file does not
+  exist" test failures). Keep the per-block directory.
 - `weights = "inverse_variance"` now feeds **both** the average and the
   projection (`indri_project_psd(..., weights = ...)`). It was measured to be a
   wash at N = 300, so equal weights stay the default — do not make weighting the

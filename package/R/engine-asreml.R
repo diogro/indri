@@ -12,7 +12,12 @@
       draws = FALSE,
       se = TRUE,
       a_form = "sparse_inverse",
-      missing = FALSE
+      missing = FALSE,
+      # pairs, once each; see .indri_engine_defaults()
+      default_s = 2L,
+      default_cooccurrence = 1L,
+      # each worker checks out a licence seat; a standard licence has two
+      default_cores = 2L
     ),
     fit = .indri_asreml_fit
   )

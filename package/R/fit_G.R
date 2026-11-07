@@ -18,9 +18,14 @@
 #'   have row names they are matched by name.
 #' @param s Subset size parameter. Controls how many trait pairs each subset
 #'   covers, not the number of traits in a subset; see [indri_subsets()].
-#'   Defaults to `min(floor(sqrt(K)), 4)`, clamped to at least 2.
+#'   The default depends on the engine: `min(floor(sqrt(K)), 4)`, clamped to at
+#'   least 2, for `"stanimal"`, and 2 (blocks of two traits) for the REML
+#'   engines, whose multi-trait fits converge poorly (sommer's badly) and were
+#'   measured to gain no accuracy from larger blocks.
 #' @param min_cooccurrence Minimum number of times every trait pair must be
-#'   sampled.
+#'   sampled. The default depends on the engine: 3 for `"stanimal"`, 1 for the
+#'   REML engines. A REML fit of the same pair on the same data is the same
+#'   number, so with two-trait blocks repeats add cost and nothing else.
 #' @param subsets Optional precomputed subset matrix, from [indri_subsets()].
 #' @param engine Block engine: `"stanimal"` (posterior draws), `"sommer"` or
 #'   `"asreml"` (REML point estimates).
@@ -36,8 +41,14 @@
 #' @param missing What to do when `Y` has gaps and the engine cannot handle them:
 #'   `"error"`, or `"complete_block"` to drop incomplete individuals once, before
 #'   subsetting, so every block sees the same rows.
-#' @param cores Total number of concurrent Stan processes for the whole fit,
-#'   not the number of subsets to run at once. The budget is divided between
+#' @param cores Total number of concurrent processes for the whole fit,
+#'   not the number of subsets to run at once. Defaults to 1, except for
+#'   `"asreml"`, which defaults to 2: every worker checks out its own ASReml
+#'   licence seat, and a standard licence allows two at once, on one machine at
+#'   a time. When asreml is already loaded in the session (which usually holds
+#'   a seat) the default drops to 1 and the blocks are fitted in-session. Use
+#'   `cores = 1` with a single-seat licence; more workers than free seats stop
+#'   with a licence error. The budget is divided between
 #'   blocks and chains: a block fit supplies `chains` processes by default (four
 #'   for `"stanimal"`, its own default), so `cores = 4` with the default engine
 #'   arguments runs one block at a time with four chains in parallel, while
@@ -55,19 +66,20 @@
 #'   and **not** a posterior over the joint matrix.
 #'
 #' @export
-fit_G <- function(Y, X = NULL, A, s = NULL, min_cooccurrence = 3L,
+fit_G <- function(Y, X = NULL, A, s = NULL, min_cooccurrence = NULL,
                   subsets = NULL, engine = "stanimal", engine_args = list(),
                   assembly = c("ls", "average"),
                   weights = c("none", "inverse_variance"),
                   missing = c("error", "complete_block"),
                   spread = c("average", "mixture"),
-                  cores = 1L, seed = NULL) {
+                  cores = NULL, seed = NULL) {
   call <- match.call()
   assembly <- match.arg(assembly)
   weights <- match.arg(weights)
   missing <- match.arg(missing)
   spread <- match.arg(spread)
   engine <- indri_engine(engine)
+  if (is.null(cores)) cores <- .indri_default_cores(engine)
 
   Y <- as.matrix(Y)
   storage.mode(Y) <- "double"
@@ -109,7 +121,9 @@ fit_G <- function(Y, X = NULL, A, s = NULL, min_cooccurrence = 3L,
   Y_std <- sweep(sweep(Y, 2L, y_mean, "-"), 2L, y_sd, "/")
 
   if (is.null(subsets)) {
-    if (is.null(s)) s <- .indri_default_s(K)
+    defaults <- .indri_engine_defaults(engine, K)
+    if (is.null(s)) s <- defaults$s
+    if (is.null(min_cooccurrence)) min_cooccurrence <- defaults$min_cooccurrence
     subsets <- indri_subsets(K, s, min_cooccurrence = min_cooccurrence,
                              seed = seed)
   }
@@ -136,9 +150,19 @@ fit_G <- function(Y, X = NULL, A, s = NULL, min_cooccurrence = 3L,
   blocks <- if (plan$blocks_in_parallel > 1L) {
     cluster <- parallel::makeCluster(plan$blocks_in_parallel)
     on.exit(parallel::stopCluster(cluster), add = TRUE)
-    parallel::parLapply(cluster, indices, .indri_fit_block, Y = Y_std,
-                        design = X, a_forms = a_forms, engine = engine,
-                        engine_args = engine_args, subsets = subsets)
+    tryCatch(
+      parallel::parLapply(cluster, indices, .indri_fit_block, Y = Y_std,
+                          design = X, a_forms = a_forms, engine = engine,
+                          engine_args = engine_args, subsets = subsets),
+      error = function(e) {
+        if (grepl("licen", conditionMessage(e), ignore.case = TRUE))
+          stop("a block worker could not check out an ", engine$name,
+               " licence (", conditionMessage(e), "). Each worker needs ",
+               "its own seat: lower `cores` to the number of free seats ",
+               "(`cores = 1` fits the blocks in this session).",
+               call. = FALSE)
+        stop(e)
+      })
   } else {
     lapply(indices, .indri_fit_block, Y = Y_std, design = X,
            a_forms = a_forms, engine = engine, engine_args = engine_args,
@@ -198,6 +222,8 @@ fit_G <- function(Y, X = NULL, A, s = NULL, min_cooccurrence = 3L,
     counts = assembled$counts,
     coverage = indri_pair_coverage(subsets, K),
     subsets = subsets,
+    s = s,
+    min_cooccurrence = min_cooccurrence,
     engine = engine$name,
     engine_args = engine_args,
     assembly = assembly,
@@ -244,6 +270,30 @@ fit_G <- function(Y, X = NULL, A, s = NULL, min_cooccurrence = 3L,
     max_rhat = suppressWarnings(max(rhat, na.rm = TRUE)),
     converged = if (all(is.na(block_ok))) TRUE else all(block_ok, na.rm = TRUE)
   )
+}
+
+# Workers when the caller does not say. asreml defaults to two, one licence
+# seat each (a standard licence allows two processes, on one machine at a
+# time). If asreml is already loaded here, this session has most likely
+# checked out a seat itself, and two more workers would exceed the licence, so
+# fit in-session instead.
+.indri_default_cores <- function(engine) {
+  cores <- engine$capabilities$default_cores %||% 1L
+  if (identical(engine$name, "asreml") && "asreml" %in% loadedNamespaces())
+    cores <- 1L
+  cores
+}
+
+# Subset size and co-occurrence when the caller gives neither. stanimal keeps
+# the sqrt(K) rule and c = 3. The REML engines use pairs, once each: sweeps at
+# K = 16 and 30 (examples/block_size_sweep.R) found no accuracy gain from
+# larger blocks for asreml, sommer's multi-trait fits mostly fail to converge,
+# and a deterministic fit of the same pair is the same number every time.
+.indri_engine_defaults <- function(engine, K) {
+  caps <- engine$capabilities
+  s <- caps$default_s %||% .indri_default_s(K)
+  list(s = max(2L, min(as.integer(s), K)),
+       min_cooccurrence = caps$default_cooccurrence %||% 3L)
 }
 
 # Default subset size: grow with K like sqrt(K), but never past 4. Larger

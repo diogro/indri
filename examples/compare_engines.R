@@ -21,11 +21,14 @@
 #   INDRI_ENGINE_S       subset size parameter for stanimal blocks (4)
 #   INDRI_ENGINE_S_SOMMER subset size parameter for sommer blocks (2)
 #   INDRI_ENGINE_S_ASREML subset size parameter for asreml blocks (2)
-#   INDRI_ENGINE_MINCOOC minimum pair coverage (3)
+#   INDRI_ENGINE_MINCOOC minimum pair coverage for stanimal blocks (3)
+#   INDRI_ENGINE_MINCOOC_REML minimum pair coverage for sommer/asreml blocks (1;
+#                        a REML fit of the same pair is the same number)
 #   INDRI_ENGINE_SEED    simulation seed (1)
 #   INDRI_ENGINE_CORES   Stan process budget for the stanimal blocks (64)
 #   INDRI_ENGINE_CORES_SOMMER number of sommer blocks to run in parallel (16)
-#   INDRI_ENGINE_CORES_ASREML number of asreml blocks to run in parallel (1)
+#   INDRI_ENGINE_CORES_ASREML number of asreml blocks to run in parallel (2, one
+#                        licence seat each; a standard licence has two)
 #   INDRI_ENGINE_ITER    stanimal iterations per chain (400)
 #   INDRI_ENGINE_CHAINS  chains per stanimal block (2)
 #   INDRI_ENGINE_SOMMER  1 to run the sommer engine (1)
@@ -50,10 +53,11 @@ s <- as.integer(Sys.getenv("INDRI_ENGINE_S", "4"))
 s_sommer <- as.integer(Sys.getenv("INDRI_ENGINE_S_SOMMER", "2"))
 s_asreml <- as.integer(Sys.getenv("INDRI_ENGINE_S_ASREML", "2"))
 min_cooccurrence <- as.integer(Sys.getenv("INDRI_ENGINE_MINCOOC", "3"))
+min_cooccurrence_reml <- as.integer(Sys.getenv("INDRI_ENGINE_MINCOOC_REML", "1"))
 seed <- as.integer(Sys.getenv("INDRI_ENGINE_SEED", "1"))
 cores <- as.integer(Sys.getenv("INDRI_ENGINE_CORES", "64"))
 cores_sommer <- as.integer(Sys.getenv("INDRI_ENGINE_CORES_SOMMER", "16"))
-cores_asreml <- as.integer(Sys.getenv("INDRI_ENGINE_CORES_ASREML", "1"))
+cores_asreml <- as.integer(Sys.getenv("INDRI_ENGINE_CORES_ASREML", "2"))
 iter <- as.integer(Sys.getenv("INDRI_ENGINE_ITER", "400"))
 chains <- as.integer(Sys.getenv("INDRI_ENGINE_CHAINS", "2"))
 run_sommer <- Sys.getenv("INDRI_ENGINE_SOMMER", "1") == "1"
@@ -111,7 +115,7 @@ if (run_sommer) {
   message("== indri, sommer engine (", cores_sommer, " parallel blocks) ==")
   started <- Sys.time()
   fit_sommer <- fit_G(data$Y, A = data$A, s = s_sommer,
-                      min_cooccurrence = min_cooccurrence, engine = "sommer",
+                      min_cooccurrence = min_cooccurrence_reml, engine = "sommer",
                       cores = cores_sommer, seed = 1000L + seed)
   time_sommer <- as.numeric(difftime(Sys.time(), started, units = "mins"))
 } else {
@@ -138,7 +142,7 @@ if (run_asreml) {
   message("== indri, asreml engine (", cores_asreml, " parallel blocks) ==")
   started <- Sys.time()
   fit_asreml <- fit_G(data$Y, A = data$A, s = s_asreml,
-                      min_cooccurrence = min_cooccurrence, engine = "asreml",
+                      min_cooccurrence = min_cooccurrence_reml, engine = "asreml",
                       cores = cores_asreml, seed = 3000L + seed)
   time_asreml <- as.numeric(difftime(Sys.time(), started, units = "mins"))
 } else {

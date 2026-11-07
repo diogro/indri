@@ -98,3 +98,31 @@ test_that("print and summary work on a fit", {
   expect_s3_class(s, "summary.indri_fit")
   expect_output(print(s), "indri fit summary")
 })
+
+test_that("subset size, co-occurrence and workers default by engine", {
+  stanimal <- .indri_engine_defaults(indri_engine("stanimal"), 16L)
+  expect_equal(stanimal, list(s = 4L, min_cooccurrence = 3L))
+  expect_equal(.indri_engine_defaults(indri_engine("stanimal"), 9L)$s, 3L)
+
+  # REML: pairs, once each, whatever K is
+  for (name in c("sommer", "asreml")) {
+    for (K in c(3L, 16L, 50L)) {
+      expect_equal(.indri_engine_defaults(indri_engine(name), K),
+                   list(s = 2L, min_cooccurrence = 1L), label = paste(name, K))
+    }
+  }
+  # one asreml licence seat per worker; a standard licence has two
+  expect_equal(indri_engine("asreml")$capabilities$default_cores, 2L)
+  # ...unless this session already holds one
+  expected <- if ("asreml" %in% loadedNamespaces()) 1L else 2L
+  expect_equal(.indri_default_cores(indri_engine("asreml")), expected)
+  expect_equal(.indri_default_cores(indri_engine("sommer")), 1L)
+  expect_null(indri_engine("sommer")$capabilities$default_cores)
+  expect_null(indri_engine("stanimal")$capabilities$default_cores)
+
+  # pairs once each: every pair covered, no repeats beyond the window wrap
+  sub <- indri_subsets(16L, 2L, min_cooccurrence = 1L, seed = 1L)
+  cov <- attr(sub, "coverage")
+  expect_gte(min(cov[upper.tri(cov)]), 1L)
+  expect_lte(nrow(sub), choose(16, 2) + 1L)
+})
