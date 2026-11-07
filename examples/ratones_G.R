@@ -74,3 +74,18 @@ dir.create("results", showWarnings = FALSE)
 utils::write.csv(corrG, "results/ratones_corrG.csv")
 utils::write.csv(corrP, "results/ratones_corrP.csv")
 cat("\nwritten: results/ratones_corrG.csv, results/ratones_corrP.csv\n")
+
+## Plot -----------------------------------------------------------------------
+
+if (!requireNamespace("ggplot2", quietly = TRUE))
+  stop("Plotting needs ggplot2")
+if (!requireNamespace("patchwork", quietly = TRUE))
+  stop("Plotting needs patchwork")
+
+pG <- stanimal::plot_corr(corrG, "corrG  (genetic)")
+pP <- stanimal::plot_corr(corrP, "corrP  (phenotypic)")
+both <- patchwork::wrap_plots(pG, pP, ncol = 2)
+
+ggplot2::ggsave("results/ratones_corrG_vs_P.png", both,
+                width = 13, height = 7, dpi = 150)
+cat("written: results/ratones_corrG_vs_P.png\n")
