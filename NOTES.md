@@ -1,10 +1,9 @@
 # indri — design notes and implementation plan
 
-Status: package skeleton and the closed-form parts are implemented and tested.
-`package/` holds a loadable, `R CMD check`-clean package with the subset sampler,
-the assembly, the PSD projection, the engine registry and the `stanimal` engine;
-86 test assertions pass. The `sommer` and `asreml` engines are designed and
-registered as errors pointing here.
+Status: the package is loadable and `R CMD check`-clean, with the subset sampler,
+the assembly, the PSD projection (analytical gradient), the engine registry and
+all three engines — `stanimal` (posterior draws), `sommer` and `asreml` (REML).
+160+ test assertions pass; the asreml tests skip where no licence is available.
 
 `examples/six_traits.R` runs the whole pipeline on a known 6 x 6 covariance
 (about three minutes) and compares it entry by entry with the truth.
@@ -400,6 +399,15 @@ fall back to the dense route with a warning.
 Written as one paragraph per engine in `R/engines/*.R`, each with its own test
 against a known simulation (section 10).
 
+Implementation notes. `sommer` runs `mmes()` single-threaded
+(`OMP_NUM_THREADS = 1`): its solver multithreads even for bivariate blocks and
+oversubscribes alongside block-level parallelism. `asreml` (4.2) reports the
+standard errors in `summary(fit)$varcomp$std.error` rather than `$vcov`, and its
+default "sigma" parameterisation still extracts cleanly with the `"^vm\\("` and
+`"^units.*trait!trait"` patterns above. The PSD projection supplies an analytical
+gradient; the numerical gradient over `K (K + 1) / 2` parameters is what made
+large-K fits stall, not the engines.
+
 ---
 
 ## 7. API
@@ -534,9 +542,9 @@ model becomes the slow side.
 ## 11. Open decisions
 
 1. **Default engine.** `"stanimal"` gives uncertainty and handles gaps;
-   `"asreml"` is far faster and scales in N. *Provisional: `"stanimal"` as
-   default, with `asreml`/`sommer` documented for the N-heavy and
-   no-licence cases; revisit after M2.*
+   `"asreml"`/`"sommer"` are far faster (REML) but drop incomplete rows, and
+   `"asreml"` needs a licence. *All three are implemented and cross-validated;
+   the default stays `"stanimal"`, with the REML engines for the N-heavy case.*
 2. **Priors inside blocks.** stanimal's LKJ default vs
    `genetic_structure = "factor"` (horseshoe). This changes *what* G is
    estimated, not just speed. The factor structure is incompatible with

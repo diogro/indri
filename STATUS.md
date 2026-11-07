@@ -1,6 +1,6 @@
 # Status and next steps
 
-Last updated: 2026-11-06. Design lives in [NOTES.md](NOTES.md); this file is the
+Last updated: 2026-11-07. Design lives in [NOTES.md](NOTES.md); this file is the
 short account of where the work stands, what has been measured, and what to do
 next.
 
@@ -13,7 +13,7 @@ next.
 | `limmbo` | `indri-session-fixes` | `diogro/limmbo` (fork of `meyer-lab-cshl/limmbo`) | pipeline fixes, pixi environment, AGENTS.md (+140/-34 over master) |
 
 All three are pushed and the working trees are clean. Heads at the time of
-writing: `indri` `6abddf4`, `stanimal/indri-support` `bdd30cf`, `limmbo`
+writing: `indri` `51bac4d`, `stanimal/indri-support` `bdd30cf`, `limmbo`
 `indri-session-fixes` `4edd228`; check with `git ls-remote --heads origin`
 rather than trusting this line.
 
@@ -34,16 +34,17 @@ from) and older `feature/0.7.0`/`roadmap` branches. In the `limmbo` checkout,
 git remote add upstream https://github.com/meyer-lab-cshl/limmbo
 ```
 
-127 test assertions pass in `indri`; 14 in the stanimal branch's new test file.
+160+ test assertions pass in `indri` (the asreml tests skip where no licence is
+available); 14 in the stanimal branch's new test file.
 
 | Milestone | State |
 |---|---|
 | **M0** subset sampler, assembly, PSD projection, engine registry | done |
 | **M1** `fit_G()` on the stanimal engine, validated against the full model | **done, gate passed** |
-| **M2** sommer and ASReml engines | not started; they error and point at NOTES |
+| **M2** sommer and ASReml engines | **done**: both implement the block contract; the two REML engines agree with each other and with stanimal |
 | **M3** wire stanimal's `eigen_A` variant into an engine | prototype ready upstream, not wired |
 | **M4** uncertainty, weights, diagnostics | partly: `G_draws` and inverse-variance weighting exist and are unit-tested, nothing validated |
-| **M5** performance | partly: parallel blocks and the core budget work, no caching |
+| **M5** performance | partly: parallel blocks and the core budget work; the PSD projection now uses an analytical gradient (the former K=30 bottleneck), no caching |
 
 ## What has been measured
 
@@ -65,23 +66,43 @@ The six-trait example ([examples/six_traits.R](examples/six_traits.R)) gives a
 relative error of 0.237, against 0.369 for stanimal's full six-trait fit on the
 same data.
 
+### The cross-engine comparison
+
+[examples/compare_engines.R](examples/compare_engines.R) fits one simulated
+dataset with indri on the stanimal, sommer and asreml engines and reports the
+correlation-of-correlations against the truth.
+
+| K (seed 1, N = 300) | indri+stanimal | indri+sommer | indri+asreml | full stanimal |
+|---|---|---|---|---|
+| 10 | 0.963 | 0.943 | 0.942 | — |
+| 30 | 0.951 | 0.929 | — | 0.911 |
+
+At K = 10 the two REML engines agree with each other to 1.000 and with stanimal
+to 0.98. At K = 30, indri+stanimal (0.951, 2.5 min) beats the full 30-trait
+model (0.911, 24 min, reduced to 250 iterations) on both accuracy and wall
+clock. The K = 30 full-model comparison ran without sommer/asreml because the
+PSD projection was still the numerical-gradient version at the time; asreml at
+K = 30 has not been measured.
+
 ### What those numbers prove, and what they do not
 
 Proven: the pipeline is correct. A block from `fit_G()` is *bit-identical* to
 `lmm_animal()` fitted on the same globally standardised columns
-(`test-scale-consistency.R`), two blocks that share traits agree about them, and
-the assembled matrix beats the full model at equal cost-per-fit.
+(`test-scale-consistency.R`), two blocks that share traits agree about them, the
+two REML engines agree with each other and with stanimal, and at K = 30 the
+assembled matrix beats the full model on both accuracy and time.
 
-Not proven: that the method is worth using. At K = 12 the full model is still
-cheap, so "0.93 accuracy at 4.6x the run time" argues *against* the method. The
-crossing point is somewhere in the K = 30-40 range, and until that is measured
-the case for the package rests on the shape of the asymptotics, not on evidence.
+Not proven: how general that crossover is. It rests on a single K = 30 seed, so
+the honest statement is "at K = 30 the method wins on one dataset", not yet "the
+method wins". Repeat across seeds (and push to K = 40) before citing a
+threshold.
 
 ## Next, in priority order
 
-1. **The K = 30-40 crossover study.** Same harness, larger K. This is the number
-   that decides whether the package has a reason to exist. Expect the full model
-   to become the slow side.
+1. **Multi-seed crossover (K = 30 and 40).** The single-seed K = 30 result is
+   promising but is one dataset. Run `compare_engines.R` across several seeds and
+   at K = 40 to turn it into a statement. At K = 30 a stanimal run costs ~2.5
+   minutes per seed at 64 cores.
 2. **Uncertainty is unvalidated.** `G_draws` is documented as "an assembled
    spread, not a posterior". That is currently an assertion. M4's coverage study
    (fraction of true entries inside the 95% band, reported per coverage count)
@@ -90,9 +111,13 @@ the case for the package rests on the shape of the asymptotics, not on evidence.
    "inverse_variance"` (unit tests only; the study's weights run is gated behind
    `INDRI_STUDY_WEIGHTS=1` and has not been executed) and the missing-data policy
    (no fit with gaps in `Y` has gone through `fit_G()`).
-4. **M2, the sommer and ASReml engines.** In scope per NOTES section 2 and
-   currently errors. Also the cheapest correctness check available: three
-   independent implementations agreeing on the same block.
+4. **asreml at K = 30, and sommer's per-block cost.** asreml is validated at
+   K = 10 (agrees with sommer to 1.000) but unmeasured at K = 30; sommer's
+   `mmes` per-block cost degrades on near-boundary bivariate pairs at large K,
+   which is worth characterising before recommending block sizes.
+5. **M3, stanimal's `eigen_A`.** Prototype ready upstream, not wired. The shared
+   eigen-decomposition is the path to making the stanimal engine cheap enough at
+   large N.
 
 ## Running the studies
 
@@ -116,6 +141,18 @@ stanimal), so the budget is split: `cores = 8` with the default arguments is one
 block with four chains in parallel, while `cores = 8` with
 `engine_args = list(chains = 2)` is four blocks at a time. `chains` itself is
 never changed by `fit_G()`.
+
+The cross-engine comparison has its own entry point:
+
+```sh
+INDRI_ENGINE_K=10 Rscript examples/compare_engines.R
+INDRI_ENGINE_K=30 INDRI_ENGINE_CORES=64 Rscript examples/compare_engines.R
+```
+
+`INDRI_ENGINE_S*`, `INDRI_ENGINE_CORES*` and `INDRI_ENGINE_{SOMMER,ASREML}`
+flags select per-engine block sizes, core budgets and which engines run; see the
+script header. Results go to `results/compare_engines_*_seed<N>.csv`
+(git-ignored).
 
 ## On a bigger machine
 
@@ -164,3 +201,12 @@ Both cost real debugging time and neither is visible from reading the code:
 - **`X` as an argument name in `lapply`/`mclapply`/`parLapply`** silently shifts
   the arguments, because `X` is their first formal. The block worker's parameter
   is called `design` for this reason.
+- **The PSD projection used a numerical gradient.** It optimises `K (K + 1) / 2`
+  free entries, so each L-BFGS-B iteration evaluated the objective ~K²/2 times,
+  each looping over every block. At K = 30 with 872 bivariate sommer blocks this
+  looked like the sommer engine "hanging": the fits were 38 s and the projection
+  was 30 min. The fix is an analytical gradient.
+- **sommer multithreads internally.** `mmes()` spawns OpenMP threads even for
+  bivariate blocks; combined with PSOCK block parallelism it oversubscribes and
+  slows each fit ~2.6x. Pin `OMP_NUM_THREADS = 1` and let `cores` drive the
+  parallelism.
