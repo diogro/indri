@@ -73,12 +73,17 @@ correlation-of-correlations against the truth.
 
 | K (seed 1, N = 300) | indri+stanimal | indri+sommer | indri+asreml | full stanimal |
 |---|---|---|---|---|
-| 10 | 0.963 | 0.943 | 0.942 | — |
-| 30 | 0.951 | 0.929 | — | 0.911 |
+| 10 | 0.963 | 0.942 | 0.932 | — |
+| 16 | 0.966 | 0.938 | 0.937 | — |
+| 30 | 0.951 | 0.931 | 0.930 | 0.911 |
 
-*The indri+sommer column predates the sommer ordering fix (`4b5748a`) and is
-affected by it at both K (trait10+ sorts before trait2); asreml and stanimal
-are not. Rerun before quoting sommer here.*
+Correlation of correlations with the truth, rerun 2026-11-07 after the sommer
+ordering fix, REML engines at s = 3, c = 3 (c = 1 measured the same), stanimal
+at its defaults. Median abs error: stanimal 0.069 / 0.103 / 0.106, sommer
+0.122 / 0.103 / 0.100, asreml 0.129 / 0.093 / 0.101 at K = 10 / 16 / 30;
+stanimal has the smallest q90 at every K. The full-model column is the
+original run. Results in `results/compare_engines_*_k{10,16,30}_v2_seed1.csv`
+on the run machine (git-ignored).
 
 At K = 10 the two REML engines agree with each other to 1.000 and with stanimal
 to 0.98. At K = 30, indri+stanimal (0.951, 2.5 min) beats the full 30-trait
