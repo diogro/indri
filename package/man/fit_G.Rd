@@ -48,7 +48,10 @@ the subset estimates; \code{"average"} keeps the plain average, nudged onto the
 positive semi-definite cone.}
 
 \item{weights}{\code{"none"} for LiMMBo's equal weights, or \code{"inverse_variance"}
-to weight each subset estimate by its reported uncertainty.}
+to weight each subset estimate by its reported uncertainty (per-entry
+standard error for REML engines, per-entry posterior variance for the
+draws-based stanimal engine). Weights apply to both the average and the
+projection.}
 
 \item{missing}{What to do when \code{Y} has gaps and the engine cannot handle them:
 \code{"error"}, or \code{"complete_block"} to drop incomplete individuals once, before

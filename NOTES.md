@@ -535,6 +535,11 @@ model becomes the slow side.
 - **Interval coverage** (M4): fraction of true entries inside the 95% band,
   reported per coverage count and per engine. Expect this to be optimistic; the
   number is the deliverable, not a pass/fail gate.
+- **Weights** (M4): same simulated data, `weights = "none"` vs
+  `"inverse_variance"`, reported on median per-entry error and correlation of
+  correlations. This is the only way to learn whether the noisy per-block
+  uncertainties improve on equal weights; run it before making weighting a
+  default or an advertised feature.
 - **Do not** claim posterior calibration. Claim what is measured.
 
 ---
@@ -552,8 +557,12 @@ model becomes the slow side.
    onward. *Default: LKJ; factor later, and only for the Stan engine.*
 3. **Assembly.** LS projection (matches LiMMBo, guarantees PSD) vs plain
    averaging (`Cg_average` in the paper). *Default: both computed, LS reported.*
-4. **Weights.** Equal (paper fidelity) vs inverse-variance (uses what the engines
-   already report). *Default: equal; measure the alternative in M4.*
+4. **Weights.** Equal (paper fidelity) vs inverse-variance. Inverse-variance now
+   weights the projection objective as well as the average
+   (`sum_j || W_j * (C[I_j,I_j] - G_j) ||^2`), and the stanimal engine's weight
+   is the per-entry posterior precision from its draws (REML engines keep their
+   `se`). *Default: still equal until the weighted-vs-unweighted benchmark
+   decides whether the weights help; see §10.*
 5. **Uncertainty per engine.** `stanimal` -> draws; `sommer`/`asreml` -> delta
    method SEs propagated as a Gaussian ensemble. The independence caveat in
    propagating a per-entry `se` matrix (entries are correlated) must be stated.

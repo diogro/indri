@@ -43,7 +43,7 @@ available); 14 in the stanimal branch's new test file.
 | **M1** `fit_G()` on the stanimal engine, validated against the full model | **done, gate passed** |
 | **M2** sommer and ASReml engines | **done**: both implement the block contract; the two REML engines agree with each other and with stanimal |
 | **M3** wire stanimal's `eigen_A` variant into an engine | prototype ready upstream, not wired |
-| **M4** uncertainty, weights, diagnostics | partly: `G_draws` and inverse-variance weighting exist and are unit-tested, nothing validated |
+| **M4** uncertainty, weights, diagnostics | partly: `G_draws` exists; inverse-variance weights now feed both the average and the projection (posterior draws for stanimal, `se` for REML engines) and are unit-tested; the weighted-vs-unweighted study is the open item |
 | **M5** performance | partly: parallel blocks and the core budget work; the PSD projection now uses an analytical gradient (the former K=30 bottleneck), no caching |
 
 ## What has been measured
@@ -97,6 +97,18 @@ the honest statement is "at K = 30 the method wins on one dataset", not yet "the
 method wins". Repeat across seeds (and push to K = 40) before citing a
 threshold.
 
+## Current plan (2026-11-07)
+
+Finish the M4 weights question. The inverse-variance path was wired in but did
+not reach the estimate: it weighted only the plain average, which the default
+LS projection uses merely as a starting point, and the default (stanimal) engine
+reported no `se`. The fixes just landed: the projection objective is now
+`sum_j || W_j * (C[I_j, I_j] - G_j) ||^2`, and stanimal's weight is the
+per-entry posterior precision from its draws (REML engines keep their `se`).
+Next: run the weighted-vs-unweighted study (`INDRI_STUDY_WEIGHTS=1`), and keep
+weighting as an option only if it beats equal weights on the 12-trait
+benchmark; otherwise document equal weights as the robust default.
+
 ## Next, in priority order
 
 1. **Multi-seed crossover (K = 30 and 40).** The single-seed K = 30 result is
@@ -107,10 +119,11 @@ threshold.
    spread, not a posterior". That is currently an assertion. M4's coverage study
    (fraction of true entries inside the 95% band, reported per coverage count)
    is what turns it into a claim, or into an honest caveat.
-3. **Two code paths have never run end to end**: `weights =
-   "inverse_variance"` (unit tests only; the study's weights run is gated behind
-   `INDRI_STUDY_WEIGHTS=1` and has not been executed) and the missing-data policy
-   (no fit with gaps in `Y` has gone through `fit_G()`).
+3. **Weights vs missing data end to end.** The inverse-variance path now
+   reaches the estimate (projection weights + stanimal posterior precision),
+   but the weighted-vs-unweighted comparison has not been run
+   (`INDRI_STUDY_WEIGHTS=1`); that run is the current plan. Separately, the
+   missing-data policy has still never gone through `fit_G()` with gaps in `Y`.
 4. **asreml at K = 30, and sommer's per-block cost.** asreml is validated at
    K = 10 (agrees with sommer to 1.000) but unmeasured at K = 30; sommer's
    `mmes` per-block cost degrades on near-boundary bivariate pairs at large K,

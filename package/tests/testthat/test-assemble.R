@@ -47,6 +47,27 @@ test_that("inverse-variance weights favour the more precise block", {
   expect_lt(weighted$G[1, 2], 0.91)
 })
 
+test_that("inverse-variance weights fall back to posterior precision for draws", {
+  subsets <- matrix(c(1L, 2L, 1L, 2L), nrow = 2, byrow = TRUE)
+  make_draws <- function(g, sd, D = 400L) {
+    out <- array(0, c(2L, 2L, D))
+    for (i in 1:2) for (j in 1:2) out[i, j, ] <- stats::rnorm(D, g[i, j], sd)
+    out
+  }
+  set.seed(42)
+  blocks <- list(
+    list(G = matrix(c(1, 0.9, 0.9, 1), 2),
+         draws = make_draws(matrix(c(1, 0.9, 0.9, 1), 2), 0.01)),
+    list(G = matrix(c(1, 0.1, 0.1, 1), 2),
+         draws = make_draws(matrix(c(1, 0.1, 0.1, 1), 2), 1))
+  )
+
+  weighted <- indri_assemble(blocks, subsets, weights = "inverse_variance")
+
+  # the tight-posterior block says 0.9, the loose one says 0.1
+  expect_gt(weighted$G[1, 2], 0.85)
+})
+
 test_that("draws are averaged the same way the means are", {
   G <- known_G()
   subsets <- covering_subsets()

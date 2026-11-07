@@ -19,7 +19,9 @@ indri_assemble(
 
 \item{K}{Number of traits; inferred from \code{subsets} when \code{NULL}.}
 
-\item{weights}{\code{"none"} or \code{"inverse_variance"}.}
+\item{weights}{\code{"none"} or \code{"inverse_variance"}. The latter needs each block
+to carry a \code{se} matrix or a \code{draws} array (used for its per-entry variance
+when \code{se} is absent); blocks that carry neither are treated as weight 1.}
 }
 \value{
 A list with \code{G} (the averaged matrix) and \code{counts} (how many subsets
@@ -29,8 +31,9 @@ contributed to each entry).
 Every entry of the assembled matrix is a weighted mean over the subsets that
 contain both of its traits. With \code{weights = "none"} all subsets count
 equally, which is what LiMMBo does; \code{"inverse_variance"} weights each
-estimate by the inverse of its reported uncertainty, which the engines all
-provide in one form or another.
+estimate by the inverse of its reported uncertainty. REML engines report a
+per-entry standard error; the stanimal engine reports posterior draws, whose
+per-entry variance supplies the weight.
 }
 \details{
 This is the averaging step, not the estimate: the average of overlapping

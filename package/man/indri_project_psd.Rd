@@ -4,16 +4,27 @@
 \alias{indri_project_psd}
 \title{Fit the assembled blocks to the closest positive semi-definite matrix}
 \usage{
-indri_project_psd(blocks, subsets, K = NULL, init = NULL, control = list())
+indri_project_psd(
+  blocks,
+  subsets,
+  K = NULL,
+  init = NULL,
+  weights = c("none", "inverse_variance"),
+  control = list()
+)
 }
 \arguments{
-\item{blocks}{List of subset fits, each with a \code{G} matrix.}
+\item{blocks}{List of subset fits, each with a \code{G} matrix and, when
+\code{weights = "inverse_variance"}, a \code{se} matrix or \code{draws} array.}
 
 \item{subsets}{Integer matrix of trait indices, one subset per row.}
 
 \item{K}{Number of traits; inferred from \code{subsets} when \code{NULL}.}
 
 \item{init}{Starting matrix. Defaults to the average of the blocks.}
+
+\item{weights}{\code{"none"} for LiMMBo's equal weights, or \code{"inverse_variance"}
+to weight each block's entries by their inverse uncertainty.}
 
 \item{control}{Optional list of controls for \code{\link[stats:optim]{stats::optim()}}.}
 }
@@ -27,9 +38,12 @@ a patchwork, and nothing constrains it to be positive semi-definite. This fits
 the full matrix that is closest to all the subset estimates at once,
 }
 \details{
-\verb{C* = argmin over C >= 0 of sum_j || C[I_j, I_j] - G_j ||_F^2}
+\verb{C* = argmin over C >= 0 of sum_j || W_j * (C[I_j, I_j] - G_j) ||_F^2}
 
 by writing \verb{C = L L'} with \code{L} lower triangular, which makes every candidate
 positive semi-definite by construction, and optimising the \code{K (K + 1) / 2}
 free entries of \code{L} with L-BFGS-B. The average is used as the starting point.
+The per-entry weights \code{W_j} are all one unless \code{weights = "inverse_variance"},
+in which case they come from each block's \code{se} or \code{draws} (see
+\code{\link[=indri_assemble]{indri_assemble()}}).
 }

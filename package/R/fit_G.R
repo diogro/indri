@@ -29,7 +29,10 @@
 #'   the subset estimates; `"average"` keeps the plain average, nudged onto the
 #'   positive semi-definite cone.
 #' @param weights `"none"` for LiMMBo's equal weights, or `"inverse_variance"`
-#'   to weight each subset estimate by its reported uncertainty.
+#'   to weight each subset estimate by its reported uncertainty (per-entry
+#'   standard error for REML engines, per-entry posterior variance for the
+#'   draws-based stanimal engine). Weights apply to both the average and the
+#'   projection.
 #' @param missing What to do when `Y` has gaps and the engine cannot handle them:
 #'   `"error"`, or `"complete_block"` to drop incomplete individuals once, before
 #'   subsetting, so every block sees the same rows.
@@ -135,9 +138,18 @@ fit_G <- function(Y, X = NULL, A, s = NULL, min_cooccurrence = 3L,
          " subsets; the first error is: ",
          as.character(blocks[[which(failed)[1L]]]), call. = FALSE)
 
+  if (weights == "inverse_variance" &&
+      !any(vapply(blocks, function(b) !is.null(b$se) || !is.null(b$draws),
+                  logical(1)))) {
+    warning("`weights = \"inverse_variance\"` but the ", engine$name,
+            " engine reports neither standard errors nor posterior draws; ",
+            "falling back to equal weights.", call. = FALSE)
+  }
+
   assembled <- indri_assemble(blocks, subsets, K, weights = weights)
   G <- switch(assembly,
-    ls = indri_project_psd(blocks, subsets, K, init = assembled$G)$matrix,
+    ls = indri_project_psd(blocks, subsets, K, init = assembled$G,
+                           weights = weights)$matrix,
     average = assembled$G
   )
   if (assembly == "average") {

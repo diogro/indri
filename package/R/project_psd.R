@@ -4,26 +4,34 @@
 #' a patchwork, and nothing constrains it to be positive semi-definite. This fits
 #' the full matrix that is closest to all the subset estimates at once,
 #'
-#'   `C* = argmin over C >= 0 of sum_j || C[I_j, I_j] - G_j ||_F^2`
+#'   `C* = argmin over C >= 0 of sum_j || W_j * (C[I_j, I_j] - G_j) ||_F^2`
 #'
 #' by writing `C = L L'` with `L` lower triangular, which makes every candidate
 #' positive semi-definite by construction, and optimising the `K (K + 1) / 2`
 #' free entries of `L` with L-BFGS-B. The average is used as the starting point.
+#' The per-entry weights `W_j` are all one unless `weights = "inverse_variance"`,
+#' in which case they come from each block's `se` or `draws` (see
+#' [indri_assemble()]).
 #'
-#' @param blocks List of subset fits, each with a `G` matrix.
+#' @param blocks List of subset fits, each with a `G` matrix and, when
+#'   `weights = "inverse_variance"`, a `se` matrix or `draws` array.
 #' @param subsets Integer matrix of trait indices, one subset per row.
 #' @param K Number of traits; inferred from `subsets` when `NULL`.
 #' @param init Starting matrix. Defaults to the average of the blocks.
+#' @param weights `"none"` for LiMMBo's equal weights, or `"inverse_variance"`
+#'   to weight each block's entries by their inverse uncertainty.
 #' @param control Optional list of controls for [stats::optim()].
 #'
 #' @return A list with `matrix`, the fitted PSD matrix, plus `convergence`,
 #'   `value` and the raw `optim` result.
 #' @export
 indri_project_psd <- function(blocks, subsets, K = NULL, init = NULL,
+                              weights = c("none", "inverse_variance"),
                               control = list()) {
+  weights <- match.arg(weights)
   if (is.null(K)) K <- max(subsets)
   if (is.null(init)) {
-    init <- indri_assemble(blocks, subsets, K)$G
+    init <- indri_assemble(blocks, subsets, K, weights = weights)$G
   }
   init <- as.matrix(init)
   if (anyNA(init)) {
@@ -35,7 +43,7 @@ indri_project_psd <- function(blocks, subsets, K = NULL, init = NULL,
   start <- tryCatch(t(chol(init + ridge * diag(K))),
                     error = function(e) diag(sqrt(pmax(diag(init), 1e-8)), K))
 
-  parts <- .indri_psd_parts(blocks, subsets, K)
+  parts <- .indri_psd_parts(blocks, subsets, K, weights = weights)
   theta0 <- start[parts$lt]
 
   fit <- stats::optim(
@@ -60,11 +68,16 @@ indri_project_psd <- function(blocks, subsets, K = NULL, init = NULL,
 # allocate (or as.matrix()) inside the optimiser's hot loop. A numerical
 # gradient would evaluate the objective once per free parameter (K (K + 1) / 2
 # of them), which for K = 30 and hundreds of blocks is prohibitive.
-.indri_psd_parts <- function(blocks, subsets, K) {
+.indri_psd_parts <- function(blocks, subsets, K, weights = "none") {
   lt <- .indri_theta_map(K)
   list(
     lt = lt,
     G = lapply(blocks, function(b) as.matrix(b$G)),
+    W = lapply(blocks, function(b) {
+      w <- .indri_weights(b, weights)
+      if (is.null(w)) w <- matrix(1, nrow(b$G), ncol(b$G))
+      as.matrix(w)
+    }),
     idx = lapply(seq_len(nrow(subsets)), function(i) subsets[i, ]),
     rows = lapply(seq_len(K), function(r) which(lt[, 1L] == r))
   )
@@ -77,16 +90,17 @@ indri_project_psd <- function(blocks, subsets, K = NULL, init = NULL,
   total <- 0
   for (j in seq_along(parts$G)) {
     residual <- C[parts$idx[[j]], parts$idx[[j]], drop = FALSE] - parts$G[[j]]
-    total <- total + sum(residual^2)
+    total <- total + sum(parts$W[[j]] * residual^2)
   }
   total
 }
 
-# d/d theta_k of sum_j || C[I_j, I_j] - G_j ||^2, with C = L L'. For a free
-# entry L[r, c] (r >= c) the derivative is
+# d/d theta_k of sum_j || W_j * (C[I_j, I_j] - G_j) ||^2, with C = L L'. For a
+# free entry L[r, c] (r >= c) the derivative is
 #   2 * sum_j ((R_j + R_j') %*% L[I_j, ])[pos(r), c],
-# where R_j = C[I_j, I_j] - G_j and pos(r) is r's position in I_j. G_j is
-# symmetric in normal use, in which case R_j + R_j' = 2 R_j and the factor is 4.
+# where R_j = W_j * (C[I_j, I_j] - G_j) elementwise and pos(r) is r's position
+# in I_j. When W_j is all ones and G_j is symmetric, R_j + R_j' = 2 R_j and the
+# factor is 4.
 .indri_psd_gradient <- function(theta, K, parts) {
   L <- matrix(0, K, K)
   L[parts$lt] <- theta
@@ -95,6 +109,7 @@ indri_project_psd <- function(blocks, subsets, K = NULL, init = NULL,
   for (j in seq_along(parts$G)) {
     idx <- parts$idx[[j]]
     R <- C[idx, idx, drop = FALSE] - parts$G[[j]]
+    R <- parts$W[[j]] * R
     M <- (R + t(R)) %*% L[idx, , drop = FALSE]   # length(idx) x K
     for (p in seq_along(idx)) {
       for (q in parts$rows[[idx[p]]]) {

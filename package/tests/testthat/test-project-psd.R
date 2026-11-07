@@ -83,3 +83,43 @@ test_that("missing entries in the average do not break the start", {
   expect_false(anyNA(fit$matrix))
   expect_gt(min_eigen(fit$matrix), -1e-8)
 })
+
+test_that("the projection respects inverse-variance weights", {
+  subsets <- matrix(c(1L, 2L, 1L, 2L), nrow = 2, byrow = TRUE)
+  blocks <- list(
+    list(G = matrix(c(1, 0.9, 0.9, 1), 2), se = matrix(0.01, 2, 2)),
+    list(G = matrix(c(1, 0.1, 0.1, 1), 2), se = matrix(1, 2, 2))
+  )
+
+  equal <- indri_project_psd(blocks, subsets, weights = "none")$matrix
+  weighted <- indri_project_psd(blocks, subsets, weights = "inverse_variance")$matrix
+
+  # equal weights land at the midpoint; inverse-variance lands near the precise
+  # block's 0.9
+  expect_equal(equal[1, 2], 0.5, tolerance = 1e-4)
+  expect_gt(weighted[1, 2], 0.85)
+  expect_lt(weighted[1, 2], 0.91)
+})
+
+test_that("the weighted analytical gradient matches finite differences", {
+  G <- known_G()
+  subsets <- covering_subsets()
+  set.seed(3)
+  blocks <- lapply(blocks_from(G, subsets), function(g) {
+    list(G = g + matrix(stats::rnorm(length(g), sd = 0.1), nrow(g)),
+         se = matrix(stats::runif(length(g), 0.05, 0.5), nrow(g)))
+  })
+  K <- 4L
+  parts <- .indri_psd_parts(blocks, subsets, K, weights = "inverse_variance")
+  theta <- stats::runif(nrow(parts$lt), 0.1, 1)
+
+  ana <- .indri_psd_gradient(theta, K, parts)
+  eps <- 1e-6
+  num <- vapply(seq_along(theta), function(k) {
+    up <- theta; up[k] <- up[k] + eps
+    dn <- theta; dn[k] <- dn[k] - eps
+    (.indri_psd_objective(up, K, parts) - .indri_psd_objective(dn, K, parts)) /
+      (2 * eps)
+  }, numeric(1))
+  expect_equal(ana, num, tolerance = 1e-4)
+})
