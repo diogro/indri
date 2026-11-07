@@ -76,6 +76,10 @@ correlation-of-correlations against the truth.
 | 10 | 0.963 | 0.943 | 0.942 | — |
 | 30 | 0.951 | 0.929 | — | 0.911 |
 
+*The indri+sommer column predates the sommer ordering fix (`4b5748a`) and is
+affected by it at both K (trait10+ sorts before trait2); asreml and stanimal
+are not. Rerun before quoting sommer here.*
+
 At K = 10 the two REML engines agree with each other to 1.000 and with stanimal
 to 0.98. At K = 30, indri+stanimal (0.951, 2.5 min) beats the full 30-trait
 model (0.911, 24 min, reduced to 250 iterations) on both accuracy and wall
@@ -258,6 +262,10 @@ whose fit reports convergence.
 | sommer, 30 | 2 / 3 / 4 / 5 | 0.98 / 0.80 / 0.36 / 0.08 | 0.105 / 0.256 / 0.282 / 0.313 | 0.929 / 0.33 / 0.25 / 0.13 |
 
 (c = 1 rows; c = 3 is within 0.01 everywhere.)
+
+*Superseded: the sommer rows were corrupted by the ordering bug, and the
+conclusions below were revised. See "REML uncertainty, and the sommer
+ordering bug" above for the corrected sweep and the current defaults.*
 
 - **No gain from larger blocks for REML.** asreml is level across s (the s = 3
   edge at K = 16 is 2 seeds and within noise), and its convergence falls with
