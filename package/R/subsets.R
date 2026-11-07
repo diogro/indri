@@ -5,10 +5,14 @@
 #' built from a window of trait pairs, and the number of subsets is chosen so
 #' that every pair is covered at least `min_cooccurrence` times.
 #'
-#' Two things differ from LiMMBo's implementation. The permutation that orders
-#' the pairs is seeded here, so the result is reproducible (LiMMBo draws it from
-#' the global numpy generator and is not), and the caller's random seed is
-#' restored afterwards.
+#' Three things differ from LiMMBo's implementation. The permutation that
+#' orders the pairs is seeded here, so the result is reproducible (LiMMBo draws
+#' it from the global numpy generator and is not), and the caller's random seed
+#' is restored afterwards. And the coverage is guaranteed: LiMMBo's passes
+#' cover each pair only `ceiling(min_cooccurrence / 2)` times by construction
+#' and leave the rest to chance, which often falls short; indri adds greedily
+#' built subsets of the same width until every pair reaches
+#' `min_cooccurrence`.
 #'
 #' Note that the subset size is not exactly `s`. A subset covers `s - 1` trait
 #' pairs, which is up to `2 * (s - 1)` distinct traits; the subsets therefore
@@ -72,18 +76,55 @@ indri_subsets <- function(K, s, min_cooccurrence = 3L, seed = NULL) {
     need <- width - length(subsets[[i]])
     if (need > 0L) {
       available <- setdiff(seq_len(K), subsets[[i]])
-      subsets[[i]] <- sort(c(subsets[[i]], sample(available, need)))
+      subsets[[i]] <- sort(c(subsets[[i]], .indri_sample(available, need)))
     }
   }
 
   out <- do.call(rbind, subsets)
-  coverage <- matrix(0L, K, K)
-  for (i in seq_len(nrow(out))) {
-    idx <- out[i, ]
-    coverage[idx, idx] <- coverage[idx, idx] + 1L
-  }
-  attr(out, "coverage") <- coverage
+  coverage <- indri_pair_coverage(out, K)
+
+  # The passes above cover every pair `n_covers = ceiling(c / 2)` times by
+  # construction; LiMMBo relies on incidental co-membership for the rest, and
+  # that often falls short (min coverage 2 for c = 3 is common). Top up with
+  # greedily built subsets of the same width until every pair reaches `c`.
+  out <- .indri_top_up(out, coverage, K, width, min_cooccurrence)
   out
+}
+
+# Add subsets of `width` traits until every pair is covered at least
+# `min_cooccurrence` times. Each new subset starts from one of the most
+# under-covered pairs and grows by the trait that closes the most remaining
+# deficits, so every addition covers at least one deficient pair and the loop
+# terminates.
+.indri_top_up <- function(subsets, coverage, K, width, min_cooccurrence) {
+  extra <- list()
+  repeat {
+    deficit <- min_cooccurrence - coverage
+    deficit[!upper.tri(deficit)] <- 0L
+    if (all(deficit <= 0L)) break
+    deficit <- pmax(deficit, 0L)
+    deficit <- deficit + t(deficit)
+
+    worst <- which(deficit == max(deficit) & upper.tri(deficit), arr.ind = TRUE)
+    members <- unname(worst[.indri_sample(seq_len(nrow(worst)), 1L), ])
+    while (length(members) < width) {
+      others <- setdiff(seq_len(K), members)
+      gain <- colSums(deficit[members, others, drop = FALSE] > 0L)
+      members <- c(members, .indri_sample(others[gain == max(gain)], 1L))
+    }
+    members <- sort(members)
+    extra[[length(extra) + 1L]] <- members
+    coverage[members, members] <- coverage[members, members] + 1L
+  }
+  if (length(extra)) subsets <- rbind(subsets, do.call(rbind, extra))
+  storage.mode(subsets) <- "integer"
+  attr(subsets, "coverage") <- coverage
+  subsets
+}
+
+# sample() treats a single number n as 1:n; this never does.
+.indri_sample <- function(x, size) {
+  x[sample.int(length(x), size)]
 }
 
 # Number of times each trait pair is covered by a subset matrix.

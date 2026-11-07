@@ -30,10 +30,14 @@ built from a window of trait pairs, and the number of subsets is chosen so
 that every pair is covered at least \code{min_cooccurrence} times.
 }
 \details{
-Two things differ from LiMMBo's implementation. The permutation that orders
-the pairs is seeded here, so the result is reproducible (LiMMBo draws it from
-the global numpy generator and is not), and the caller's random seed is
-restored afterwards.
+Three things differ from LiMMBo's implementation. The permutation that
+orders the pairs is seeded here, so the result is reproducible (LiMMBo draws
+it from the global numpy generator and is not), and the caller's random seed
+is restored afterwards. And the coverage is guaranteed: LiMMBo's passes
+cover each pair only \code{ceiling(min_cooccurrence / 2)} times by construction
+and leave the rest to chance, which often falls short; indri adds greedily
+built subsets of the same width until every pair reaches
+\code{min_cooccurrence}.
 
 Note that the subset size is not exactly \code{s}. A subset covers \code{s - 1} trait
 pairs, which is up to \code{2 * (s - 1)} distinct traits; the subsets therefore

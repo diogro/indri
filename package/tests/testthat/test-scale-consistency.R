@@ -23,8 +23,10 @@ test_that("a block is exactly the model fitted on the standardised columns", {
   engine_args <- list(chains = 1L, iter = 200L, cores = 1L, seed = 4L,
                       init = 0.5, refresh = 0, show_messages = FALSE)
 
-  fit <- fit_G(data$Y, A = data$A, subsets = subsets, engine = "stanimal",
-               engine_args = engine_args)
+  expect_warning(
+    fit <- fit_G(data$Y, A = data$A, subsets = subsets, engine = "stanimal",
+                 engine_args = engine_args),
+    "not in any subset")
 
   Y_std <- standardise_like_indri(data$Y)
   direct <- stanimal::lmm_animal(Y_std[, 1:2, drop = FALSE],
@@ -45,10 +47,12 @@ test_that("the fit records the scale that undoes the standardisation", {
   data <- simulate_block_data(n_fam = 10, size = 5, K = 3L)
   subsets <- matrix(c(1L, 2L), nrow = 1L)
 
-  fit <- fit_G(data$Y, A = data$A, subsets = subsets, engine = "stanimal",
-               engine_args = list(chains = 1L, iter = 300L, cores = 1L,
-                                  seed = 5L, init = 0.5, refresh = 0,
-                                  show_messages = FALSE))
+  expect_warning(
+    fit <- fit_G(data$Y, A = data$A, subsets = subsets, engine = "stanimal",
+                 engine_args = list(chains = 1L, iter = 300L, cores = 1L,
+                                    seed = 5L, init = 0.5, refresh = 0,
+                                    show_messages = FALSE)),
+    "not in any subset")
 
   # the recorded scale is the data's, trait by trait
   expect_equal(unname(fit$y_sd), unname(apply(data$Y, 2L, stats::sd)))
@@ -73,10 +77,12 @@ test_that("two blocks that share traits agree about them", {
   # traits 1,2,3 and 2,3,4: the pair 2,3 is estimated twice, by different models
   subsets <- rbind(c(1L, 2L, 3L), c(2L, 3L, 4L))
 
-  fit <- fit_G(data$Y, A = data$A, subsets = subsets, engine = "stanimal",
-               engine_args = list(chains = 1L, iter = 500L, cores = 1L,
-                                  seed = 6L, init = 0.5, refresh = 0,
-                                  show_messages = FALSE))
+  expect_warning(
+    fit <- fit_G(data$Y, A = data$A, subsets = subsets, engine = "stanimal",
+                 engine_args = list(chains = 1L, iter = 500L, cores = 1L,
+                                    seed = 6L, init = 0.5, refresh = 0,
+                                    show_messages = FALSE)),
+    "not in any subset")
 
   first <- fit$blocks[[1L]]
   second <- fit$blocks[[2L]]

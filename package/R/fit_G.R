@@ -110,6 +110,13 @@ fit_G <- function(Y, X = NULL, A, s = NULL, min_cooccurrence = 3L,
   subsets <- as.matrix(subsets)
   if (max(subsets) > K)
     stop("`subsets` refers to traits beyond the ", K, " in `Y`.", call. = FALSE)
+  # indri_subsets() guarantees min_cooccurrence; hand-built subsets may leave
+  # pairs out on purpose, but those entries of G then come from the PSD fill-in
+  # alone, not from data, and the caller should know.
+  uncovered <- sum(indri_pair_coverage(subsets, K)[upper.tri(diag(K))] == 0L)
+  if (uncovered > 0L)
+    warning(uncovered, " trait pair(s) are not in any subset; their entries ",
+            "of `G` are not estimated from the data.", call. = FALSE)
   if (ncol(subsets) >= K && assembly == "ls")
     stop("every subset covers every trait, so there is nothing to reassemble; ",
          "use fewer traits per subset or `assembly = \"average\"`.",

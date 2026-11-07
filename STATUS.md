@@ -130,8 +130,23 @@ credible interval. Do not present it as one; document it as such and consider
 dropping the interval claim from the API narrative until a calibrated
 alternative exists.
 
+## Subset coverage bug: fixed (2026-11-07)
+
+`indri_subsets()` did not guarantee `min_cooccurrence`: the LiMMBo
+construction covers each pair only `ceiling(c / 2)` times by design, and about
+half of all settings fell short (always for s = 2, the default below K = 9).
+It now tops up with greedy subsets. The M1 runs (K = 12, s = 4) were not
+affected. See [REVIEW.md](REVIEW.md) §1.
+
 ## Next, in priority order
 
+0. **A calibrated `G_draws`.** The overconfidence measured above is what
+   averaging independent-chain draws across blocks fitted to the same data
+   predicts (variance shrinks by ~1/c while the block errors are nearly
+   perfectly correlated). Try a mixture assembly — each draw takes each entry
+   from one randomly chosen covering block — as a second arm of
+   `uncertainty_coverage.R`. See [REVIEW.md](REVIEW.md) §2, and §3 for the LKJ
+   prior confound in the full-model comparisons.
 1. **Missing data end to end.** The missing-data policy has still never gone
    through `fit_G()` with gaps in `Y`; `"complete_block"` is implemented but
    unexercised on real fits.

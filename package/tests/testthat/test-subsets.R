@@ -15,6 +15,23 @@ test_that("subsets are valid indices with every pair covered", {
   expect_true(all(diag(coverage) <= nrow(subsets)))
 })
 
+test_that("every pair reaches min_cooccurrence across seeds and settings", {
+  # The LiMMBo construction alone misses this for about half of these
+  # settings (always for s = 2), so a single seed is not a test.
+  for (K in c(4, 6, 8, 12, 20, 30)) for (s in 2:4) for (c in 1:5) {
+    if (s > K) next
+    for (seed in 1:5) {
+      subsets <- indri_subsets(K, s, min_cooccurrence = c, seed = seed)
+      coverage <- attr(subsets, "coverage")
+      info <- sprintf("K = %d, s = %d, c = %d, seed = %d", K, s, c, seed)
+      expect_gte(min(coverage[upper.tri(coverage)]), c, label = info)
+      expect_true(all(apply(subsets, 1L, function(r) !anyDuplicated(r))),
+                  label = info)
+      expect_identical(coverage, indri_pair_coverage(subsets, K), label = info)
+    }
+  }
+})
+
 test_that("subsets are reproducible and do not disturb the caller's stream", {
   set.seed(99)
   before <- runif(1)
