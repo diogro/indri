@@ -32,3 +32,25 @@ indri_engine <- function(name = "stanimal") {
 indri_engines <- function() {
   c("stanimal", "sommer", "asreml")
 }
+
+# Starting covariances for a block fit, `control$init = list(G =, E =)` on the
+# standardised scale. Either may be NULL; a supplied one must be a symmetric
+# positive-definite k x k matrix.
+.indri_check_init <- function(init, k) {
+  if (is.null(init)) return(list(G = NULL, E = NULL))
+  if (!is.list(init))
+    stop("`init` must be a list with elements `G` and/or `E`.", call. = FALSE)
+  for (part in c("G", "E")) {
+    m <- init[[part]]
+    if (is.null(m)) next
+    m <- as.matrix(m)
+    if (!identical(dim(m), c(k, k)) || anyNA(m) ||
+        max(abs(m - t(m))) > 1e-8 ||
+        min(eigen((m + t(m)) / 2, symmetric = TRUE,
+                  only.values = TRUE)$values) <= 0)
+      stop("`init$", part, "` must be a symmetric positive-definite ", k,
+           " x ", k, " matrix.", call. = FALSE)
+    init[[part]] <- unname((m + t(m)) / 2)
+  }
+  list(G = init$G, E = init$E)
+}

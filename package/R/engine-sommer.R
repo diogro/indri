@@ -71,10 +71,18 @@
   .env$vsm <- sommer::vsm
   .env$usm <- sommer::usm
   .env$ism <- sommer::ism
-  random <- stats::as.formula(
-    "~ vsm(usm(trait), ism(id), Gu = Ainv)", env = .env)
-  rcov <- stats::as.formula(
-    "~ vsm(usm(trait), ism(record))", env = .env)
+  # Optional starting covariances (`control$init = list(G =, E =)`, on the
+  # standardised scale): sommer takes their shape through usm(theta =) and
+  # finds the overall scale from the data.
+  init <- .indri_check_init(control$init, K)
+  .env$G0 <- init$G
+  .env$E0 <- init$E
+  random <- stats::as.formula(paste0(
+    "~ vsm(usm(trait", if (!is.null(init$G)) ", theta = G0", "), ism(id), ",
+    "Gu = Ainv)"), env = .env)
+  rcov <- stats::as.formula(paste0(
+    "~ vsm(usm(trait", if (!is.null(init$E)) ", theta = E0", "), ism(record))"),
+    env = .env)
 
   # .indri_core_plan() adds a `cores` budget that sommer's control object does
   # not understand; keep only the entries mmes_control() accepts.

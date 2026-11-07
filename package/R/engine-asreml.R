@@ -67,26 +67,37 @@
           paste(terms, collapse = " + ")),
     env = environment()
   )
-  init <- .indri_asreml_us_init(s)
+  # Starting values: the identity unless `control$init = list(G =, E =)` gives
+  # covariances on the standardised scale.
+  init <- .indri_check_init(control$init, s)
+  init_G <- .indri_asreml_us_init(s, init$G)
+  init_E <- .indri_asreml_us_init(s, init$E)
   random <- stats::as.formula(
     paste("~ vm(id, Ainv):us(trait, init = c(",
-          paste(init, collapse = ", "), "))"),
+          paste(init_G, collapse = ", "), "))"),
     env = environment()
   )
   rcov <- stats::as.formula(
     paste("~ units:us(trait, init = c(",
-          paste(init, collapse = ", "), "))"),
+          paste(init_E, collapse = ", "), "))"),
     env = environment()
   )
 
   # control carries the core budget fit_G() injects, which asreml() does not
-  # understand; asreml options are set through asreml::asreml.options().
+  # understand. `maxit` (AI iterations per pass, asreml's default 13) and
+  # `updates` (extra passes, default 1) are the convergence controls.
+  maxit <- control$maxit %||% 13L
+  updates <- control$updates %||% 1L
   started <- proc.time()[["elapsed"]]
   fit <- suppressWarnings(
-    asreml::asreml(fixed = fixed, random = random, rcov = rcov, data = dat)
+    asreml::asreml(fixed = fixed, random = random, rcov = rcov, data = dat,
+                   maxit = maxit)
   )
-  # The first pass can stop early; the update finishes it.
-  fit <- stats::update(fit)
+  # The first pass can stop early; the updates finish it.
+  for (u in seq_len(updates)) {
+    if (isTRUE(fit$converge) && u > 1L) break
+    fit <- suppressWarnings(stats::update(fit, maxit = maxit))
+  }
   elapsed <- proc.time()[["elapsed"]] - started
 
   vc <- summary(fit)$varcomp
@@ -104,11 +115,12 @@
   )
 }
 
-# us(trait, init = ...) start values: an identity matrix on the lower triangle,
-# in asreml's row-by-row order.
-.indri_asreml_us_init <- function(k) {
+# us(trait, init = ...) start values on the lower triangle, in asreml's
+# row-by-row order: the identity, or the lower triangle of `m`.
+.indri_asreml_us_init <- function(k, m = NULL) {
   rows <- rep(seq_len(k), seq_len(k))
   cols <- sequence(seq_len(k))
+  if (!is.null(m)) return(signif(m[cbind(rows, cols)], 8))
   out <- numeric(length(rows))
   out[rows == cols] <- 1
   out

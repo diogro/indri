@@ -46,3 +46,24 @@ test_that("fit_G runs end to end with the sommer engine", {
   expect_null(fit$G_draws)
   expect_equal(unname(rownames(fit$G)), unname(colnames(data$Y)))
 })
+
+test_that("starting covariances are validated and reach the REML fit", {
+  expect_equal(.indri_check_init(NULL, 2L), list(G = NULL, E = NULL))
+  expect_equal(.indri_check_init(list(G = diag(2)), 2L),
+               list(G = diag(2), E = NULL))
+  expect_error(.indri_check_init(list(G = diag(3)), 2L), "positive-definite 2 x 2")
+  expect_error(.indri_check_init(list(E = matrix(c(1, 2, 2, 1), 2)), 2L),
+               "positive-definite")
+  expect_error(.indri_check_init(diag(2), 2L), "must be a list")
+
+  skip_if_not_installed("sommer")
+  data <- simulate_block_data(n_fam = 20, size = 5, K = 2L)
+  Y <- scale(data$Y)
+  forms <- indri_a_forms(data$A, need = "inverse")
+  X <- matrix(1, nrow(Y), 1, dimnames = list(rownames(Y), "intercept"))
+  plain <- .indri_sommer_fit(Y, X, forms)
+  started <- .indri_sommer_fit(Y, X, forms, list(init = list(
+    G = plain$G, E = plain$E)))
+  # starting at the optimum, the fit stays there
+  expect_equal(started$G, plain$G, tolerance = 1e-3)
+})

@@ -45,3 +45,9 @@ test_that("fit_G runs end to end with the asreml engine", {
   expect_null(fit$G_draws)
   expect_equal(unname(rownames(fit$G)), unname(colnames(data$Y)))
 })
+
+test_that("asreml start values come from init when given", {
+  expect_equal(.indri_asreml_us_init(2L), c(1, 0, 1))
+  m <- matrix(c(2, 0.5, 0.5, 1), 2)
+  expect_equal(.indri_asreml_us_init(2L, m), c(2, 0.5, 1))
+})
