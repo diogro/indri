@@ -24,3 +24,15 @@ model takes it dense or as its eigendecomposition, sommer takes its inverse
 marked as such, and ASReml takes a sparse three-column inverse. Build the forms once per run so that a
 loop over many trait subsets pays for each one only once.
 }
+\examples{
+# A relationship matrix for two pairs of full siblings.
+A <- kronecker(diag(2), matrix(c(1, 0.5, 0.5, 1), 2))
+forms <- indri_a_forms(A, need = c("inverse", "eigen"))
+forms$inverse
+forms$eigen$lambda
+
+# Reconstruct A from the shared eigendecomposition.
+Q <- forms$eigen$Q
+Q \%*\% diag(forms$eigen$lambda) \%*\% t(Q)
+
+}

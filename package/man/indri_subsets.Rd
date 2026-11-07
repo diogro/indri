@@ -47,3 +47,12 @@ pairs, which is up to \code{2 * (s - 1)} distinct traits; the subsets therefore
 come out larger than \code{s}, and the assembled blocks use
 \code{ncol(subsets)} rather than \code{s}.
 }
+\examples{
+subsets <- indri_subsets(K = 6, s = 3, min_cooccurrence = 3, seed = 42)
+subsets
+ncol(subsets)  # Actual block width; it can be larger than s.
+coverage <- attr(subsets, "coverage")
+coverage
+min(coverage[upper.tri(coverage)])
+
+}

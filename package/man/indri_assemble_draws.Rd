@@ -50,3 +50,19 @@ between blocks. Entries are drawn independently of one another, so a mixed
 covariance draw need not be positive semi-definite; mix per-block
 correlation draws (pass them as \code{draws}) when correlations are the target.
 }
+\examples{
+# Illustrative draws for the same two-trait subset from two block fits.
+subsets <- rbind(c(1, 2), c(1, 2))
+make_draws <- function(correlations) {
+  array(unlist(lapply(correlations, function(r)
+    matrix(c(1, r, r, 1), 2))), dim = c(2, 2, length(correlations)))
+}
+draws <- list(make_draws(c(0.1, 0.2, 0.3, 0.4)),
+              make_draws(c(0.5, 0.6, 0.7, 0.8)))
+averaged <- indri_assemble_draws(draws, subsets)
+mixed <- indri_assemble_draws(draws, subsets, method = "mixture", seed = 1)
+averaged[1, 2, ]
+mixed[1, 2, ]
+# Mixture entries are pointwise draws, not a joint PSD matrix posterior.
+
+}

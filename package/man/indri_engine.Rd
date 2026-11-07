@@ -29,3 +29,11 @@ sommer or ASReml-R, because the right engine depends on the number of
 individuals, on whether the data have gaps, on whether a licence is
 available, and on whether the caller wants a posterior or a likelihood.
 }
+\examples{
+# Inspect the registry without fitting a model or loading an engine.
+indri_engines()
+engine <- indri_engine("sommer")
+engine$name
+engine$capabilities
+
+}

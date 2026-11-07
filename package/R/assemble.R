@@ -6,6 +6,12 @@
 #' @param fill Value for the entries the subset does not cover.
 #'
 #' @return A `K` by `K` matrix.
+#'
+#' @examples
+#' block <- matrix(c(1, 0.4, 0.4, 2), nrow = 2)
+#' indri_inflate(block, index = c(1, 3), K = 4)
+#' indri_inflate(block, index = c(1, 3), K = 4, fill = 0)
+#'
 #' @export
 indri_inflate <- function(small, index, K, fill = NA_real_) {
   small <- as.matrix(small)
@@ -39,6 +45,23 @@ indri_inflate <- function(small, index, K, fill = NA_real_) {
 #'
 #' @return A list with `G` (the averaged matrix) and `counts` (how many subsets
 #'   contributed to each entry).
+#'
+#' @examples
+#' # Two estimates of traits 1 and 2, plus blocks covering trait 3.
+#' subsets <- rbind(c(1, 2), c(1, 2), c(1, 3), c(2, 3))
+#' blocks <- list(
+#'   list(G = matrix(c(1, 0.8, 0.8, 1), 2), se = matrix(0.1, 2, 2)),
+#'   list(G = matrix(c(1, 0.2, 0.2, 1), 2), se = matrix(0.4, 2, 2)),
+#'   list(G = matrix(c(1, 0.3, 0.3, 1), 2), se = matrix(0.2, 2, 2)),
+#'   list(G = matrix(c(1, 0.4, 0.4, 1), 2), se = matrix(0.2, 2, 2))
+#' )
+#' equal <- indri_assemble(blocks, subsets, K = 3)
+#' weighted <- indri_assemble(blocks, subsets, K = 3,
+#'                            weights = "inverse_variance")
+#' equal$G
+#' equal$counts
+#' weighted$G[1, 2]  # Closer to the more precise first block.
+#'
 #' @export
 indri_assemble <- function(blocks, subsets, K = NULL,
                            weights = c("none", "inverse_variance")) {
@@ -126,6 +149,22 @@ indri_assemble <- function(blocks, subsets, K = NULL,
 #'
 #' @return A `K` by `K` by `D` array. Entries no subset covers are 0 for
 #'   `"average"` and `NA` for `"mixture"`.
+#'
+#' @examples
+#' # Illustrative draws for the same two-trait subset from two block fits.
+#' subsets <- rbind(c(1, 2), c(1, 2))
+#' make_draws <- function(correlations) {
+#'   array(unlist(lapply(correlations, function(r)
+#'     matrix(c(1, r, r, 1), 2))), dim = c(2, 2, length(correlations)))
+#' }
+#' draws <- list(make_draws(c(0.1, 0.2, 0.3, 0.4)),
+#'               make_draws(c(0.5, 0.6, 0.7, 0.8)))
+#' averaged <- indri_assemble_draws(draws, subsets)
+#' mixed <- indri_assemble_draws(draws, subsets, method = "mixture", seed = 1)
+#' averaged[1, 2, ]
+#' mixed[1, 2, ]
+#' # Mixture entries are pointwise draws, not a joint PSD matrix posterior.
+#'
 #' @export
 indri_assemble_draws <- function(draws, subsets, K = NULL,
                                  method = c("average", "mixture"),

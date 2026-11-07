@@ -24,6 +24,22 @@
 #'
 #' @return A list with `matrix`, the fitted PSD matrix, plus `convergence`,
 #'   `value` and the raw `optim` result.
+#'
+#' @examples
+#' # Three pairwise estimates can imply an indefinite full matrix.
+#' subsets <- t(utils::combn(3, 2))
+#' blocks <- list(
+#'   list(G = matrix(c(1, 0.9, 0.9, 1), 2)),
+#'   list(G = matrix(c(1, -0.9, -0.9, 1), 2)),
+#'   list(G = matrix(c(1, 0.9, 0.9, 1), 2))
+#' )
+#' average <- indri_assemble(blocks, subsets)$G
+#' eigen(average, symmetric = TRUE)$values
+#' fit <- indri_project_psd(blocks, subsets)
+#' fit$matrix
+#' fit$convergence
+#' eigen(fit$matrix, symmetric = TRUE)$values
+#'
 #' @export
 indri_project_psd <- function(blocks, subsets, K = NULL, init = NULL,
                               weights = c("none", "inverse_variance"),

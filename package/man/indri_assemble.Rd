@@ -40,3 +40,20 @@ This is the averaging step, not the estimate: the average of overlapping
 blocks is generally not positive semi-definite. \code{indri_project_psd()} is what
 turns it into a covariance matrix.
 }
+\examples{
+# Two estimates of traits 1 and 2, plus blocks covering trait 3.
+subsets <- rbind(c(1, 2), c(1, 2), c(1, 3), c(2, 3))
+blocks <- list(
+  list(G = matrix(c(1, 0.8, 0.8, 1), 2), se = matrix(0.1, 2, 2)),
+  list(G = matrix(c(1, 0.2, 0.2, 1), 2), se = matrix(0.4, 2, 2)),
+  list(G = matrix(c(1, 0.3, 0.3, 1), 2), se = matrix(0.2, 2, 2)),
+  list(G = matrix(c(1, 0.4, 0.4, 1), 2), se = matrix(0.2, 2, 2))
+)
+equal <- indri_assemble(blocks, subsets, K = 3)
+weighted <- indri_assemble(blocks, subsets, K = 3,
+                           weights = "inverse_variance")
+equal$G
+equal$counts
+weighted$G[1, 2]  # Closer to the more precise first block.
+
+}

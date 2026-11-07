@@ -13,6 +13,14 @@
 #' @param name Engine name.
 #'
 #' @return An engine list.
+#'
+#' @examples
+#' # Inspect the registry without fitting a model or loading an engine.
+#' indri_engines()
+#' engine <- indri_engine("sommer")
+#' engine$name
+#' engine$capabilities
+#'
 #' @export
 indri_engine <- function(name = "stanimal") {
   if (!is.character(name) || length(name) != 1L || is.na(name))

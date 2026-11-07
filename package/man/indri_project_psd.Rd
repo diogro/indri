@@ -47,3 +47,19 @@ The per-entry weights \code{W_j} are all one unless \code{weights = "inverse_var
 in which case they come from each block's \code{se} or \code{draws} (see
 \code{\link[=indri_assemble]{indri_assemble()}}).
 }
+\examples{
+# Three pairwise estimates can imply an indefinite full matrix.
+subsets <- t(utils::combn(3, 2))
+blocks <- list(
+  list(G = matrix(c(1, 0.9, 0.9, 1), 2)),
+  list(G = matrix(c(1, -0.9, -0.9, 1), 2)),
+  list(G = matrix(c(1, 0.9, 0.9, 1), 2))
+)
+average <- indri_assemble(blocks, subsets)$G
+eigen(average, symmetric = TRUE)$values
+fit <- indri_project_psd(blocks, subsets)
+fit$matrix
+fit$convergence
+eigen(fit$matrix, symmetric = TRUE)$values
+
+}

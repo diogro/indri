@@ -34,6 +34,14 @@
 #'   coverage reached is stored in the `min_cooccurrence` attribute and the
 #'   pair counts in the `coverage` attribute.
 #'
+#' @examples
+#' subsets <- indri_subsets(K = 6, s = 3, min_cooccurrence = 3, seed = 42)
+#' subsets
+#' ncol(subsets)  # Actual block width; it can be larger than s.
+#' coverage <- attr(subsets, "coverage")
+#' coverage
+#' min(coverage[upper.tri(coverage)])
+#'
 #' @export
 indri_subsets <- function(K, s, min_cooccurrence = 3L, seed = NULL) {
   K <- .indri_count(K, "K", min = 2L)

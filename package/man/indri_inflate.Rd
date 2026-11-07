@@ -21,3 +21,9 @@ A \code{K} by \code{K} matrix.
 \description{
 Place a subset covariance matrix into the full trait space
 }
+\examples{
+block <- matrix(c(1, 0.4, 0.4, 2), nrow = 2)
+indri_inflate(block, index = c(1, 3), K = 4)
+indri_inflate(block, index = c(1, 3), K = 4, fill = 0)
+
+}

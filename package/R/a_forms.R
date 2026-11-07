@@ -14,6 +14,17 @@
 #'   (and in the order stanimal would compute them itself, so a block fitted
 #'   with it is identical to one fitted without).
 #'
+#' @examples
+#' # A relationship matrix for two pairs of full siblings.
+#' A <- kronecker(diag(2), matrix(c(1, 0.5, 0.5, 1), 2))
+#' forms <- indri_a_forms(A, need = c("inverse", "eigen"))
+#' forms$inverse
+#' forms$eigen$lambda
+#'
+#' # Reconstruct A from the shared eigendecomposition.
+#' Q <- forms$eigen$Q
+#' Q %*% diag(forms$eigen$lambda) %*% t(Q)
+#'
 #' @export
 indri_a_forms <- function(A, need = c("dense", "inverse", "sparse_inverse",
                                      "eigen")) {

@@ -82,6 +82,45 @@
 #'   functions of the whole matrix. Neither is a posterior over the joint
 #'   matrix.
 #'
+#' @examples
+#' \donttest{
+#' # This example fits six small Stan models and needs stanimal and CmdStan.
+#' if (requireNamespace("stanimal", quietly = TRUE) &&
+#'     requireNamespace("cmdstanr", quietly = TRUE) &&
+#'     !is.na(cmdstanr::cmdstan_version(error_on_NA = FALSE))) {
+#'   set.seed(42)
+#'   K <- 4L
+#'   N <- 60L
+#'   # Twelve families of five full siblings.
+#'   A <- kronecker(diag(12), matrix(0.5, 5, 5))
+#'   diag(A) <- 1
+#'   G_true <- matrix(0.2, K, K)
+#'   diag(G_true) <- 0.8
+#'   E_true <- diag(0.6, K)
+#'   X <- cbind(intercept = 1, group = rep(c(0, 1), length.out = N))
+#'   genetic <- t(chol(A)) %*% matrix(rnorm(N * K), N, K) %*% chol(G_true)
+#'   residual <- matrix(rnorm(N * K), N, K) %*% chol(E_true)
+#'   Y <- genetic + residual + X[, "group"] %o% c(0.2, -0.2, 0.1, 0)
+#'   colnames(Y) <- paste0("trait", seq_len(K))
+#'
+#'   # Estimate from all pairs; increase chains and iterations for real work.
+#'   fit <- fit_G(Y, X = X, A = A, subsets = t(utils::combn(K, 2)),
+#'                engine = "stanimal", cores = 1, seed = 42,
+#'                engine_args = list(chains = 2, iter = 400, seed = 42, init = 0.5,
+#'                                   refresh = 0, show_messages = FALSE))
+#'   fit$corrG
+#'   fit$coverage
+#'   fit$diagnostics
+#'
+#'   # G is on the standardised scale; restore the original trait units.
+#'   G_original <- diag(fit$y_sd) %*% fit$G %*% diag(fit$y_sd)
+#'   G_original
+#'
+#'   # Pointwise correlation spread, not a joint posterior interval.
+#'   quantile(fit$corrG_draws[1, 2, ], c(0.025, 0.975))
+#' }
+#' }
+#'
 #' @export
 fit_G <- function(Y, X = NULL, A, s = NULL, min_cooccurrence = NULL,
                   subsets = NULL, engine = "stanimal", engine_args = list(),
