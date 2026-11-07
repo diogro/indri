@@ -414,7 +414,7 @@ large-K fits stall, not the engines.
 
 ```r
 fit_G(Y, X = NULL, A,
-      s = NULL,                     # subset size; default floor(sqrt(K)) clamped
+      s = NULL,                     # subset size; default min(floor(sqrt(K)), 4)
       min_cooccurrence = 3,         # c
       subsets = NULL,               # precomputed b x s matrix, for reproducibility
       engine = c("stanimal", "sommer", "asreml"),

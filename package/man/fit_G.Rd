@@ -31,7 +31,7 @@ have row names they are matched by name.}
 
 \item{s}{Subset size parameter. Controls how many trait pairs each subset
 covers, not the number of traits in a subset; see \code{\link[=indri_subsets]{indri_subsets()}}.
-Defaults to \code{floor(sqrt(K))}, clamped to at least 2.}
+Defaults to \code{min(floor(sqrt(K)), 4)}, clamped to at least 2.}
 
 \item{min_cooccurrence}{Minimum number of times every trait pair must be
 sampled.}

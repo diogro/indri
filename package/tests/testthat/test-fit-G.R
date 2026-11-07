@@ -50,6 +50,15 @@ test_that("fit_G refuses what it cannot do", {
                "nothing to reassemble")
 })
 
+test_that("the default subset size grows with K but caps at 4", {
+  expect_equal(.indri_default_s(3L), 2L)
+  expect_equal(.indri_default_s(4L), 2L)
+  expect_equal(.indri_default_s(12L), 3L)
+  expect_equal(.indri_default_s(16L), 4L)
+  expect_equal(.indri_default_s(30L), 4L)
+  expect_equal(.indri_default_s(50L), 4L)
+})
+
 test_that("diagnostics reads logical and Rhat convergence", {
   # REML engines report a logical flag; one FALSE must sink the summary.
   d <- .indri_diagnostics(list(list(converged = TRUE),

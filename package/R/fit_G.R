@@ -18,7 +18,7 @@
 #'   have row names they are matched by name.
 #' @param s Subset size parameter. Controls how many trait pairs each subset
 #'   covers, not the number of traits in a subset; see [indri_subsets()].
-#'   Defaults to `floor(sqrt(K))`, clamped to at least 2.
+#'   Defaults to `min(floor(sqrt(K)), 4)`, clamped to at least 2.
 #' @param min_cooccurrence Minimum number of times every trait pair must be
 #'   sampled.
 #' @param subsets Optional precomputed subset matrix, from [indri_subsets()].
@@ -100,7 +100,7 @@ fit_G <- function(Y, X = NULL, A, s = NULL, min_cooccurrence = 3L,
   Y_std <- sweep(sweep(Y, 2L, y_mean, "-"), 2L, y_sd, "/")
 
   if (is.null(subsets)) {
-    if (is.null(s)) s <- max(2L, min(K - 1L, floor(sqrt(K))))
+    if (is.null(s)) s <- .indri_default_s(K)
     subsets <- indri_subsets(K, s, min_cooccurrence = min_cooccurrence,
                              seed = seed)
   }
@@ -217,6 +217,12 @@ fit_G <- function(Y, X = NULL, A, s = NULL, min_cooccurrence = 3L,
     max_rhat = suppressWarnings(max(rhat, na.rm = TRUE)),
     converged = if (all(is.na(block_ok))) TRUE else all(block_ok, na.rm = TRUE)
   )
+}
+
+# Default subset size: grow with K like sqrt(K), but never past 4. Larger
+# blocks stop buying accuracy (and get slower) at K = 50, so 4 is the cap.
+.indri_default_s <- function(K) {
+  max(2L, min(K - 1L, floor(sqrt(K)), 4L))
 }
 
 # Match A to the individuals in Y, by name when both have names.
