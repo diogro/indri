@@ -66,7 +66,11 @@ average. That keeps the per-block spread and adds between-block spread.
 
 **Confirmed (`4f70b8d`).** The coverage study measured ~43% coverage for the
 indri band against ~81% for the full model, with the `10+` coverage band at
-25-35% — the predicted pattern. The mixture arm is the next test.
+25-35% — the predicted pattern.
+
+**Mixture measured (`f3abee8`, six seeds).** Mixture 0.89 coverage, width
+0.52; sqrt(coverage)-inflated average 0.90; old average 0.40; full model 0.80.
+Coverage is flat across pair-coverage bands. Details in STATUS.md.
 
 The same dependence is a plausible explanation for the weights study coming out
 as a wash: inverse-variance weighting pays off when errors are independent.

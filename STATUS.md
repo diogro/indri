@@ -130,6 +130,36 @@ credible interval. Do not present it as one; document it as such and consider
 dropping the interval claim from the API narrative until a calibrated
 alternative exists.
 
+### The fix: a mixture assembly (2026-11-07, six seeds)
+
+The overconfidence is the averaging. Draw `d` averaged over `c` independent
+block chains has ~1/c of a block's variance, but the blocks see the same data
+and their errors are nearly perfectly correlated. Scoring three assemblies of
+the *same* fits (`f3abee8`, seeds 1-6, 396 pairs, correlation scale):
+
+| arm | 95% coverage | mean width | coverage 7-9 / 10+ |
+|---|---|---|---|
+| `average` (old `G_draws`) | 0.40 | 0.16 | 0.51 / 0.33 |
+| `mixture` (entry from one random covering block) | **0.89** | 0.52 | 0.91 / 0.88 |
+| `inflated` (average, deviations x sqrt(coverage)) | 0.90 | 0.51 | 0.92 / 0.89 |
+| full 12-trait model | 0.80 | 0.49 | — |
+
+- The mechanism is confirmed: scaling the average by sqrt(coverage) alone
+  recovers the coverage, and coverage no longer falls with pair coverage.
+- `mixture` and `inflated` agree, so the between-block spread is small; the
+  gain is entirely from not dividing by `c`.
+- Mixture bands are about as wide as the full model's but cover more (0.89 vs
+  0.80), consistent with indri's point estimates being better centred.
+- Still below nominal 95%. The full model undercovers too, so part of the gap
+  is likely shared (prior shrinkage at N = 300, short chains: blocks run one
+  chain of 400 iterations).
+- Mixed draws are pointwise: entries are drawn independently, so a mixed
+  matrix need not be PSD. Fine for per-entry intervals, not for functionals of
+  the whole matrix (eigenvalues, response to selection).
+
+`fit_G(spread = "mixture")` is available; the default is still `"average"`.
+Per-seed results: `results/uncertainty_coverage_summary_seed{1..6}.csv`.
+
 ## Subset coverage bug: fixed (2026-11-07)
 
 `indri_subsets()` did not guarantee `min_cooccurrence`: the LiMMBo
