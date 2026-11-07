@@ -1,10 +1,10 @@
 # Cross-engine comparison on simulated data.
 #
-# Simulates a known K-trait genetic covariance and estimates it three ways:
+# Simulates a known K-trait genetic covariance and estimates it with indri on
+# two block engines:
 #
 #   1. indri with stanimal blocks (posterior mean per block),
-#   2. indri with sommer blocks (REML point estimate per block),
-#   3. the full K-trait stanimal model as the reference.
+#   2. indri with sommer blocks (REML point estimate per block).
 #
 # Every estimate is compared with the truth on the correlation scale, and the
 # engines are compared with each other on the same trait pairs.
@@ -24,11 +24,7 @@
 #   INDRI_ENGINE_CORES_SOMMER number of sommer blocks to run in parallel (16)
 #   INDRI_ENGINE_ITER    stanimal iterations per chain (400)
 #   INDRI_ENGINE_CHAINS  chains per stanimal block (2)
-#   INDRI_ENGINE_FULL    1 to run the full stanimal reference (1)
 #   INDRI_ENGINE_SOMMER  1 to run the sommer engine (1)
-#   INDRI_ENGINE_FULL_ITER    full-model iterations per chain (500)
-#   INDRI_ENGINE_FULL_CHAINS  full-model chains (2)
-#   INDRI_ENGINE_FULL_CORES   full-model cores (2)
 #   INDRI_ENGINE_OMP_THREADS  OpenMP threads per sommer block (1)
 
 library(indri)
@@ -53,11 +49,7 @@ cores <- as.integer(Sys.getenv("INDRI_ENGINE_CORES", "64"))
 cores_sommer <- as.integer(Sys.getenv("INDRI_ENGINE_CORES_SOMMER", "16"))
 iter <- as.integer(Sys.getenv("INDRI_ENGINE_ITER", "400"))
 chains <- as.integer(Sys.getenv("INDRI_ENGINE_CHAINS", "2"))
-run_full <- Sys.getenv("INDRI_ENGINE_FULL", "1") == "1"
 run_sommer <- Sys.getenv("INDRI_ENGINE_SOMMER", "1") == "1"
-full_iter <- as.integer(Sys.getenv("INDRI_ENGINE_FULL_ITER", "500"))
-full_chains <- as.integer(Sys.getenv("INDRI_ENGINE_FULL_CHAINS", "2"))
-full_cores <- as.integer(Sys.getenv("INDRI_ENGINE_FULL_CORES", "2"))
 
 stanimal_control <- list(chains = chains, iter = iter, init = 0.5,
                          refresh = 0, show_messages = FALSE)
@@ -129,39 +121,19 @@ fit_stanimal <- fit_G(data$Y, A = data$A, s = s,
                       seed = 2000L + seed)
 time_stanimal <- as.numeric(difftime(Sys.time(), started, units = "mins"))
 
-## full stanimal reference ----------------------------------------------------
-
-if (run_full) {
-  message("== full ", K, "-trait stanimal model ==")
-  started <- Sys.time()
-  full <- stanimal::lmm_animal(data$Y, matrix(1, data$N, 1L), data$A,
-                               chains = full_chains, iter = full_iter,
-                               cores = full_cores,
-                               seed = 3000L + seed, refresh = 0,
-                               show_messages = FALSE)
-  time_full <- as.numeric(difftime(Sys.time(), started, units = "mins"))
-  corr_full <- stanimal::draws_mean(full, "corrG")
-} else {
-  corr_full <- NULL
-  time_full <- NA_real_
-}
-
 ## Compare -------------------------------------------------------------------
 
 estimates <- list(
   indri_sommer = if (!is.null(fit_sommer)) fit_sommer$corrG else NULL,
-  indri_stanimal = fit_stanimal$corrG,
-  full_stanimal = corr_full
+  indri_stanimal = fit_stanimal$corrG
 )
 times <- c(
   indri_sommer = time_sommer,
-  indri_stanimal = time_stanimal,
-  full_stanimal = time_full
+  indri_stanimal = time_stanimal
 )
 
 summary_rows <- list()
-block_s <- c(indri_sommer = s_sommer, indri_stanimal = s,
-             full_stanimal = NA_integer_)
+block_s <- c(indri_sommer = s_sommer, indri_stanimal = s)
 for (method in names(estimates)) {
   estimate <- estimates[[method]]
   if (is.null(estimate)) next

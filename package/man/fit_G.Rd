@@ -38,8 +38,8 @@ sampled.}
 
 \item{subsets}{Optional precomputed subset matrix, from \code{\link[=indri_subsets]{indri_subsets()}}.}
 
-\item{engine}{Block engine: \code{"stanimal"} (posterior draws) or \code{"sommer"}
-(REML point estimates); \code{"asreml"} is designed and not yet implemented.}
+\item{engine}{Block engine: \code{"stanimal"} (posterior draws), \code{"sommer"} or
+\code{"asreml"} (REML point estimates).}
 
 \item{engine_args}{List of arguments passed to the engine's fit function.}
 

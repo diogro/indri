@@ -16,6 +16,16 @@ skip_if_no_sommer <- function() {
   testthat::skip_if_not_installed("sommer")
 }
 
+skip_if_no_asreml <- function() {
+  testthat::skip_if_not_installed("asreml")
+  licenced <- tryCatch({
+    suppressWarnings(asreml::asreml(
+      fixed = y ~ 1, data = data.frame(y = c(1, 2))))
+    TRUE
+  }, error = function(e) FALSE)
+  if (!licenced) testthat::skip("asreml is not licensed")
+}
+
 # A 4-trait covariance matrix with a clear structure, and the trait subsets that
 # cover every pair. Blocks that are exact submatrices of this matrix are what a
 # perfect engine would return, which is how the assembly steps are tested
