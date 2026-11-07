@@ -28,6 +28,7 @@
 #   INDRI_ENGINE_FULL_ITER    full-model iterations per chain (500)
 #   INDRI_ENGINE_FULL_CHAINS  full-model chains (2)
 #   INDRI_ENGINE_FULL_CORES   full-model cores (2)
+#   INDRI_ENGINE_OMP_THREADS  OpenMP threads per sommer block (1)
 
 library(indri)
 
@@ -58,6 +59,11 @@ full_cores <- as.integer(Sys.getenv("INDRI_ENGINE_FULL_CORES", "2"))
 
 stanimal_control <- list(chains = chains, iter = iter, init = 0.5,
                          refresh = 0, show_messages = FALSE)
+# sommer's mmes solver multithreads through OpenMP even for tiny bivariate
+# blocks, which oversubscribes the machine when combined with parallel blocks
+# and slows each fit down (measured ~2.6x). Pin it to one thread per block and
+# let `cores` control the parallelism instead.
+Sys.setenv(OMP_NUM_THREADS = Sys.getenv("INDRI_ENGINE_OMP_THREADS", "1"))
 dir.create("results", showWarnings = FALSE)
 
 metrics <- function(estimate, truth) {
