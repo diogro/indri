@@ -105,11 +105,20 @@ documented because they are invisible from reading the code.
   (back-transform with `diag(y_sd) %*% G %*% diag(y_sd)`).
 - **Defaults for `s`, `min_cooccurrence` and `cores` come from the engine**
   (`.indri_engine_defaults()`, `.indri_default_cores()`): stanimal uses
-  `.indri_default_s(K) = max(2, min(K - 1, floor(sqrt(K)), 4))` and c = 3;
-  sommer and asreml use pairs once each (s = 2, c = 1), because larger REML
-  blocks were measured to gain nothing and converge worse, and a REML refit of
-  the same pair is the same number. Do not change them without a new sweep
-  (`examples/block_size_sweep.R`).
+  `.indri_default_s(K) = max(2, min(K - 1, floor(sqrt(K)), 4))`; sommer and
+  asreml use s = 3; every engine asks for c = 3 distinct contexts per pair.
+  Default s is clamped so blocks stay narrower than K. Do not change them
+  without a new sweep (`examples/block_size_sweep.R`).
+- **Engine output must follow the column order of `Y`.** sommer once returned
+  blocks in alphabetical trait order (`factor()` sorts its levels), which
+  silently put variances and covariances on the wrong traits. Name-based
+  reordering and `test-engine-sommer.R` guard it; test any new engine with
+  trait names that do not sort in column order.
+- **REML uncertainty is a normal approximation from each block's `vcov`**
+  (joint sampling covariance of its lower-triangle G entries), drawn in
+  `fit_G()` with `n_draws`. Measured coverage 0.96-0.98 at nominal 0.95.
+- **`min_cooccurrence` counts distinct subsets.** `indri_subsets()` never
+  repeats one and caps c at the block width's limit (1 for pairs).
 - **Non-converged REML blocks are reported, not refitted.** They were measured
   to sit at the REML optimum without certifying it (same estimate from every
   start, as accurate as converged pairs; STATUS.md). Do not add automatic

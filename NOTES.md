@@ -615,10 +615,15 @@ model becomes the slow side.
     in `diagnostics`, not refitted or dropped; they are uncertified optima,
     not bad estimates, and no refit tried (iterations, starts, larger block)
     improved them.*
-6a. **Block size per engine.** *Decided (2026-11-07, STATUS.md): REML engines
-    fit pairs once each (s = 2, c = 1); larger REML blocks gain no accuracy and
-    converge worse (sommer fails outright). stanimal keeps the sqrt(K) rule
-    and c = 3. asreml defaults to two workers, one licence seat each.*
+6a. **Block size per engine.** *Decided (2026-11-07, STATUS.md), revised
+    after the sommer ordering fix: REML engines use s = 3 (4-trait blocks)
+    with c = 3 distinct contexts per pair; stanimal keeps the sqrt(K) rule.
+    Subsets are never repeated, and c is capped by the block width. (The
+    first decision, pairs once each, rested on a sommer sweep corrupted by
+    the ordering bug.) asreml defaults to two workers, one licence seat each.*
+6c. **REML uncertainty.** *Decided: a joint normal approximation per block
+    from the REML sampling covariance, assembled by mixture; measured 0.96-0.98
+    coverage at nominal 0.95.*
 7. **stanimal as dependency.** `Imports:` for the default engine vs `Suggests:`
    with a runtime check. Now that three engines exist, `Suggests:` is more
    defensible. *Default: `Suggests:`, checked at call time.*

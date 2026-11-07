@@ -158,6 +158,60 @@ the *same* fits (`f3abee8`, seeds 1-6, 396 pairs, correlation scale):
 `fit_G(spread = "mixture")` is available; the default is still `"average"`.
 Per-seed results: `results/uncertainty_coverage_summary_seed{1..6}.csv`.
 
+## REML uncertainty, and the sommer ordering bug (2026-11-07)
+
+**Bug, fixed (`4b5748a`).** The sommer engine built `factor(trait)`, whose
+levels sort alphabetically, and sommer returns its matrices in level order,
+so any block whose trait names do not sort in column order (`trait2`,
+`trait10`) came back permuted: variances swapped for pairs, covariances on
+the wrong pairs for larger blocks. Every sommer run with 10 or more traits
+before that commit is affected: the K = 10/16/30 engine comparisons, the first
+sommer block-size sweep, and the heritabilities (not the correlations) of the
+sommer convergence study. asreml and stanimal were not affected.
+
+**The corrected sweep overturns "pairs only".** sommer's apparent collapse at
+s >= 3 was the bug. Paired against s = 2 within seed (c = 1):
+
+| engine, K | s = 3 (4-trait blocks) | s = 4 | s = 5 |
+|---|---|---|---|
+| sommer, 16 (6 seeds) | median err -0.007 (5/6 better), same time | -0.009 (4/6), 2x | -0.014 (5/6), 5x |
+| sommer, 30 (4 seeds) | -0.001 (1/4), same time | -0.003 (4/4), 1.4x | -0.003 (2/4), 2.6x |
+| asreml, 16 (2 seeds) | -0.011 (2/2), 0.6x time | -0.004 (1/2) | |
+
+**Defaults now** (`4d5959b`): REML engines s = 3, c = 3, where c counts
+*distinct* trait combinations. `indri_subsets()` never repeats a subset (a
+pair estimated twice in the same context adds nothing) and caps c at what the
+block width allows (1 for pairs). Default s is clamped so blocks stay
+narrower than K.
+
+**REML uncertainty** (`49f0657`): each REML block reports the joint sampling
+covariance of its G entries (sommer's natural-scale parameter vcov; asreml's
+inverse AI matrix, identical numbers), `fit_G()` draws from that normal
+approximation (`n_draws`, seeded in the main process) and assembles the draws
+like stanimal's. `examples/uncertainty_coverage.R`, 12 traits, 6 seeds, 396
+pairs, the same data as the stanimal study:
+
+| method | 95% coverage | mean width | median abs err of corrG |
+|---|---|---|---|
+| sommer, s = 2, c = 1 | 0.957 | 0.687 | 0.107 |
+| asreml, s = 2, c = 1 | 0.960 | 0.687 | 0.107 |
+| **sommer, s = 3, c = 3 (default)** | **0.970** | 0.690 | **0.103** |
+| **asreml, s = 3, c = 3 (default)** | **0.977** | 0.744 | **0.106** |
+| stanimal mixture, s = 4, c = 3 | 0.894 | 0.519 | 0.098 |
+| full stanimal model | 0.801 | 0.490 | |
+
+- The REML bands are calibrated with pairs and slightly conservative with
+  three contexts per pair: the assembled estimate averages three contexts, so
+  it is less noisy than any one block, while the band carries one block's
+  sampling variance (widths are unchanged, accuracy improves). Getting
+  exactly 0.95 would need the correlation between contexts, which share all
+  the data; conservative is the honest side to err on.
+- A **recentred mixture** (each draw a block's deviation from its own mean,
+  added to `corrG`) was scored on the saved draws and rejected: REML 0.975
+  (no change), stanimal 0.881 (worse).
+- stanimal's bands are narrower and undercover; its point estimate is the
+  most accurate. The difference is the prior, not the assembly.
+
 ## Non-converged REML pairs: measured (2026-11-07)
 
 `examples/reml_convergence.R`: every pair fitted once (s = 2, c = 1), then
