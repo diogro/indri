@@ -16,7 +16,8 @@
 #   INDRI_ENGINE_K       number of traits (10)
 #   INDRI_ENGINE_NFAM    families (60)
 #   INDRI_ENGINE_SIZE    sibship size (5)
-#   INDRI_ENGINE_S       subset size parameter (4)
+#   INDRI_ENGINE_S       subset size parameter for stanimal blocks (4)
+#   INDRI_ENGINE_S_SOMMER subset size parameter for sommer blocks (2)
 #   INDRI_ENGINE_MINCOOC minimum pair coverage (3)
 #   INDRI_ENGINE_SEED    simulation seed (1)
 #   INDRI_ENGINE_CORES   Stan process budget for the stanimal blocks (64)
@@ -39,6 +40,7 @@ K <- as.integer(Sys.getenv("INDRI_ENGINE_K", "10"))
 n_fam <- as.integer(Sys.getenv("INDRI_ENGINE_NFAM", "60"))
 sibship_size <- as.integer(Sys.getenv("INDRI_ENGINE_SIZE", "5"))
 s <- as.integer(Sys.getenv("INDRI_ENGINE_S", "4"))
+s_sommer <- as.integer(Sys.getenv("INDRI_ENGINE_S_SOMMER", "2"))
 min_cooccurrence <- as.integer(Sys.getenv("INDRI_ENGINE_MINCOOC", "3"))
 seed <- as.integer(Sys.getenv("INDRI_ENGINE_SEED", "1"))
 cores <- as.integer(Sys.getenv("INDRI_ENGINE_CORES", "64"))
@@ -91,7 +93,7 @@ pairs <- upper.tri(data$corr_true)
 
 message("== indri, sommer engine ==")
 started <- Sys.time()
-fit_sommer <- fit_G(data$Y, A = data$A, s = s,
+fit_sommer <- fit_G(data$Y, A = data$A, s = s_sommer,
                     min_cooccurrence = min_cooccurrence, engine = "sommer",
                     seed = 1000L + seed)
 time_sommer <- as.numeric(difftime(Sys.time(), started, units = "mins"))
@@ -136,12 +138,15 @@ times <- c(
 )
 
 summary_rows <- list()
+block_s <- c(indri_sommer = s_sommer, indri_stanimal = s,
+             full_stanimal = NA_integer_)
 for (method in names(estimates)) {
   estimate <- estimates[[method]]
   if (is.null(estimate)) next
   m <- metrics(estimate, data$corr_true)
   summary_rows[[length(summary_rows) + 1L]] <- data.frame(
     method = method,
+    s = block_s[[method]],
     m,
     time_min = times[[method]],
     stringsAsFactors = FALSE

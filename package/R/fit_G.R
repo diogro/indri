@@ -190,14 +190,32 @@ fit_G <- function(Y, X = NULL, A, s = NULL, min_cooccurrence = 3L,
 }
 
 .indri_diagnostics <- function(blocks) {
-  rhat <- vapply(blocks, function(b) {
-    value <- b$converged
-    if (is.null(value) || length(value) != 1L) NA_real_ else as.numeric(value)
+  values <- lapply(blocks, `[[`, "converged")
+
+  # Rhat is only meaningful for engines that report it (stanimal returns the
+  # block's max Rhat as a number); REML engines report a logical convergence
+  # flag instead, which carries no Rhat.
+  rhat <- vapply(values, function(v) {
+    if (is.numeric(v) && length(v) == 1L && is.finite(v)) as.numeric(v)
+    else NA_real_
   }, numeric(1))
+
+  # A block is converged when it says TRUE, or when its Rhat is below the usual
+  # 1.05 threshold. NULL, length != 1 and NA mean "could not tell".
+  block_ok <- vapply(values, function(v) {
+    if (is.null(v) || length(v) != 1L) return(NA)
+    if (is.logical(v)) return(isTRUE(v))
+    if (is.numeric(v)) {
+      if (!is.finite(v)) return(NA)
+      return(v < 1.05)
+    }
+    NA
+  }, logical(1))
+
   list(
     rhat = rhat,
     max_rhat = suppressWarnings(max(rhat, na.rm = TRUE)),
-    converged = all(is.na(rhat)) || max(rhat, na.rm = TRUE) < 1.05
+    converged = if (all(is.na(block_ok))) TRUE else all(block_ok, na.rm = TRUE)
   )
 }
 

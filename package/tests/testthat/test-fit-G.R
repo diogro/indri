@@ -52,6 +52,31 @@ test_that("fit_G refuses what it cannot do", {
                "nothing to reassemble")
 })
 
+test_that("diagnostics reads logical and Rhat convergence", {
+  # REML engines report a logical flag; one FALSE must sink the summary.
+  d <- .indri_diagnostics(list(list(converged = TRUE),
+                               list(converged = TRUE),
+                               list(converged = FALSE)))
+  expect_false(d$converged)
+  expect_true(all(is.na(d$rhat)))
+  expect_false(is.finite(d$max_rhat))
+
+  expect_true(.indri_diagnostics(list(list(converged = TRUE),
+                                       list(converged = TRUE)))$converged)
+
+  # Sampler engines report max Rhat per block; the 1.05 threshold applies.
+  expect_true(.indri_diagnostics(list(list(converged = 1.01),
+                                       list(converged = 1.02)))$converged)
+  expect_false(.indri_diagnostics(list(list(converged = 1.06),
+                                        list(converged = 1.02)))$converged)
+  expect_equal(.indri_diagnostics(list(list(converged = 1.02),
+                                        list(converged = 1.01)))$max_rhat, 1.02)
+
+  # Unknown convergence (e.g. an rstan backend with no Rhat) stays optimistic,
+  # matching the original behaviour.
+  expect_true(.indri_diagnostics(list(list(converged = NA_real_)))$converged)
+})
+
 test_that("print and summary work on a fit", {
   skip_if_no_cmdstan()
   skip_if_no_stanimal()
