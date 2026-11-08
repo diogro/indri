@@ -61,8 +61,16 @@ fit$corrG                                      # genetic correlations
 apply(fit$corrG_draws, 1:2, quantile, 0.975)   # per-entry upper 95% bound
 ```
 
-Fixed effects go in a design matrix, `fit_G(Y, X = X, A = A, ...)`, with one
-row per individual; each block fit handles them.
+Fixed effects go in a design matrix with one row per individual, which must
+include an intercept (or every level of a factor). stanimal's
+`animal_design()` builds all three inputs from a formula, a data frame and a
+pedigree:
+
+```r
+d <- stanimal::animal_design(cbind(t1, t2, t3) ~ sex + age, data = dat,
+                             pedigree = ped)
+fit <- fit_G(d$Y, X = d$X, A = d$A)
+```
 
 ## What you get back
 

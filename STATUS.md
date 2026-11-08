@@ -174,6 +174,15 @@ draws are unchanged.
   failure clearly. A local asreml run locks out a remote one.
 - **Convergence reporting**: `diagnostics$converged` is `NA`, not `TRUE`, when no
   block can tell; unconverged blocks are listed by trait.
+- **asreml with covariates**: asreml's own budget (13 iterations, one update)
+  stopped far from the optimum once `X` held covariates (G off by 0.12 where
+  sommer was right; centring the covariate did not help). The engine now runs
+  `maxit = 50` and up to 5 updates while unconverged, which matched sommer
+  exactly at no cost when a fit converges early. The convergence study above
+  had an intercept only, where non-convergence was benign.
+- **Design checks**: `fit_G()` refuses an `X` that cannot represent a constant,
+  is rank deficient, has no columns or has missing values, as stanimal does;
+  without a constant sommer and asreml fitted different models.
 
 ## Next
 

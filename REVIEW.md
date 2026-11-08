@@ -14,11 +14,12 @@ each. Current results are in STATUS.md, the current design in NOTES.md.
 | 1 | subset sampler misses `min_cooccurrence` | **fixed** (`0837352`): greedy top-up; subsets are now also distinct, with c capped by block width |
 | 2 | averaged `G_draws` overconfident | **fixed**: mixture assembly is the default (`8c71f25`), `corrG_draws` added, REML engines given draws from their sampling covariance (`49f0657`); measured 0.95-0.98 coverage |
 | 3 | LKJ prior confounds the full-model comparison | **addressed**: a REML full model proved impractical, so comparisons are against the true G; the stanimal engine now uses `lkj_prior = 1` and 4-trait blocks, which removed most of the shrinkage |
-| 4 | plan and doc drift | **fixed**: M3 done through stanimal 0.8.0, docs rewritten, all-NA diagnostics now `NA`, asreml takes `init`, `maxit`, `updates`. Still open: the asreml formula when `X` has no columns |
+| 4 | plan and doc drift | **fixed**: M3 done through stanimal 0.8.0, docs rewritten, all-NA diagnostics now `NA`, asreml takes `init`, `maxit`, `updates`; an `X` with no columns (or no constant, or deficient rank) is now refused up front |
 
 Found later, outside this review: sommer returned blocks in alphabetical trait
-order (`4b5748a`), and CmdStan output files collided between fits from the
-same random state (indri per-block directories; stanimal 0.8.1).
+order (`4b5748a`); CmdStan output files collided between fits from the same
+random state (indri per-block directories; stanimal 0.8.1); and asreml's
+iteration budget was too small once `X` held covariates.
 
 ## 1. Bug: `indri_subsets()` does not guarantee `min_cooccurrence`
 

@@ -17,7 +17,12 @@
 #'
 #' @param Y Phenotype matrix, individuals in rows and traits in columns. Gaps are
 #'   allowed when the engine can handle them; see `missing`.
-#' @param X Fixed-effect design. Defaults to an intercept.
+#' @param X Fixed-effect design, one row per individual. Defaults to an
+#'   intercept. It must have full column rank and be able to represent a
+#'   constant (an intercept, or the indicators of every level of a factor).
+#'   `stanimal::animal_design()` builds `Y`, `X` and `A` from a formula, a data
+#'   frame and a pedigree: `d <- animal_design(cbind(t1, t2) ~ sex + age, dat,
+#'   pedigree = ped); fit_G(d$Y, d$X, d$A)`.
 #' @param A Relationship matrix, individuals in the same order as `Y`. When both
 #'   have row names they are matched by name.
 #' @param s Subset size parameter. Controls how many trait pairs each subset
@@ -608,11 +613,38 @@ fit_G <- function(Y, X = NULL, A, s = NULL, min_cooccurrence = NULL,
   if (nrow(X) != n)
     stop("`X` has ", nrow(X), " rows but `Y` has ", n, " individuals.",
          call. = FALSE)
+  if (ncol(X) == 0L) .indri_check_design(X)
   if (is.null(colnames(X)))
     colnames(X) <- paste0("x", seq_len(ncol(X)))
   if (is.null(rownames(X))) rownames(X) <- ids
   storage.mode(X) <- "double"
+  .indri_check_design(X)
   X
+}
+
+# The design every engine can use, as stanimal requires of its own: finite,
+# full column rank, and able to represent a constant (an intercept column, or
+# the 0/1 indicators of every level of a factor). The responses are centred,
+# and without a constant the REML engines would fit different models (sommer
+# has no intercept at all, asreml an implicit one).
+.indri_check_design <- function(X) {
+  hint <- paste0("Build `Y`, `X` and `A` from a formula with ",
+                 "`stanimal::animal_design()`, or add an intercept column.")
+  if (ncol(X) == 0L)
+    stop("`X` has no columns. ", hint, call. = FALSE)
+  if (any(!is.finite(X)))
+    stop("`X` has missing or non-finite values; drop those individuals ",
+         "first (`stanimal::animal_design()` does).", call. = FALSE)
+  if (qr(X)$rank < ncol(X))
+    stop("`X` does not have full column rank: some columns are linear ",
+         "combinations of others (for example an intercept together with the ",
+         "indicators of every level of a factor). ", hint, call. = FALSE)
+  fitted <- stats::lm.fit(X, rep(1, nrow(X)))$fitted.values
+  if (max(abs(fitted - 1)) > 1e-8)
+    stop("`X` cannot represent a constant, so the trait means are not in the ",
+         "model (the responses are centred). Include an intercept, or the ",
+         "indicators of every level of a factor. ", hint, call. = FALSE)
+  invisible(TRUE)
 }
 
 # Split a total process budget between blocks and the chains inside a block.

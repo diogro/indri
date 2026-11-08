@@ -27,7 +27,11 @@ fit_G(
 \item{Y}{Phenotype matrix, individuals in rows and traits in columns. Gaps are
 allowed when the engine can handle them; see \code{missing}.}
 
-\item{X}{Fixed-effect design. Defaults to an intercept.}
+\item{X}{Fixed-effect design, one row per individual. Defaults to an
+intercept. It must have full column rank and be able to represent a
+constant (an intercept, or the indicators of every level of a factor).
+\code{stanimal::animal_design()} builds \code{Y}, \code{X} and \code{A} from a formula, a data
+frame and a pedigree: \verb{d <- animal_design(cbind(t1, t2) ~ sex + age, dat, pedigree = ped); fit_G(d$Y, d$X, d$A)}.}
 
 \item{A}{Relationship matrix, individuals in the same order as \code{Y}. When both
 have row names they are matched by name.}

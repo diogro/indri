@@ -95,19 +95,24 @@
   )
 
   # control carries the core budget fit_G() injects, which asreml() does not
-  # understand. `maxit` (AI iterations per pass, asreml's default 13) and
-  # `updates` (extra passes, default 1) are the convergence controls.
-  maxit <- control$maxit %||% 13L
-  updates <- control$updates %||% 1L
+  # understand. `maxit` (AI iterations per pass) and `updates` (extra passes,
+  # each run only while the fit has not converged) are the convergence
+  # controls. asreml's own budget (13 iterations, and the one update indri used
+  # to run) stopped short with covariates in X, far from the optimum: G was off
+  # by 0.12 where sommer recovered it, and 50 x 5 matched sommer exactly. A fit
+  # that converges early costs nothing extra.
+  maxit <- control$maxit %||% 50L
+  updates <- control$updates %||% 5L
   started <- proc.time()[["elapsed"]]
   fit <- suppressWarnings(
     asreml::asreml(fixed = fixed, random = random, rcov = rcov, data = dat,
-                   maxit = maxit)
+                   maxit = maxit, trace = FALSE)
   )
-  # The first pass can stop early; the updates finish it.
+  # One update always (the first pass can stop early), then more while the
+  # fit has not converged.
   for (u in seq_len(updates)) {
     if (isTRUE(fit$converge) && u > 1L) break
-    fit <- suppressWarnings(stats::update(fit, maxit = maxit))
+    fit <- suppressWarnings(stats::update(fit, maxit = maxit, trace = FALSE))
   }
   elapsed <- proc.time()[["elapsed"]] - started
 

@@ -265,3 +265,21 @@ test_that("a fit with the progress bar matches one without, in order", {
                      lapply(quiet$blocks, `[[`, "G"))
   }
 })
+
+test_that("the design must have full rank and represent a constant", {
+  data <- simulate_block_data(n_fam = 4, size = 5, K = 3L)
+  N <- nrow(data$Y)
+  x <- seq_len(N) / N
+  expect_error(fit_G(data$Y, X = matrix(numeric(0), N, 0), A = data$A),
+               "no columns")
+  expect_error(fit_G(data$Y, X = cbind(x = x), A = data$A),
+               "cannot represent a constant")
+  g <- rep(c(1, 0), length.out = N)
+  expect_error(fit_G(data$Y, X = cbind(intercept = 1, a = g, b = 1 - g),
+                     A = data$A), "full column rank")
+  expect_error(fit_G(data$Y, X = cbind(intercept = 1, x = replace(x, 2, NA)),
+                     A = data$A), "non-finite")
+  # indicators of every level of a factor, without an intercept, are fine
+  expect_true(.indri_check_design(cbind(a = g, b = 1 - g, x = x)))
+  expect_true(.indri_check_design(cbind(intercept = 1, x = x)))
+})

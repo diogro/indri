@@ -171,7 +171,12 @@ Rules:
 2. **Output in the column order of `Y`.** An engine that returns matrices in
    another order (sommer sorts factor levels alphabetically) silently puts
    variances and covariances on the wrong traits.
-3. **Missing data is a capability.** stanimal models gaps; the REML engines
+3. **One design for every engine.** `X` must have full column rank and be
+   able to represent a constant (an intercept, or the indicators of every level
+   of a factor), as stanimal requires: the responses are centred, and without
+   a constant the REML engines would fit different models.
+   `stanimal::animal_design()` builds `Y`, `X` and `A` from a formula.
+4. **Missing data is a capability.** stanimal models gaps; the REML engines
    would drop incomplete rows per block, which breaks "the same data in every
    block", so `missing = "error"` (default) refuses and `"complete_block"`
    drops incomplete individuals once, before subsetting.
@@ -195,7 +200,9 @@ Rules:
   `random = ~ vm(id, Ainv):us(trait, init =)`, `rcov = ~ units:us(trait)`,
   then `update()`; G and E are read from `summary(fit)$varcomp` (`"^vm\\("`,
   `"^units.*trait!trait"`), `vcov` from `fit$ai`. `engine_args` takes `init`,
-  `maxit` (13) and `updates` (1). Every process needs a licence seat.
+  `maxit` (50) and `updates` (up to 5, only while unconverged): asreml's own
+  13 iterations stopped far from the optimum once `X` had covariates. Every
+  process needs a licence seat.
 - **Single-trait blocks** are fitted by both REML engines with formulas that
   drop the `trait` factor; `init = list(G =, E =)` sets starting covariances
   for both.

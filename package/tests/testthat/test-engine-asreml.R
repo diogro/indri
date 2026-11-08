@@ -76,3 +76,27 @@ test_that("asreml blocks carry the inverse AI matrix for their G entries", {
   expect_equal(sqrt(diag(out$vcov)), out$se[.indri_vech_index(2L)],
                tolerance = 1e-6)
 })
+
+test_that("asreml converges with covariates in X and agrees with sommer", {
+  skip_if_no_asreml()
+  skip_if_not_installed("sommer")
+  # Regression: asreml's own budget (13 iterations, one update) stopped far
+  # from the optimum once X had covariates, G off by 0.12 where sommer was
+  # right.
+  set.seed(3)
+  A <- kronecker(diag(120), matrix(0.5, 5, 5)); diag(A) <- 1
+  N <- nrow(A); ids <- paste0("id", seq_len(N))
+  G <- matrix(c(1, 0.5, 0.3, 0.5, 0.8, -0.2, 0.3, -0.2, 0.9), 3)
+  x <- rnorm(N, 50, 10); grp <- sample(1:3, N, TRUE)
+  Y <- outer(x, c(0.3, -0.2, 0.15)) +
+    rbind(c(0, 0, 0), c(3, -2, 1), c(-2, 4, 2))[grp, ] +
+    t(chol(A)) %*% matrix(rnorm(N * 3), N) %*% chol(G) +
+    matrix(rnorm(N * 3), N) %*% diag(sqrt(c(0.6, 0.7, 0.5)))
+  Y <- scale(Y); dimnames(Y) <- list(ids, c("t1", "t2", "t3"))
+  X <- cbind(intercept = 1, x = x, gb = grp == 2, gc = grp == 3)
+  rownames(X) <- ids
+  fa <- .indri_asreml_fit(Y, X, indri_a_forms(A, need = "sparse_inverse"))
+  fs <- .indri_sommer_fit(Y, X, indri_a_forms(A, need = "inverse"))
+  expect_true(fa$converged)
+  expect_equal(unname(fa$G), unname(fs$G), tolerance = 1e-3)
+})

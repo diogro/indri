@@ -78,7 +78,10 @@ Each of these cost real debugging time; several are invisible in the code.
    `cores` out of `mmes_control()`. Single traits use formulas without `trait`.
 6. **asreml**: `vm()` matches `A^-1` through a `rowNames` attribute; G and E come
    from `summary(fit)$varcomp` by name, `vcov` from `fit$ai`; two passes
-   (`asreml()`, then `update()`). Every process needs a licence seat: two on
+   (`asreml()`, then `update()`), with a budget of `maxit = 50` and up to 5
+   updates while unconverged: asreml's own 13 iterations stopped far from the
+   optimum with covariates in `X` (`test-engine-asreml.R` checks it against
+   sommer). Every process needs a licence seat: two on
    one machine at a time, and loading asreml takes one, so never load it in a
    main process that then starts two workers (check installation with
    `system.file(package = "asreml")`).
@@ -93,6 +96,9 @@ Each of these cost real debugging time; several are invisible in the code.
 
 ## `fit_G()` behaviour to preserve
 
+- **`X` is checked like stanimal's**: full column rank, able to represent a
+  constant, finite (`.indri_check_design()`); point users to
+  `stanimal::animal_design()`.
 - **One standardisation, one projection.** Traits are standardised once; fitting,
   weights, assembly, the projection and every draw run on that scale; only the
   assembled covariances (`G`, `G_bar`, `G_draws`, `sigma_G`) are converted to the
