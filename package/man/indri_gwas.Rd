@@ -17,6 +17,7 @@ indri_gwas(
   model = c("lmm", "lm"),
   single_trait_variance = c("reml", "fit"),
   delta = NULL,
+  dominance = FALSE,
   adjust = c("none", "bonferroni", "effective"),
   chunk_size = 1000L
 )
@@ -57,6 +58,9 @@ trait's variance ratio, \code{"fit"} takes it from \code{G} and \code{E}.}
 fitted one: a number for the multi-trait test, one value per trait for
 the single-trait test.}
 
+\item{dominance}{If \code{TRUE}, also fit a dominance (heterozygote) effect for
+each SNP; see the Dominance section. Needs genotypes coded 0, 1 and 2.}
+
 \item{adjust}{Single-trait p-value adjustment for the number of traits:
 \code{"bonferroni"} multiplies by \code{P}, \code{"effective"} by
 \code{\link[=indri_effective_tests]{indri_effective_tests()}} of the residuals after \code{X}; both cap at 1.}
@@ -67,7 +71,9 @@ the single-trait test.}
 An object of class \code{indri_gwas}: \code{pvalues} (a vector over SNPs,
 or SNPs by traits), \code{betas} (SNPs by traits, in the units of \code{Y} per
 unit of genotype), \code{delta}, \code{pvalues_adjust} and \code{n_tests} when
-adjusted, \code{snp_info}, \code{mode}, \code{model} and \code{call}.
+adjusted, \code{snp_info}, \code{mode}, \code{model} and \code{call}. With
+\code{dominance = TRUE} also \code{pvalues_dominance}, \code{betas_dominance} and
+\code{dominance_estimable}; \code{pvalues_adjust} then adjusts the joint test.
 }
 \description{
 Tests each SNP for association with the traits in \code{Y}, either jointly
@@ -96,6 +102,21 @@ freedom, with \code{delta} fitted by REML under the null
 (\code{"fit"}).
 \item single-trait LM: ordinary least squares.
 }
+}
+
+\section{Dominance}{
+
+With \code{dominance = TRUE} each SNP enters as its additive dosage (0/1/2) and a
+heterozygote indicator (1 for genotype 1, 0 for both homozygotes).
+\code{pvalues} is then the joint test of both terms (2 degrees of freedom per
+trait), \code{pvalues_dominance} the test of the dominance term with the
+additive one in the null (1 per trait), and \code{betas} and \code{betas_dominance}
+the two effects of the joint model. A SNP observed in only two genotype
+classes has a dominance term collinear with its dosage: it keeps the
+additive-only test in \code{pvalues}, gets \code{NA} dominance results, and is
+\code{FALSE} in \code{dominance_estimable}. Missing genotypes are imputed by the
+column mean in each coding. The variance ratio is fitted without any SNP,
+as without dominance.
 
 The covariance is diagonalised once (eigenvectors of \code{A}, then of \code{G}
 relative to \code{E}), so the scan costs one \verb{N x N} rotation of the genotypes

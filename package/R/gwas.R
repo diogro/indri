@@ -25,6 +25,19 @@
 #'   (`"fit"`).
 #' * single-trait LM: ordinary least squares.
 #'
+#' @section Dominance:
+#' With `dominance = TRUE` each SNP enters as its additive dosage (0/1/2) and a
+#' heterozygote indicator (1 for genotype 1, 0 for both homozygotes).
+#' `pvalues` is then the joint test of both terms (2 degrees of freedom per
+#' trait), `pvalues_dominance` the test of the dominance term with the
+#' additive one in the null (1 per trait), and `betas` and `betas_dominance`
+#' the two effects of the joint model. A SNP observed in only two genotype
+#' classes has a dominance term collinear with its dosage: it keeps the
+#' additive-only test in `pvalues`, gets `NA` dominance results, and is
+#' `FALSE` in `dominance_estimable`. Missing genotypes are imputed by the
+#' column mean in each coding. The variance ratio is fitted without any SNP,
+#' as without dominance.
+#'
 #' The covariance is diagonalised once (eigenvectors of `A`, then of `G`
 #' relative to `E`), so the scan costs one `N x N` rotation of the genotypes
 #' plus `O(N P)` per SNP.
@@ -53,6 +66,8 @@
 #' @param delta Optional fixed variance ratio for the LMMs, instead of the
 #'   fitted one: a number for the multi-trait test, one value per trait for
 #'   the single-trait test.
+#' @param dominance If `TRUE`, also fit a dominance (heterozygote) effect for
+#'   each SNP; see the Dominance section. Needs genotypes coded 0, 1 and 2.
 #' @param adjust Single-trait p-value adjustment for the number of traits:
 #'   `"bonferroni"` multiplies by `P`, `"effective"` by
 #'   [indri_effective_tests()] of the residuals after `X`; both cap at 1.
@@ -61,7 +76,9 @@
 #' @return An object of class `indri_gwas`: `pvalues` (a vector over SNPs,
 #'   or SNPs by traits), `betas` (SNPs by traits, in the units of `Y` per
 #'   unit of genotype), `delta`, `pvalues_adjust` and `n_tests` when
-#'   adjusted, `snp_info`, `mode`, `model` and `call`.
+#'   adjusted, `snp_info`, `mode`, `model` and `call`. With
+#'   `dominance = TRUE` also `pvalues_dominance`, `betas_dominance` and
+#'   `dominance_estimable`; `pvalues_adjust` then adjusts the joint test.
 #' @seealso [fit_G()], [indri_effective_tests()]
 #' @references
 #' Meyer, H. V., Casale, F. P., Stegle, O., and Birney, E. (2018). LiMMBo:
@@ -74,7 +91,7 @@ indri_gwas <- function(Y, genotypes, fit = NULL, G = NULL, E = NULL, A = NULL,
                        mode = c("multi_trait", "single_trait"),
                        model = c("lmm", "lm"),
                        single_trait_variance = c("reml", "fit"),
-                       delta = NULL,
+                       delta = NULL, dominance = FALSE,
                        adjust = c("none", "bonferroni", "effective"),
                        chunk_size = 1000L) {
   call <- match.call()
@@ -153,6 +170,21 @@ indri_gwas <- function(Y, genotypes, fit = NULL, G = NULL, E = NULL, A = NULL,
     delta <- .indri_gwas_delta(delta, mode, traits)
   }
 
+  if (!is.logical(dominance) || length(dominance) != 1L || is.na(dominance))
+    stop("`dominance` must be TRUE or FALSE.", call. = FALSE)
+  dom <- NULL
+  estimable <- NULL
+  if (dominance) {
+    seen <- genotypes[!is.na(genotypes)]
+    if (any(abs(seen - round(seen)) > 1e-8 | seen < 0 | seen > 2))
+      stop("`dominance = TRUE` needs genotypes coded 0, 1 and 2 (the ",
+           "heterozygote is genotype 1); these are dosages.", call. = FALSE)
+    estimable <- apply(genotypes, 2L,
+                       function(g) length(unique(g[!is.na(g)])) == 3L)
+    names(estimable) <- colnames(genotypes)
+    dom <- .indri_gwas_impute((genotypes == 1) * 1)
+  }
+
   genotypes <- .indri_gwas_impute(genotypes)
   monomorphic <- apply(genotypes, 2L, function(g) max(g) - min(g) < 1e-12)
   if (any(monomorphic))
@@ -163,14 +195,19 @@ indri_gwas <- function(Y, genotypes, fit = NULL, G = NULL, E = NULL, A = NULL,
 
   scan <- if (mode == "multi_trait") {
     .indri_gwas_multi(Y, X, genotypes, G, E, A, model, delta, chunk_size,
-                      monomorphic)
+                      monomorphic, dom, estimable)
   } else {
     .indri_gwas_single(Y, X, genotypes, G, E, A, model, delta,
-                       single_trait_variance, chunk_size, monomorphic)
+                       single_trait_variance, chunk_size, monomorphic, dom,
+                       estimable)
   }
 
   out <- list(pvalues = scan$pvalues, betas = scan$betas, delta = scan$delta,
               pvalues_adjust = NULL, n_tests = NULL, snp_info = snp_info,
+              dominance = dominance,
+              pvalues_dominance = scan$pvalues_dominance,
+              betas_dominance = scan$betas_dominance,
+              dominance_estimable = estimable,
               mode = mode, model = model, n_individuals = N, traits = traits,
               call = call)
   if (adjust != "none") {
@@ -216,7 +253,8 @@ indri_effective_tests <- function(Y, X = NULL) {
 # .indri_gwas_columns()).
 
 .indri_gwas_multi <- function(Y, X, genotypes, G, E, A, model, delta,
-                              chunk_size, monomorphic) {
+                              chunk_size, monomorphic, dom = NULL,
+                              estimable = NULL) {
   N <- nrow(Y); P <- ncol(Y)
   if (model == "lm" && is.null(E)) {
     resid <- stats::lm.fit(X, Y)$residuals
@@ -242,29 +280,58 @@ indri_effective_tests <- function(Y, X = NULL) {
     delta <- .indri_gwas_reml_delta(Ys, Xs, V_of)
   V <- V_of(if (model == "lmm") delta else 1)
 
-  stat <- rep(NA_real_, ncol(genotypes))
-  beta_tilde <- matrix(NA_real_, ncol(genotypes), P)
+  M <- ncol(genotypes)
+  stat <- stat_dom <- rep(NA_real_, M)
+  df <- rep(P, M)
+  beta_tilde <- beta_tilde_dom <- matrix(NA_real_, M, P)
   null <- .indri_gwas_null(Ys, Xs, V)
-  for (idx in .indri_gwas_chunks(ncol(genotypes), chunk_size)) {
+  for (idx in .indri_gwas_chunks(M, chunk_size)) {
     Gs <- .indri_gwas_rotate(rot$Q, genotypes[, idx, drop = FALSE])
-    alt <- .indri_gwas_columns(null, Xs, Gs, V)
-    stat[idx] <- N * P * log(sum(null$q0) / colSums(alt$q1))
-    beta_tilde[idx, ] <- t(alt$beta)
+    Ds <- if (!is.null(dom)) .indri_gwas_rotate(rot$Q, dom[, idx, drop = FALSE])
+    alt <- .indri_gwas_columns(null, Xs, Gs, V, Ds, estimable[idx])
+    q_a <- colSums(alt$q1)
+    if (is.null(dom)) {
+      stat[idx] <- N * P * log(sum(null$q0) / q_a)
+      beta_tilde[idx, ] <- t(alt$beta)
+    } else {
+      # the joint model on every trait, or the additive one where the
+      # dominance term is not estimable in some column
+      ok <- colSums(!alt$ok) == 0L
+      q_ad <- ifelse(ok, colSums(alt$q2), q_a)
+      stat[idx] <- N * P * log(sum(null$q0) / q_ad)
+      stat_dom[idx] <- ifelse(ok, N * P * log(q_a / q_ad), NA_real_)
+      df[idx] <- ifelse(ok, 2L * P, P)
+      b_a <- t(alt$beta_joint)
+      b_a[!ok, ] <- t(alt$beta)[!ok, ]
+      b_d <- t(alt$beta_dom)
+      b_d[!ok, ] <- NA_real_
+      beta_tilde[idx, ] <- b_a
+      beta_tilde_dom[idx, ] <- b_d
+    }
   }
-  stat[monomorphic] <- NA_real_
-  beta_tilde[monomorphic, ] <- NA_real_
+  stat[monomorphic] <- stat_dom[monomorphic] <- NA_real_
+  beta_tilde[monomorphic, ] <- beta_tilde_dom[monomorphic, ] <- NA_real_
   # beta' T = beta_tilde', so beta' = beta_tilde' T^-1
-  betas <- beta_tilde %*% solve(Tm)
-  dimnames(betas) <- list(colnames(genotypes), colnames(Y))
-  pvalues <- stats::pchisq(stat, P, lower.tail = FALSE)
-  names(pvalues) <- colnames(genotypes)
-  list(pvalues = pvalues, betas = betas,
-       delta = if (model == "lmm") unname(delta) else NULL)
+  Ti <- solve(Tm)
+  named <- function(b) {
+    dimnames(b) <- list(colnames(genotypes), colnames(Y))
+    b
+  }
+  pvalues <- stats::setNames(stats::pchisq(stat, df, lower.tail = FALSE),
+                             colnames(genotypes))
+  out <- list(pvalues = pvalues, betas = named(beta_tilde %*% Ti),
+              delta = if (model == "lmm") unname(delta) else NULL)
+  if (!is.null(dom)) {
+    out$pvalues_dominance <- stats::setNames(
+      stats::pchisq(stat_dom, P, lower.tail = FALSE), colnames(genotypes))
+    out$betas_dominance <- named(beta_tilde_dom %*% Ti)
+  }
+  out
 }
 
 .indri_gwas_single <- function(Y, X, genotypes, G, E, A, model, delta,
                                single_trait_variance, chunk_size,
-                               monomorphic) {
+                               monomorphic, dom = NULL, estimable = NULL) {
   N <- nrow(Y); P <- ncol(Y)
   rot <- if (model == "lmm") .indri_gwas_rotation(A)
          else list(Q = NULL, lambda = rep(0, N))
@@ -289,20 +356,41 @@ indri_effective_tests <- function(Y, X = NULL) {
          matrix(delta, N, P, byrow = TRUE)
        else matrix(1, N, P)
 
-  pvalues <- betas <- matrix(NA_real_, ncol(genotypes), P,
-                             dimnames = list(colnames(genotypes), colnames(Y)))
+  M <- ncol(genotypes)
+  empty <- matrix(NA_real_, M, P,
+                  dimnames = list(colnames(genotypes), colnames(Y)))
+  pvalues <- betas <- p_dom <- b_dom <- empty
   null <- .indri_gwas_null(Ys, Xs, V)
-  for (idx in .indri_gwas_chunks(ncol(genotypes), chunk_size)) {
+  for (idx in .indri_gwas_chunks(M, chunk_size)) {
     Gs <- .indri_gwas_rotate(rot$Q, genotypes[, idx, drop = FALSE])
-    alt <- .indri_gwas_columns(null, Xs, Gs, V)
-    stat <- N * log(null$q0 / alt$q1)
-    pvalues[idx, ] <- t(stats::pchisq(stat, 1, lower.tail = FALSE))
-    betas[idx, ] <- t(alt$beta)
+    Ds <- if (!is.null(dom)) .indri_gwas_rotate(rot$Q, dom[, idx, drop = FALSE])
+    alt <- .indri_gwas_columns(null, Xs, Gs, V, Ds, estimable[idx])
+    if (is.null(dom)) {
+      stat <- N * log(null$q0 / alt$q1)
+      pvalues[idx, ] <- t(stats::pchisq(stat, 1, lower.tail = FALSE))
+      betas[idx, ] <- t(alt$beta)
+    } else {
+      # one rule per SNP for every trait: joint where estimable everywhere
+      ok <- matrix(colSums(!alt$ok) == 0L, P, length(idx), byrow = TRUE)
+      q_ad <- ifelse(ok, alt$q2, alt$q1)
+      joint <- N * log(null$q0 / q_ad)
+      pvalues[idx, ] <- t(stats::pchisq(joint, ifelse(ok, 2, 1),
+                                        lower.tail = FALSE))
+      p_dom[idx, ] <- t(ifelse(ok, stats::pchisq(N * log(alt$q1 / q_ad), 1,
+                                                 lower.tail = FALSE), NA_real_))
+      betas[idx, ] <- t(ifelse(ok, alt$beta_joint, alt$beta))
+      b_dom[idx, ] <- t(ifelse(ok, alt$beta_dom, NA_real_))
+    }
   }
-  pvalues[monomorphic, ] <- NA_real_
-  betas[monomorphic, ] <- NA_real_
-  list(pvalues = pvalues, betas = betas,
-       delta = if (model == "lmm") delta else NULL)
+  pvalues[monomorphic, ] <- betas[monomorphic, ] <- NA_real_
+  p_dom[monomorphic, ] <- b_dom[monomorphic, ] <- NA_real_
+  out <- list(pvalues = pvalues, betas = betas,
+              delta = if (model == "lmm") delta else NULL)
+  if (!is.null(dom)) {
+    out$pvalues_dominance <- p_dom
+    out$betas_dominance <- b_dom
+  }
+  out
 }
 
 # Weighted least squares of every column of Ys on Xs under the null, kept for
@@ -324,19 +412,49 @@ indri_effective_tests <- function(Y, X = NULL) {
 
 # Add each SNP to every column's regression (Frisch-Waugh: residualise the
 # rotated SNP on Xs with the column's weights). Returns, per column (rows)
-# and SNP (columns), the SNP effect and the residual sum of squares.
-.indri_gwas_columns <- function(null, Xs, Gs, V) {
+# and SNP (columns), the additive-only effect and residual sum of squares
+# (`beta`, `q1`). With a dominance coding Ds, also the joint additive +
+# dominance fit (`beta_joint`, `beta_dom`, `q2`) and `ok`, FALSE where the
+# dominance term is not estimable (fewer than three genotype classes, or
+# numerically collinear with the dosage).
+.indri_gwas_columns <- function(null, Xs, Gs, V, Ds = NULL, estimable = NULL) {
   C <- ncol(null$r0); m <- ncol(Gs)
   beta <- q1 <- matrix(NA_real_, C, m)
+  if (!is.null(Ds)) {
+    beta_joint <- beta_dom <- q2 <- matrix(NA_real_, C, m)
+    ok <- matrix(TRUE, C, m)
+  }
   for (c in seq_len(C)) {
     w <- null$W[, c]
-    Gt <- Gs - Xs %*% (null$XtWX_inv[[c]] %*% crossprod(Xs, Gs * w))
-    num <- colSums(Gt * (w * null$r0[, c]))
-    den <- colSums(Gt^2 * w)
-    beta[c, ] <- num / den
-    q1[c, ] <- null$q0[c] - num^2 / den
+    wr <- w * null$r0[, c]
+    resid_on_X <- function(M)
+      M - Xs %*% (null$XtWX_inv[[c]] %*% crossprod(Xs, M * w))
+    Ga <- resid_on_X(Gs)
+    ra <- colSums(Ga * wr)
+    Saa <- colSums(Ga^2 * w)
+    beta[c, ] <- ra / Saa
+    q1[c, ] <- null$q0[c] - ra^2 / Saa
+    if (!is.null(Ds)) {
+      Gd <- resid_on_X(Ds)
+      rd <- colSums(Gd * wr)
+      Sdd <- colSums(Gd^2 * w)
+      Sad <- colSums(Ga * Gd * w)
+      det <- Saa * Sdd - Sad^2
+      good <- estimable & Sdd > 0 & det > 1e-10 * Saa * Sdd
+      good[is.na(good)] <- FALSE
+      ba <- (Sdd * ra - Sad * rd) / det
+      bd <- (Saa * rd - Sad * ra) / det
+      ok[c, ] <- good
+      beta_joint[c, ] <- ifelse(good, ba, NA_real_)
+      beta_dom[c, ] <- ifelse(good, bd, NA_real_)
+      q2[c, ] <- ifelse(good, null$q0[c] - (ba * ra + bd * rd), NA_real_)
+    }
   }
-  list(beta = beta, q1 = q1)
+  out <- list(beta = beta, q1 = q1)
+  if (!is.null(Ds))
+    out <- c(out, list(beta_joint = beta_joint, beta_dom = beta_dom, q2 = q2,
+                       ok = ok))
+  out
 }
 
 # REML for the variance ratio, sigma^2 profiled: V_of(delta) gives the
@@ -468,7 +586,8 @@ indri_effective_tests <- function(Y, X = NULL) {
 #' @export
 print.indri_gwas <- function(x, ...) {
   what <- if (x$mode == "multi_trait") "multi-trait" else "single-trait"
-  cat("indri association scan:", what, toupper(x$model), "\n")
+  cat("indri association scan:", what, toupper(x$model),
+      if (isTRUE(x$dominance)) "with additive and dominance effects", "\n")
   M <- NROW(x$pvalues)
   cat(sprintf("  %d SNPs, %d traits, %d individuals\n", M, length(x$traits),
               x$n_individuals))
@@ -498,12 +617,23 @@ as.data.frame.indri_gwas <- function(x, row.names = NULL, optional = FALSE,
     betas <- as.data.frame(x$betas)
     names(betas) <- paste0("beta_", colnames(x$betas))
     out <- cbind(info, pvalue = unname(x$pvalues), betas)
+    if (isTRUE(x$dominance)) {
+      dom <- as.data.frame(x$betas_dominance)
+      names(dom) <- paste0("beta_dominance_", colnames(x$betas_dominance))
+      out <- cbind(out, pvalue_dominance = unname(x$pvalues_dominance), dom,
+                   dominance_estimable = unname(x$dominance_estimable))
+    }
   } else {
     out <- do.call(rbind, lapply(colnames(x$pvalues), function(k) {
       part <- cbind(info, trait = k, pvalue = unname(x$pvalues[, k]),
                     beta = unname(x$betas[, k]), stringsAsFactors = FALSE)
       if (!is.null(x$pvalues_adjust))
         part$pvalue_adjust <- unname(x$pvalues_adjust[, k])
+      if (isTRUE(x$dominance)) {
+        part$pvalue_dominance <- unname(x$pvalues_dominance[, k])
+        part$beta_dominance <- unname(x$betas_dominance[, k])
+        part$dominance_estimable <- unname(x$dominance_estimable)
+      }
       part
     }))
   }

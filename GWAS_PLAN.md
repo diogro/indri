@@ -103,6 +103,7 @@ scan <- indri_gwas(Y, genotypes, fit = NULL, G = NULL, E = NULL, A = NULL,
                    mode = c("multi_trait", "single_trait"),
                    model = c("lmm", "lm"),
                    single_trait_variance = c("reml", "fit"), delta = NULL,
+                   dominance = FALSE,
                    adjust = c("none", "bonferroni", "effective"),
                    chunk_size = 1000L)
 indri_empirical_p(scan, n_permutations = 1000L, seed = NULL, cores = 1L)
@@ -233,5 +234,12 @@ No new hard dependencies. A PLINK reader (`BEDMatrix` or `genio`) can be a
    `X`, not limmbo's `cov(Y)`.
 8. **Effective number of tests:** from the residuals after `X`
    (`indri_effective_tests(Y, X)`), not limmbo's raw phenotypes.
+9. **Dominance (added 2026-11-08):** `dominance = TRUE` adds a heterozygote
+   indicator per SNP next to its 0/1/2 dosage. `pvalues` becomes the joint
+   additive + dominance test (2 df per trait), `pvalues_dominance` tests
+   dominance given additive (1 df per trait), and `betas`/`betas_dominance`
+   are the joint model's effects. SNPs seen in only two genotype classes keep
+   the additive-only test and are `FALSE` in `dominance_estimable`.
+   `test-gwas-dominance.R` checks it against dense nested GLS.
 
 Work happens on the `gwas` branch, tests first.

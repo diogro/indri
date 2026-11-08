@@ -139,3 +139,38 @@ expect_rel_equal <- function(object, expected, tol, ...) {
                pmax(abs(unname(expected)), 1e-300))
   testthat::expect_lt(rel, tol, ...)
 }
+
+# Likelihood ratio between two nested fixed-effect designs, for the
+# dominance tests: X0 (null) inside X1 (alternative), the extra columns of X1
+# being the SNP terms. Multi-trait: every trait gets every column. `delta`
+# must be given (the scans fit it once, without any SNP). Returns the p-value
+# and the effects of the extra columns, one row per column and one column
+# per trait.
+dense_nested_multi <- function(Y, X0, X1, E, G = NULL, A = NULL, delta = 1) {
+  N <- nrow(Y); P <- ncol(Y)
+  y <- c(Y)
+  V <- if (is.null(G)) kronecker(E, diag(N))
+       else kronecker(G, A) + delta * kronecker(E, diag(N))
+  Vi <- solve(V)
+  f0 <- dense_gls(y, kronecker(diag(P), X0), Vi)
+  f1 <- dense_gls(y, kronecker(diag(P), X1), Vi)
+  extra <- ncol(X1) - ncol(X0)
+  stat <- N * P * log(f0$q / f1$q)
+  b <- matrix(f1$beta, ncol(X1), P)
+  list(p = stats::pchisq(stat, P * extra, lower.tail = FALSE),
+       beta = b[ncol(X0) + seq_len(extra), , drop = FALSE])
+}
+
+dense_nested_single <- function(y, X0, X1, A = NULL, delta = 1) {
+  N <- length(y)
+  Vi <- solve(if (is.null(A)) diag(N) else A + delta * diag(N))
+  f0 <- dense_gls(y, X0, Vi)
+  f1 <- dense_gls(y, X1, Vi)
+  extra <- ncol(X1) - ncol(X0)
+  stat <- N * log(f0$q / f1$q)
+  list(p = stats::pchisq(stat, extra, lower.tail = FALSE),
+       beta = unname(utils::tail(f1$beta, extra)))
+}
+
+# Heterozygote indicator: the dominance coding of a 0/1/2 genotype.
+heterozygous <- function(g) as.numeric(g == 1)
