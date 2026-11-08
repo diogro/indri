@@ -199,8 +199,18 @@ draws are unchanged.
    block (the REML engines agree exactly on gapped data); still unmeasured:
    coverage and accuracy of the assembled G when traits have unequal gaps, and
    stanimal's imputation against REML on the same gapped data.
-2. **Real data.** Run the defaults on the ratones mice (`ratones_G.R`, 35
-   traits) and compare engines there.
+2. **Real data: ratones (in progress, 2026-11-07).** 35 skull traits, 329
+   mice, AGE + SEX + LIN (`ratones_G.R`). sommer and stanimal (LKJ 1, 1000
+   iterations) agree on the structure (`corrG` correlation 0.96), with the
+   correlations stronger than P's (mean |r| 0.385 REML, 0.300 stanimal, 0.238
+   P) and G more integrated than P. But the data constrain G poorly: `corrG`
+   has 17 (REML) and 9 (stanimal) zero eigenvalues of 35, 30% of sommer
+   blocks are uncertified and 213 of 599 stanimal blocks had Rhat >= 1.05 at
+   1000 iterations. **This dataset seems to benefit from LKJ 2's
+   regularisation**; revisit the stanimal default (or a data-size rule for
+   it) with this in mind. A 3000-iteration LKJ 1 run was launched on the run
+   machine (`results/ratones_*_stanimal_iter3000.*`); results in
+   `results/ratones_*` there and locally.
 3. **Large-N overhead.** With the decomposition shared, about 12 s per block
    remains at N = 4000, probably CmdStan reading the N x N `Q` as JSON per
    block. Measure before optimising.
