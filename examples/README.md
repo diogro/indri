@@ -16,6 +16,7 @@ variables; the main ones are below. `*_CORES` is a process budget for
 | script | what it does | settings |
 |---|---|---|
 | `six_traits.R` | the whole pipeline on six traits against a known G: coverage, per-pair correlations, variances, a plot. About three minutes | none |
+| `gwas.R` | a genome scan on simulated sibs: `fit_G()` (sommer) for G and E, then `indri_gwas()` multi-trait, single-trait and with dominance, on four planted SNPs; calibration and a Manhattan/QQ figure. Seconds | `INDRI_GWAS_CORES`, `_SEED` |
 | `ratones_G.R` | real data: the ratones mice shipped with stanimal (329 mice, 35 skull traits, pedigree), G against P | `INDRI_RATONES_ENGINE`, `_CORES`, `_ITER`, `_CHAINS`, `_SEED`, `_TAG` |
 | `compare_engines.R` | one simulated dataset on stanimal, sommer and asreml, against the truth and each other | `INDRI_ENGINE_K`, `_CORES`, `_CORES_SOMMER`, `_CORES_ASREML`, `_S*`, `_SOMMER`, `_ASREML` |
 
@@ -36,6 +37,23 @@ and the scripts in git history at `7b67eab`.
   not a covariance matrix, and `indri_project_psd()` makes it one.
 - **The genetic variances**: `fit$G` is in the units of the traits, so its
   diagonal compares directly with the true variances.
+
+## Reading `gwas.R`
+
+- **`delta` near 1** says the `G` and `E` from `fit_G()` describe the data
+  being scanned. The scan re-fits this one ratio under the null, so a `G` and
+  `E` off in scale would still give a calibrated test, but a value far from 1
+  is worth a look.
+- **Genomic inflation near 1** on the null SNPs: the tests are calibrated
+  with relatives in the sample, because `A` is in the model.
+- **Each test has its SNP.** The joint test is strongest for small effects on
+  many traits, especially against their correlation (`rs_pleio`); the
+  single-trait tests for a large effect on one trait (`rs_one`, where the
+  joint test spends 10 degrees of freedom); the dominance test for an effect
+  the additive coding cannot see (`rs_dom`).
+- **Dominance needs all three genotypes in numbers.** At low allele frequency
+  the minor homozygote is rare, the dominance and additive codings are nearly
+  collinear, and both effects become noisy.
 
 ## Making a fit faster or slower
 
