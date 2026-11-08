@@ -101,13 +101,13 @@ test_that("missing genotypes are mean-imputed and monomorphic SNPs give NA", {
   geno[c(1, 5), 2] <- NA
   imputed <- geno
   imputed[c(1, 5), 2] <- mean(geno[, 2], na.rm = TRUE)
-  expect_equal(scan_lmm(within(d, geno <- geno), delta = 1)$pvalues,
-               scan_lmm(within(d, geno <- imputed), delta = 1)$pvalues,
+  expect_equal(scan_lmm(modifyList(d, list(geno = geno)), delta = 1)$pvalues,
+               scan_lmm(modifyList(d, list(geno = imputed)), delta = 1)$pvalues,
                tolerance = 1e-12)
 
   geno <- d$geno
   geno[, 3] <- 1
-  expect_warning(scan <- scan_lmm(within(d, geno <- geno), delta = 1),
+  expect_warning(scan <- scan_lmm(modifyList(d, list(geno = geno)), delta = 1),
                  "monomorphic")
   expect_true(is.na(scan$pvalues[3]))
   expect_true(all(is.na(scan$betas[3, ])))
@@ -158,7 +158,7 @@ test_that("Bonferroni and effective adjustments multiply and cap at 1", {
   expect_equal(bonf$pvalues_adjust, pmin(raw$pvalues * d$P, 1))
   eff <- indri_gwas(d$Y, d$geno, K = d$K, X = d$X, mode = "single_trait",
                     adjust = "effective")
-  expect_equal(eff$n_tests, indri_effective_tests(d$Y))
+  expect_equal(eff$n_tests, indri_effective_tests(d$Y, d$X))
   expect_equal(eff$pvalues_adjust, pmin(raw$pvalues * eff$n_tests, 1))
 })
 
@@ -169,4 +169,14 @@ test_that("the effective number of tests runs from 1 to the number of traits", {
   expect_equal(indri_effective_tests(same), 1, tolerance = 1e-4)
   independent <- matrix(stats::rnorm(5000 * 4), 5000, 4)
   expect_equal(indri_effective_tests(independent), 4, tolerance = 0.05)
+})
+
+test_that("a covariate shared by the traits does not lower the effective count", {
+  set.seed(42)
+  n <- 2000
+  sex <- stats::rbinom(n, 1, 0.5)
+  Y <- matrix(stats::rnorm(n * 3), n, 3) + 3 * sex
+  X <- cbind(intercept = 1, sex = sex)
+  expect_lt(indri_effective_tests(Y), 2.5)  # measured 2.33 (correlations 0.7)
+  expect_equal(indri_effective_tests(Y, X), 3, tolerance = 0.05)
 })

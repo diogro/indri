@@ -61,7 +61,7 @@ dense_single <- function(y, X, g, K = NULL, delta = NULL) {
   f1 <- dense_gls(y, D1, Vi)
   stat <- N * log(f0$q / f1$q)
   list(p = stats::pchisq(stat, 1, lower.tail = FALSE), stat = stat,
-       beta = utils::tail(f1$beta, 1L), delta = delta)
+       beta = unname(utils::tail(f1$beta, 1L)), delta = delta)
 }
 
 # A small association data set: families of full sibs, P correlated traits,

@@ -155,9 +155,9 @@ Each milestone ends with tests passing (`devtools::test("package")`).
 
 | | work | done when |
 |---|---|---|
-| **A0** | `E` and `E_bar` assembled in `fit_G()`, in the units of `Y`, eigenvalues floored; NOTES.md §2 updated | `test-fit-E.R`: `E` is the projected average of the block `E`, positive definite, and recovers the simulated residual covariance |
-| **A1** | rotation core: multi- and single-trait LMM and LM | `test-gwas-dense.R`: matches dense GLS (`helper-gwas.R`) on N = 40, P = 3 to 1e-8, and the REML `delta` to 1e-5 |
-| **A2** | limmbo reference fixtures (§7) | `test-gwas-limmbo.R`: p-values and betas match limmbo given its `delta`, to 1e-8 (1e-6 multi-trait LMM, 1e-5 multi-trait LM) |
+| **A0** | `E` and `E_bar` assembled in `fit_G()`, in the units of `Y`, eigenvalues floored; NOTES.md §2 updated | **done** (NOTES.md pending): `test-fit-E.R`, `E` matches the full-model REML `E` to 1e-3 |
+| **A1** | rotation core: multi- and single-trait LMM and LM | **done**: `test-gwas-dense.R` matches dense GLS (`helper-gwas.R`) to 1e-8, and the REML `delta` to 1e-5 |
+| **A2** | limmbo reference fixtures (§7) | **done**: `test-gwas-limmbo.R` matches limmbo given its `delta` |
 | **A3** | adjustment, empirical p, empirical FDR | adjustments in `test-gwas-limmbo.R` and `test-gwas-interface.R`; permutation tests still to write |
 | **A4** | `indri_gwas()` interface, `fit =` path, sample matching, `as.data.frame()`, `print`/`summary`, Manhattan and QQ plots | `test-gwas-interface.R`; plots and `examples/gwas.R` still to write |
 | **A5** | calibration and power studies (§8), STATUS.md entry | null p-values uniform (λ_GC near 1); power of multi-trait against single-trait with the effective adjustment |
@@ -225,5 +225,12 @@ No new hard dependencies. A PLINK reader (`BEDMatrix` or `genio`) can be a
 3. **Permutations:** port limmbo's genotype permutation as is and document
    that it ignores relatedness; a relatedness-aware null comes later.
 4. **Input:** matrices only in v1; a PLINK reader can be a `Suggests:` later.
+5. **LIMIX stays out of user documentation.** It is a test reference only;
+   the multi-trait LMM re-fits `delta` and `sigma^2` and reports `delta`.
+6. **`delta` is fitted by REML** for both tests (LIMIX used ML).
+7. **Multi-trait LM residual shape:** the covariance of the residuals after
+   `X`, not limmbo's `cov(Y)`.
+8. **Effective number of tests:** from the residuals after `X`
+   (`indri_effective_tests(Y, X)`), not limmbo's raw phenotypes.
 
 Work happens on the `gwas` branch, tests first.

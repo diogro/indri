@@ -119,7 +119,9 @@ each load-balanced round of about four blocks per worker. Engine output
 \value{
 An object of class \code{indri_fit}. The estimate is \code{G}, in the units
 of \code{Y}, with \code{corrG} its correlation matrix; \code{G_bar} (the average before
-projection) and \code{sigma_G} are in the units of \code{Y} too, while \code{blocks}
+projection) and \code{sigma_G} are in the units of \code{Y} too. \code{E} and \code{E_bar}
+are the residual covariance, assembled the same way from the block fits
+and kept positive definite, for \code{\link[=indri_gwas]{indri_gwas()}}; \code{blocks}
 holds the raw standardised-scale block fits. \code{G_draws} and \code{corrG_draws}
 (traits x traits x draws) carry the assembled block uncertainty, from
 the posterior draws of \code{"stanimal"} blocks or from the normal sampling

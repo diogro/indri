@@ -46,6 +46,8 @@ test_that("the single-trait LM reproduces limmbo", {
 
 test_that("the effective number of tests and the adjustments match limmbo", {
   f <- limmbo_fixture()
+  # limmbo counted from the raw phenotypes; indri_gwas() uses the residuals
+  # after X, which indri_effective_tests() gives with X.
   expect_equal(indri_effective_tests(f$Y), f$effective_tests, tolerance = 1e-10)
   bonf <- indri_gwas(f$Y, f$geno, K = f$K, X = f$X, mode = "single_trait",
                      delta = f$delta$single_lmm, adjust = "bonferroni")
@@ -53,9 +55,9 @@ test_that("the effective number of tests and the adjustments match limmbo", {
                tolerance = 1e-8)
   eff <- indri_gwas(f$Y, f$geno, K = f$K, X = f$X, mode = "single_trait",
                     delta = f$delta$single_lmm, adjust = "effective")
-  expect_equal(eff$n_tests, f$effective_tests, tolerance = 1e-10)
-  expect_equal(unname(eff$pvalues_adjust), unname(f$padjust$lmm_effective),
-               tolerance = 1e-8)
+  expect_equal(eff$n_tests, indri_effective_tests(f$Y, f$X), tolerance = 1e-12)
+  expect_equal(unname(eff$pvalues_adjust),
+               unname(pmin(f$p$single_lmm * eff$n_tests, 1)), tolerance = 1e-8)
 })
 
 test_that("limmbo's SNP information comes through", {
