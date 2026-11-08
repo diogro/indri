@@ -185,9 +185,9 @@ the correlation scale and unaffected.
 ## stanimal at 35 traits: s = 3, LKJ 1 (2026-11-07)
 
 `examples/uncertainty_coverage.R`, K = 35, `random_covariance(method =
-"partial")`, N = 300, 6 seeds (3 for the s = 4 LKJ 2 arm so far: its other
-three seeds also run the full model, still going). Eigenvalue variance is
-`evolqg::CalcEigenVar()` of the correlation matrix; the truth averages 0.23.
+"partial")`, N = 300, 6 seeds per arm, every estimate scored against the true
+G. Eigenvalue variance is `evolqg::CalcEigenVar()` of the correlation matrix;
+the truth averages 0.23.
 
 | arm | 95% coverage | width | slope | median abs err | eigenvalue variance, est / true |
 |---|---|---|---|---|---|
@@ -195,7 +195,7 @@ three seeds also run the full model, still going). Eigenvalue variance is
 | **stanimal s = 3, LKJ 1** | **0.959** | 0.574 | 0.848 | **0.0961** | 0.74 |
 | stanimal s = 3, LKJ 2 | 0.937 | 0.554 | 0.808 | 0.1035 | 0.69 |
 | stanimal s = 4, LKJ 1 | 0.935 | 0.549 | 0.809 | 0.1008 | 0.69 |
-| stanimal s = 4, LKJ 2 (old default) | 0.882 | 0.530 | 0.773 | 0.1113 | 0.64 |
+| stanimal s = 4, LKJ 2 (old default) | 0.899 | 0.533 | 0.774 | 0.1086 | 0.64 |
 
 At K = 12 (N = 300): s = 4 LKJ 2 0.894 / slope 0.80; s = 4 LKJ 1 0.919;
 s = 4 LKJ 0.5 0.929; s = 3 LKJ 1 0.952 / 0.88; s = 2 LKJ 1 0.942 / 0.92.
@@ -210,6 +210,10 @@ s = 4 LKJ 0.5 0.929; s = 3 LKJ 1 0.952 / 0.88; s = 2 LKJ 1 0.942 / 0.92.
   `lkj_prior = 1`** (passed by indri's engine; stanimal's own default stays 2).
 - Mixed draws are pointwise and give no interval for a whole-matrix quantity
   such as eigenvalue variance; only a full model's draws do.
+- *The full 35-trait stanimal model was dropped as a reference*: after 71
+  minutes two of its six chains were still in warmup while their siblings had
+  finished or were half-way through sampling. At this size the comparisons
+  are against the true G only.
 
 ## REML at a second size; c = 1 (2026-11-07)
 
