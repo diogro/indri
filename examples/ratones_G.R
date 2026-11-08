@@ -34,7 +34,7 @@ data(ratones_pedigree, package = "stanimal")
 meta <- c(".id", "ID", "SEX", "GER", "LIN", "MADRE", "PADRE", "AGE", "P49",
           "line", "original_line", "selection")
 traits <- setdiff(names(ratones_morpho), meta)
-Y <- as.matrix(ratones_morpho[, traits])
+Y <- as.matrix(log(ratones_morpho[, traits]))
 
 # Fixed effects: age, sex and line.
 X <- stats::model.matrix(~ AGE + SEX + LIN, data = ratones_morpho)
