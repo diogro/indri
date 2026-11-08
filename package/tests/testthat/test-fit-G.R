@@ -220,10 +220,28 @@ test_that("diagnostics list the blocks that did not converge, by trait", {
 test_that("only stanimal blocks that did not mix are worth a warning", {
   reml <- .indri_diagnostics(list(list(converged = FALSE), list(converged = TRUE)),
                              rbind(1:2, 2:3))
-  expect_null(.indri_rhat_warning(reml, 2L))
-  stan <- .indri_diagnostics(list(list(converged = 1.2), list(converged = 1.01)),
+  expect_null(.indri_convergence_warning(reml, 2L))
+  stan <- .indri_diagnostics(list(list(converged = 1.2, divergences = 0L),
+                                  list(converged = 1.01, divergences = 0L)),
                              rbind(1:2, 2:3))
-  expect_match(.indri_rhat_warning(stan, 2L), "1 of 2 blocks have Rhat >= 1.05")
+  msg <- .indri_convergence_warning(stan, 2L, lkj_prior = 1)
+  expect_match(msg, "A block failed to converge", fixed = TRUE)
+  expect_match(msg, "1 of 2 have rank-normalised split-Rhat >= 1.05", fixed = TRUE)
+  expect_match(msg, "lkj_prior = 2)` (this fit used 1)", fixed = TRUE)
+  expect_match(msg, "may not identify the genetic correlations", fixed = TRUE)
+
+  # divergences flag a block on their own, and the suggestion moves up
+  div <- .indri_diagnostics(list(list(converged = 1.01, divergences = 3L),
+                                 list(converged = 1.2, divergences = 0L),
+                                 list(converged = 1.00, divergences = 0L)),
+                            rbind(1:2, 2:3, c(1L, 3L)))
+  expect_equal(div$n_divergent_blocks, 1L)
+  expect_equal(div$n_unconverged, 2L)
+  expect_equal(div$unconverged$divergences, c(3L, 0L))
+  msg <- .indri_convergence_warning(div, 3L, lkj_prior = 2)
+  expect_match(msg, "Several blocks failed to converge", fixed = TRUE)
+  expect_match(msg, "1 had divergent transitions (3 in total)", fixed = TRUE)
+  expect_match(msg, "lkj_prior = 3)", fixed = TRUE)
 })
 
 test_that("the stanimal engine fits blocks with lkj_prior = 1 unless told otherwise", {

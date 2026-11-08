@@ -189,6 +189,11 @@ draws are unchanged.
   keeps partly observed rows) and agree exactly; `missing = "model"` is now
   the default for every engine. Keeping the gaps cost 7% in standard error at
   15% missing, against 29% for dropping incomplete individuals.
+- **Convergence warning** (stanimal): names the diagnostics (rank-normalised
+  split-Rhat >= 1.05 on G, from `posterior::rhat()`, and divergent
+  transitions, now recorded per block), says the likelihood may not identify
+  the genetic correlations strongly enough, and suggests a larger
+  `lkj_prior` instead of longer chains.
 - **Design checks**: `fit_G()` refuses an `X` that cannot represent a constant,
   is rank deficient, has no columns or has missing values, as stanimal does;
   without a constant sommer and asreml fitted different models.

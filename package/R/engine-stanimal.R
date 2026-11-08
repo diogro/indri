@@ -65,6 +65,7 @@
     draws = G_draws,
     se = NULL,
     converged = .indri_stanimal_rhat(fit),
+    divergences = .indri_stanimal_divergences(fit),
     n_draws = dim(G_draws)[3L]
   )
 }
@@ -72,6 +73,15 @@
 # Max Rhat over the covariance entries, when the backend reports it. rstan fits
 # go through stanimal's draw extraction, which drops the chain structure, so the
 # number is only available for cmdstanr.
+# Divergent transitions after warmup, summed over the block's chains (NA when
+# the backend does not report them).
+.indri_stanimal_divergences <- function(fit) {
+  if (!inherits(fit, "CmdStanMCMC")) return(NA_integer_)
+  tryCatch(as.integer(sum(fit$diagnostic_summary("divergences",
+                                                 quiet = TRUE)$num_divergent)),
+           error = function(e) NA_integer_)
+}
+
 .indri_stanimal_rhat <- function(fit) {
   if (!inherits(fit, "CmdStanMCMC")) return(NA_real_)
   tryCatch({

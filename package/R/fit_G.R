@@ -344,7 +344,9 @@ fit_G <- function(Y, X = NULL, A, s = NULL, min_cooccurrence = NULL,
   # A stanimal block with Rhat >= 1.05 did not mix: that is a sampling problem
   # worth a warning. REML blocks that report no convergence are listed in
   # `diagnostics` only (see .indri_diagnostics()).
-  message <- .indri_rhat_warning(diagnostics, nrow(subsets))
+  message <- if (identical(engine$name, "stanimal"))
+    .indri_convergence_warning(diagnostics, nrow(subsets),
+                               engine_args$lkj_prior %||% 1)
   if (!is.null(message) && isTRUE(getOption("indri.warn_rhat", TRUE)))
     warning(message, call. = FALSE)
   # Everything above runs on the standardised scale: block fits, weights,
@@ -423,6 +425,14 @@ fit_G <- function(Y, X = NULL, A, s = NULL, min_cooccurrence = NULL,
   # flagged pairs as accurate as the rest, at the same optimum from every
   # starting point, and no refit (more iterations, other starts, a larger
   # block) improved them. They are reported, not refitted or dropped.
+  # Divergent transitions (stanimal) also mark a block as not converged.
+  divergences <- vapply(blocks, function(b) {
+    v <- b$divergences
+    if (is.numeric(v) && length(v) == 1L && is.finite(v)) as.integer(v)
+    else NA_integer_
+  }, integer(1))
+  block_ok[which(divergences > 0L)] <- FALSE
+
   bad <- which(block_ok %in% FALSE)
   traits <- if (is.null(subsets)) rep(NA_character_, length(bad)) else
     vapply(bad, function(i) {
@@ -438,8 +448,11 @@ fit_G <- function(Y, X = NULL, A, s = NULL, min_cooccurrence = NULL,
     converged = if (all(is.na(block_ok))) NA else all(block_ok, na.rm = TRUE),
     n_unconverged = length(bad),
     n_unknown = sum(is.na(block_ok)),
+    n_divergent_blocks = sum(divergences > 0L, na.rm = TRUE),
+    divergences = divergences,
     unconverged = data.frame(block = bad, traits = traits,
-                             rhat = rhat[bad], stringsAsFactors = FALSE)
+                             rhat = rhat[bad], divergences = divergences[bad],
+                             stringsAsFactors = FALSE)
   )
 }
 
@@ -473,14 +486,35 @@ fit_G <- function(Y, X = NULL, A, s = NULL, min_cooccurrence = NULL,
        min_cooccurrence = caps$default_cooccurrence %||% 3L)
 }
 
-# The warning for stanimal blocks that did not mix, or NULL. Silence it with
-# options(indri.warn_rhat = FALSE) (the test suite does: its fits are short on
-# purpose).
-.indri_rhat_warning <- function(diagnostics, n_blocks) {
+# The warning for stanimal blocks that did not converge, or NULL: which
+# diagnostics flagged them (rank-normalised split-Rhat >= 1.05 on the block's
+# G draws, from posterior::rhat(), and divergent transitions), and a
+# suggestion. On real data whose block posteriors were poorly identified
+# (ratones, 35 traits, 329 mice) three times longer chains changed nothing,
+# while a stronger LKJ prior is what regularises the block correlations.
+# Silence it with options(indri.warn_rhat = FALSE) (the test suite does: its
+# fits are short on purpose).
+.indri_convergence_warning <- function(diagnostics, n_blocks, lkj_prior = 1) {
   slow <- sum(diagnostics$unconverged$rhat >= 1.05, na.rm = TRUE)
-  if (slow == 0L) return(NULL)
-  paste0(slow, " of ", n_blocks, " blocks have Rhat >= 1.05 (max ",
-         signif(diagnostics$max_rhat, 3), "); run longer chains. See ",
+  divergent <- diagnostics$n_divergent_blocks %||% 0L
+  if (slow == 0L && divergent == 0L) return(NULL)
+  found <- c(
+    if (slow > 0L)
+      sprintf("%d of %d have rank-normalised split-Rhat >= 1.05 on G (max %s)",
+              slow, n_blocks, signif(diagnostics$max_rhat, 3)),
+    if (divergent > 0L)
+      sprintf("%d had divergent transitions (%d in total)", divergent,
+              sum(diagnostics$divergences, na.rm = TRUE)))
+  n_bad <- length(unique(diagnostics$unconverged$block))
+  suggest <- if (lkj_prior < 2) 2 else lkj_prior + 1
+  paste0(if (n_bad == 1L) "A block" else "Several blocks",
+         " failed to converge: ", paste(found, collapse = "; "), ". ",
+         "The likelihood may not identify the genetic correlations strongly ",
+         "enough with these data. Consider increasing the LKJ prior ",
+         "parameter, e.g. ",
+         "`engine_args = list(lkj_prior = ", suggest, ")` (this fit used ",
+         lkj_prior, "), which regularises the block correlations; longer ",
+         "chains do not help when block posteriors are poorly identified. See ",
          "`fit$diagnostics$unconverged`.")
 }
 

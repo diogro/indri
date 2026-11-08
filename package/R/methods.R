@@ -14,6 +14,9 @@ print.indri_fit <- function(x, ...) {
   cat("  min eigenvalue:    ", signif(.indri_min_eigen(x$G), 4), "\n", sep = "")
   if (!is.null(x$diagnostics$max_rhat) && is.finite(x$diagnostics$max_rhat))
     cat("  max Rhat (G):      ", signif(x$diagnostics$max_rhat, 4), "\n", sep = "")
+  n_div <- x$diagnostics$n_divergent_blocks
+  if (!is.null(n_div) && n_div > 0L)
+    cat("  divergent blocks:  ", n_div, " of ", nrow(x$subsets), "\n", sep = "")
   n_bad <- x$diagnostics$n_unconverged
   if (!is.null(n_bad) && n_bad > 0L) {
     reml <- x$engine %in% c("sommer", "asreml")

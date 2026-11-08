@@ -118,8 +118,11 @@ Each of these cost real debugging time; several are invisible in the code.
   test that sweeps seeds: a single seed once passed while the guarantee was
   broken.
 - **Non-converged REML blocks are reported, not refitted** (measured to be
-  uncertified optima). stanimal blocks with Rhat >= 1.05 warn
-  (`options(indri.warn_rhat = FALSE)`; the test helper sets it).
+  uncertified optima). stanimal blocks with rank-normalised split-Rhat >= 1.05
+  on G or with divergent transitions warn, naming the diagnostic and
+  suggesting a larger `lkj_prior` (longer chains did not help on ratones);
+  `options(indri.warn_rhat = FALSE)` silences it, and the test helper sets
+  it.
 - **Equal weights and the least-squares projection** stay the defaults; their
   alternatives were measured and lost or tied.
 - **Progress bar**: `progress = getOption("indri.progress", interactive())`; with
