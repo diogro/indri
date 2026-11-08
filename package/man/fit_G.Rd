@@ -19,7 +19,8 @@ fit_G(
   spread = c("mixture", "average"),
   cores = NULL,
   n_draws = 1000L,
-  seed = NULL
+  seed = NULL,
+  progress = getOption("indri.progress", interactive())
 )
 }
 \arguments{
@@ -98,6 +99,14 @@ Ignored for \code{"stanimal"}.}
 
 \item{seed}{Optional seed for the subset construction. The engine's sampler
 seed is passed through \code{engine_args}.}
+
+\item{progress}{Show a progress bar of the block fits (blocks done, elapsed
+time, an estimate of the time left) on the console. Defaults to
+\code{getOption("indri.progress", interactive())}: on in an interactive
+session, off under \code{Rscript}. With parallel blocks the bar updates after
+each load-balanced round of about four blocks per worker. Engine output
+(for example CmdStan's own progress) is printed as before; silence it with
+\code{engine_args = list(refresh = 0, show_messages = FALSE)} for stanimal.}
 }
 \value{
 An object of class \code{indri_fit}. The estimate is \code{G}, in the units

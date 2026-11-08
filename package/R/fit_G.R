@@ -74,6 +74,13 @@
 #'   average-information matrix) instead of posterior draws: indri draws from
 #'   that normal approximation and assembles the draws like stanimal's.
 #'   Ignored for `"stanimal"`.
+#' @param progress Show a progress bar of the block fits (blocks done, elapsed
+#'   time, an estimate of the time left) on the console. Defaults to
+#'   `getOption("indri.progress", interactive())`: on in an interactive
+#'   session, off under `Rscript`. With parallel blocks the bar updates after
+#'   each load-balanced round of about four blocks per worker. Engine output
+#'   (for example CmdStan's own progress) is printed as before; silence it with
+#'   `engine_args = list(refresh = 0, show_messages = FALSE)` for stanimal.
 #' @param seed Optional seed for the subset construction. The engine's sampler
 #'   seed is passed through `engine_args`.
 #'
@@ -143,7 +150,8 @@ fit_G <- function(Y, X = NULL, A, s = NULL, min_cooccurrence = NULL,
                   weights = c("none", "inverse_variance"),
                   missing = c("error", "complete_block"),
                   spread = c("mixture", "average"),
-                  cores = NULL, n_draws = 1000L, seed = NULL) {
+                  cores = NULL, n_draws = 1000L, seed = NULL,
+                  progress = getOption("indri.progress", interactive())) {
   call <- match.call()
   assembly <- match.arg(assembly)
   weights <- match.arg(weights)
@@ -218,14 +226,34 @@ fit_G <- function(Y, X = NULL, A, s = NULL, min_cooccurrence = NULL,
   indices <- seq_len(nrow(subsets))
   plan <- .indri_core_plan(cores, engine_args, engine, length(indices))
   engine_args <- plan$engine_args
+  bar <- .indri_progress(length(indices), isTRUE(progress))
   blocks <- if (plan$blocks_in_parallel > 1L) {
     cluster <- parallel::makeCluster(plan$blocks_in_parallel)
     on.exit(parallel::stopCluster(cluster), add = TRUE)
-    tryCatch(
-      parallel::parLapply(cluster, indices, .indri_fit_block, Y = Y_std,
-                          design = X, a_forms = a_forms, engine = engine,
-                          engine_args = engine_args, subsets = subsets),
+    tryCatch({
+      if (bar$enabled) {
+        # Progress needs results back as blocks finish, so send them in
+        # load-balanced rounds of a few blocks per worker (a round waits for
+        # its slowest block). Without a bar, one parLapply() call.
+        size <- 4L * plan$blocks_in_parallel
+        rounds <- split(indices, ceiling(seq_along(indices) / size))
+        out <- vector("list", length(indices))
+        for (r in rounds) {
+          out[r] <- parallel::clusterApplyLB(
+            cluster, r, .indri_fit_block, Y = Y_std, design = X,
+            a_forms = a_forms, engine = engine, engine_args = engine_args,
+            subsets = subsets)
+          bar$tick(length(r))
+        }
+        out
+      } else {
+        parallel::parLapply(cluster, indices, .indri_fit_block, Y = Y_std,
+                            design = X, a_forms = a_forms, engine = engine,
+                            engine_args = engine_args, subsets = subsets)
+      }
+    },
       error = function(e) {
+        bar$close()
         if (grepl("licen", conditionMessage(e), ignore.case = TRUE))
           stop("a block worker could not check out an ", engine$name,
                " licence (", conditionMessage(e), "). Each worker needs ",
@@ -235,10 +263,15 @@ fit_G <- function(Y, X = NULL, A, s = NULL, min_cooccurrence = NULL,
         stop(e)
       })
   } else {
-    lapply(indices, .indri_fit_block, Y = Y_std, design = X,
-           a_forms = a_forms, engine = engine, engine_args = engine_args,
-           subsets = subsets)
+    lapply(indices, function(i) {
+      out <- .indri_fit_block(i, Y = Y_std, design = X, a_forms = a_forms,
+                              engine = engine, engine_args = engine_args,
+                              subsets = subsets)
+      bar$tick(1L)
+      out
+    })
   }
+  bar$close()
   failed <- vapply(blocks, function(b) inherits(b, "try-error") || !is.list(b),
                    logical(1))
   if (any(failed))
@@ -440,6 +473,47 @@ fit_G <- function(Y, X = NULL, A, s = NULL, min_cooccurrence = NULL,
   paste0(slow, " of ", n_blocks, " blocks have Rhat >= 1.05 (max ",
          signif(diagnostics$max_rhat, 3), "); run longer chains. See ",
          "`fit$diagnostics$unconverged`.")
+}
+
+# A console progress bar for the block fits, on stderr: blocks done, elapsed
+# time and a linear estimate of the time left. Disabled, it does nothing.
+.indri_progress <- function(total, enabled) {
+  noop <- function(...) invisible(NULL)
+  if (!enabled || total < 1L)
+    return(list(enabled = FALSE, tick = noop, close = noop))
+  started <- proc.time()[["elapsed"]]
+  done <- 0L
+  open <- TRUE
+  clock <- function(sec) {
+    sec <- round(sec)
+    if (sec < 60) sprintf("%ds", sec)
+    else if (sec < 3600) sprintf("%dm %02ds", sec %/% 60, sec %% 60)
+    else sprintf("%dh %02dm", sec %/% 3600, (sec %% 3600) %/% 60)
+  }
+  draw <- function() {
+    elapsed <- proc.time()[["elapsed"]] - started
+    width <- 30L
+    filled <- round(width * done / total)
+    left <- if (done > 0L && done < total)
+      paste0(", ~", clock(elapsed / done * (total - done)), " left") else ""
+    cat(sprintf("\r  fitting blocks [%s%s] %d/%d, %s%s   ",
+                strrep("=", filled), strrep(" ", width - filled), done, total,
+                clock(elapsed), left), file = stderr())
+    utils::flush.console()
+  }
+  draw()
+  list(
+    enabled = TRUE,
+    tick = function(n = 1L) {
+      done <<- min(total, done + as.integer(n))
+      draw()
+    },
+    close = function() {
+      if (open) cat("\n", file = stderr())
+      open <<- FALSE
+      invisible(NULL)
+    }
+  )
 }
 
 # Standardised-scale covariance (a K x K matrix, or K x K x D draws) to the

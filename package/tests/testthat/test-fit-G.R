@@ -230,3 +230,38 @@ test_that("the stanimal engine fits blocks with lkj_prior = 1 unless told otherw
   body <- paste(deparse(.indri_stanimal_fit), collapse = " ")
   expect_match(body, "lkj_prior = 1", fixed = TRUE)
 })
+
+test_that("the progress bar counts blocks on stderr, and is silent when off", {
+  out <- capture.output(type = "message", {
+    bar <- .indri_progress(5L, TRUE)
+    for (i in 1:5) bar$tick(1L)
+    bar$close()
+  })
+  text <- paste(out, collapse = "")
+  expect_match(text, "fitting blocks", fixed = TRUE)
+  expect_match(text, "5/5", fixed = TRUE)
+  silent <- capture.output(type = "message", {
+    bar <- .indri_progress(5L, FALSE)
+    bar$tick(5L)
+    bar$close()
+  })
+  expect_length(silent, 0L)
+  expect_false(.indri_progress(5L, FALSE)$enabled)
+})
+
+test_that("a fit with the progress bar matches one without, in order", {
+  skip_if_not_installed("sommer")
+  data <- simulate_block_data(n_fam = 20, size = 5, K = 5L)
+  for (cores in c(1L, 2L)) {
+    quiet <- fit_G(data$Y, A = data$A, engine = "sommer", cores = cores,
+                   n_draws = 20L, seed = 4L, progress = FALSE)
+    shown <- capture.output(type = "message",
+      loud <- fit_G(data$Y, A = data$A, engine = "sommer", cores = cores,
+                    n_draws = 20L, seed = 4L, progress = TRUE))
+    expect_match(paste(shown, collapse = ""), "fitting blocks", fixed = TRUE)
+    expect_identical(loud$G, quiet$G, label = paste("cores", cores))
+    expect_identical(loud$corrG_draws, quiet$corrG_draws)
+    expect_identical(lapply(loud$blocks, `[[`, "G"),
+                     lapply(quiet$blocks, `[[`, "G"))
+  }
+})
