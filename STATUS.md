@@ -208,9 +208,11 @@ draws are unchanged.
    blocks are uncertified and 213 of 599 stanimal blocks had Rhat >= 1.05 at
    1000 iterations. **This dataset seems to benefit from LKJ 2's
    regularisation**; revisit the stanimal default (or a data-size rule for
-   it) with this in mind. A 3000-iteration LKJ 1 run was launched on the run
-   machine (`results/ratones_*_stanimal_iter3000.*`); results in
-   `results/ratones_*` there and locally.
+   it) with this in mind. **Longer chains do not fix it**: at 3000 iterations
+   215 of 599 blocks still have Rhat >= 1.05 (max 1.28), with the same 9 zero
+   eigenvalues, so those block posteriors are poorly identified under LKJ 1,
+   not under-sampled. Results in `results/ratones_*` (tags `_sommer`,
+   `_stanimal_iter3000`; untagged is LKJ 1 at 1000 iterations).
 3. **Large-N overhead.** With the decomposition shared, about 12 s per block
    remains at N = 4000, probably CmdStan reading the N x N `Q` as JSON per
    block. Measure before optimising.
