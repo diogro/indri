@@ -3,209 +3,160 @@
 `indri` is an R package that estimates the additive genetic covariance matrix
 **G** (traits × traits) from a phenotype matrix `Y`, a design `X` and a
 relationship matrix `A`. It fits a multivariate animal model on many small
-trait subsets and reassembles the subset estimates into one positive
-semi-definite matrix (LiMMBo's idea). The per-subset fit is a **pluggable
-engine**: `stanimal` (Bayesian, posterior draws), `sommer` (REML) or `asreml`
-(REML, sparse `A`).
+trait subsets and reassembles the estimates into one positive semi-definite
+matrix (LiMMBo's idea). The per-subset fit is a **pluggable engine**:
+`stanimal` (Bayesian), `sommer` (REML) or `asreml` (REML, licensed).
 
 ## Read first
 
-- [`STATUS.md`](STATUS.md) — where the work stands, what has been measured, and
-  the next steps. This is the source of truth for priorities.
-- [`NOTES.md`](NOTES.md) — the design, the engine contract, and the verified
-  call forms for each engine. The engine sections record behaviour discovered
-  by experiment; do not "simplify" it away.
+- [`STATUS.md`](STATUS.md): where the work stands, what has been measured, and
+  the next steps. The source of truth for priorities and numbers.
+- [`NOTES.md`](NOTES.md): the design, the engine contract and the reasons
+  behind the defaults.
 
 ## Commands
 
 ```sh
-R CMD INSTALL package                     # install the package
-Rscript -e 'devtools::document("package")'  # regenerate man/ after editing roxygen
-Rscript -e 'devtools::test("package")'      # run the suite (asreml tests skip w/o licence)
+R CMD INSTALL package                        # install
+Rscript -e 'devtools::document("package")'   # regenerate man/ after roxygen edits
+Rscript -e 'devtools::test("package")'       # the suite (asreml tests skip w/o licence)
 ```
 
-Run the tests from the repository root. The suite is the spec: ~1,760
-assertions cover the subset sampler, the assembly, the PSD projection, the three engines,
-parallelism, scale consistency and diagnostics.
+Run from the repository root. The suite is the spec (~2,850 assertions):
+subsets, assembly, projection, the three engines, parallelism, scale and units,
+uncertainty, diagnostics, progress. **Reinstall before running tests that use
+parallel blocks**: PSOCK workers load the installed package.
 
 ## Layout
 
 | path | role |
 |---|---|
-| `package/R/fit_G.R` | public entry point `fit_G()`; global standardisation, core budget, diagnostics |
-| `package/R/subsets.R` | `indri_subsets()` — deterministic trait-pair coverage sampler, with a greedy top-up that guarantees `min_cooccurrence` |
-| `package/R/assemble.R` | `indri_assemble()`, `indri_assemble_draws()` (`"average"` / `"mixture"`), `.indri_weights()` |
-| `package/R/project_psd.R` | `indri_project_psd()` — closest PSD matrix by least squares, analytic gradient |
-| `package/R/a_forms.R` | relationship-matrix forms: dense, inverse, sparse inverse |
-| `package/R/engines.R` | engine registry (`indri_engine()`, `indri_engines()`) |
-| `package/R/engine-stanimal.R` / `engine-sommer.R` / `engine-asreml.R` | the three engines |
-| `package/R/methods.R` | `print` / `summary` / `plot` methods for `indri_fit` |
-| `package/tests/testthat/` | the spec |
-| `examples/` | runnable studies; see `examples/README.md` |
+| `package/R/fit_G.R` | `fit_G()`: standardisation, defaults, parallel blocks, REML draws, assembly, units, diagnostics, progress bar |
+| `package/R/subsets.R` | `indri_subsets()`: set cover, greedy top-up, distinct subsets |
+| `package/R/assemble.R` | `indri_assemble()`, `indri_assemble_draws()` (`"mixture"` / `"average"`), weights |
+| `package/R/project_psd.R` | `indri_project_psd()`: least-squares PSD fit, analytic gradient |
+| `package/R/a_forms.R` | forms of `A`: dense, inverse, sparse inverse, eigen |
+| `package/R/engines.R` | registry, `init` checks, normal draws from `vcov` |
+| `package/R/engine-stanimal.R`, `engine-sommer.R`, `engine-asreml.R` | the engines |
+| `package/R/methods.R` | `print`, `summary`, `plot` |
+| `examples/` | studies and worked examples; see `examples/README.md` |
 
 ## The engine contract
 
-An engine is a list returned by `indri_engines()`-registry constructors with:
+An engine is a list with a `name`, `capabilities` and `fit(Y, X, a_forms,
+control)`:
 
-- `capabilities`: `draws` (bool), `se` (bool), `a_form` (`"dense"`, `"inverse"`
-  or `"sparse_inverse"`), `missing` (bool), optionally `default_chains`.
-- `fit(Y, X, a_forms, control)`: fits one subset and returns a list with `G`,
-  `E`, and one of `draws` (an `s × s × D` array) or `se` (an `s × s` matrix),
-  plus `converged` and any engine extras (`loglik`, `time`, `n_draws`).
+- `capabilities`: `draws`, `se`, `vcov` (logical), `a_form` (`"dense"`,
+  `"inverse"`, `"sparse_inverse"`, `"eigen"`), `missing`, and optionally
+  `default_s`, `default_cooccurrence`, `default_cores`, `default_chains`.
+- `fit()` returns `G` and `E` (s × s, standardised scale, **in the column order
+  of `Y`**), then `draws` (s × s × D) or `se` plus `vcov` (joint covariance of
+  the lower-triangle G entries, row by row), and `converged`.
 
-Adding an engine = one `engine-*.R` file + a registry entry in `engines.R` + a
-test file + a `Suggests:` line in `DESCRIPTION` if the dependency is optional.
-Keep engines **not imported at package load**; check with `requireNamespace()`
-at call time.
+Adding an engine: one `engine-*.R`, a registry entry in `engines.R`, a test file
+(with trait names that do not sort in column order), and a `Suggests:` line.
+Never load an engine at package load; check with `requireNamespace()` in `fit()`.
 
-## Hard-won rules (read before touching the engines)
+## Hard-won rules
 
-These cost real debugging time. The tests encode several of them; the rest are
-documented because they are invisible from reading the code.
+Each of these cost real debugging time; several are invisible in the code.
 
-1. **Never `mclapply()` around cmdstanr.** Forked children conflict with the
-   `processx` supervisor and kill the run silently. Block parallelism is PSOCK
-   (`parallel::makeCluster` + `parLapply`).
-2. **`X` is a trap as a variable name.** It is the first formal of
-   `lapply`/`mclapply`/`parLapply`, so a worker parameter called `X` silently
-   shifts the arguments. The block worker uses `design` for this reason.
-3. **The PSD projection must keep its analytic gradient.** The objective
-   optimises `K (K + 1) / 2` free entries of `L` with `C = L L'`; a numerical
-   gradient evaluates the objective ~K²/2 times per iteration over every block
-   and made K = 30 look like an engine "hang". See `project_psd.R`.
-4. **sommer specifics.** `OMP_NUM_THREADS` must be set in the *shell before R
-   starts* (`Sys.setenv` is too late); the formula must use **bare**
-   `vsm`/`usm`/`ism` bound in a formula environment, never namespace-qualified;
-   `Gu` (the inverse of `A`) needs dimnames matching the `id` levels; the
-   injected `cores` budget must be filtered out of `mmes_control()`.
-5. **asreml specifics.** `vm()` matches the inverse of `A` through a `rowNames`
-   attribute; G/R components are extracted from `summary(fit)$varcomp` by name
-   (`"^vm\("` and `"^units.*trait!trait"`), with `se` from the `std.error`
-   column; the fit is two-pass (`asreml()` then `stats::update()`); tests skip
-   when unlicensed.
-6. **stanimal specifics.** It returns `draws`, not `se`; `fit_G()` derives
-   inverse-variance weights from the per-entry posterior variance when `se` is
-   absent. Block Rhat comes from `posterior::rhat`, and only for `CmdStanMCMC`.
-   The engine passes one shared eigendecomposition of `A`
-   (`indri_a_forms(need = "eigen")`, ascending order) as `eigen_A` when the
-   installed stanimal accepts it; keep the ascending order, or blocks stop
-   being bit-identical to a direct `lmm_animal()` fit.
-7. **Decide capabilities in the main process, not in `engine$fit`.** PSOCK
-   workers load the *installed* indri, not a `devtools::load_all()` copy, so a
-   helper added in the working tree is missing on the workers and the parallel
-   tests fail with "could not find function". The engine's capability check
-   runs at construction; `fit` only looks at what `a_forms` carries. Reinstall
-   (`R CMD INSTALL package`) before running the parallel tests after changing
-   engine code.
+1. **Never `mclapply()` around cmdstanr.** Forked children conflict with its
+   `processx` supervisor and the run dies silently. Blocks use PSOCK workers.
+   (Forking is fine for pure-R post-processing.)
+2. **`X` is a trap as an argument name** in `lapply`/`parLapply` workers (their
+   first formal); the block worker uses `design`.
+3. **Keep the projection's analytic gradient.** A numerical gradient costs
+   `K (K + 1) / 2` evaluations per step and looked like an engine hang at K = 30.
+4. **Engine output follows the column order of `Y`.** sommer returned blocks in
+   alphabetical order (`factor()` sorts levels), which put variances and
+   covariances on the wrong traits; trait levels follow the columns and the
+   output is reordered by name.
+5. **sommer**: `OMP_NUM_THREADS = 1` (set before R starts, or in the script
+   before sommer loads); bare `vsm`/`usm`/`ism` bound in the formula
+   environment; `Gu` dimnames matching the `id` levels; filter the injected
+   `cores` out of `mmes_control()`. Single traits use formulas without `trait`.
+6. **asreml**: `vm()` matches `A^-1` through a `rowNames` attribute; G and E come
+   from `summary(fit)$varcomp` by name, `vcov` from `fit$ai`; two passes
+   (`asreml()`, then `update()`). Every process needs a licence seat: two on
+   one machine at a time, and loading asreml takes one, so never load it in a
+   main process that then starts two workers (check installation with
+   `system.file(package = "asreml")`).
+7. **stanimal**: the engine passes `lkj_prior = 1` unless `engine_args` sets it,
+   and one shared eigendecomposition of `A` as `eigen_A`, in ascending order
+   (blocks stay bit-identical to a direct `lmm_animal()` fit). Each block writes
+   CmdStan output to its own directory, deleted after reading: cmdstanr names
+   files from the minute, the PID and one `runif()`, so fits from the same
+   random state collide.
+8. **Decide capabilities in the main process**, not in `fit()`: workers load the
+   installed package and may not have new helpers.
 
 ## `fit_G()` behaviour to preserve
 
-- Traits are **globally standardised once** before subsetting, so every engine
-  sees identical numbers. Fitting, weights, assembly, the PSD projection and
-  all draws run on that scale; `fit_G()` converts only the assembled
-  covariances (`G`, `G_bar`, `G_draws`, `sigma_G`) to the units of `Y` at the
-  end, and never re-projects on the original scale (the projection objective
-  depends on units). `blocks` stay standardised.
-- **Defaults for `s`, `min_cooccurrence` and `cores` come from the engine**
-  (`.indri_engine_defaults()`, `.indri_default_cores()`): every engine uses
-  `.indri_default_s(K) = max(2, min(K - 1, floor(sqrt(K)), 3))` (REML engines
-  s = 3 explicitly); stanimal asks for c = 3 distinct contexts per pair, the
-  REML engines for c = 1. The stanimal engine passes `lkj_prior = 1` unless
-  `engine_args` overrides it (stanimal's own default is 2).
-  Default s is clamped so blocks stay narrower than K. Do not change them
-  without a new sweep (`examples/block_size_sweep.R`).
-- **Engine output must follow the column order of `Y`.** sommer once returned
-  blocks in alphabetical trait order (`factor()` sorts its levels), which
-  silently put variances and covariances on the wrong traits. Name-based
-  reordering and `test-engine-sommer.R` guard it; test any new engine with
-  trait names that do not sort in column order.
-- **REML uncertainty is a normal approximation from each block's `vcov`**
-  (joint sampling covariance of its lower-triangle G entries), drawn in
-  `fit_G()` with `n_draws`. Measured coverage 0.96-0.98 at nominal 0.95.
-- **`min_cooccurrence` counts distinct subsets.** `indri_subsets()` never
-  repeats one and caps c at the block width's limit (1 for pairs).
-- **Non-converged REML blocks are reported, not refitted.** They were measured
-  to sit at the REML optimum without certifying it (same estimate from every
-  start, as accurate as converged pairs; STATUS.md). Do not add automatic
-  refits or block dropping without a new measurement. stanimal blocks with
-  Rhat >= 1.05 warn (`options(indri.warn_rhat = FALSE)`, which the test
-  helper sets because the suite's fits are short on purpose).
-- **asreml: one licence seat per process.** The default is two workers; the
-  licence allows two processes on one machine at a time. Already loading
-  asreml in the session takes a seat, so the default drops to one there. Tests
-  that run asreml in parallel must not assume more than two seats.
-- **Each stanimal block gets its own CmdStan `output_dir`**, deleted after the
-  draws are read. cmdstanr names files from the minute, the PID and one
-  `runif()`, so two fits from the same random state collide, and one fit's
-  cleanup deletes the other's CSV (seen as intermittent "file does not
-  exist" test failures). Keep the per-block directory.
-- `weights = "inverse_variance"` now feeds **both** the average and the
-  projection (`indri_project_psd(..., weights = ...)`). It was measured to be a
-  wash at N = 300, so equal weights stay the default — do not make weighting the
-  default without a new measurement.
-- **Never average block draws to get a spread.** Blocks are fitted to the same
-  individuals, so their errors are nearly perfectly correlated while their
-  chains are independent; averaging draw `d` over `c` blocks divides the spread
-  by ~`sqrt(c)`. Measured: averaged draws cover 0.40 at nominal 0.95, the
-  mixture assembly (`spread = "mixture"`: each entry from one random covering
-  block) 0.89, the full model 0.80. Mixed draws are pointwise (a mixed matrix
-  need not be PSD), and none of these is a joint posterior. The default is
-  still `"average"` pending a `corrG_draws` output — see STATUS.md.
-- `indri_subsets()` guarantees every pair is covered `min_cooccurrence` times;
-  LiMMBo's construction alone does not (it only guarantees `ceiling(c / 2)`).
-  Keep the top-up, and keep the test that sweeps seeds — a single seed passed
-  while the guarantee was broken.
+- **One standardisation, one projection.** Traits are standardised once; fitting,
+  weights, assembly, the projection and every draw run on that scale; only the
+  assembled covariances (`G`, `G_bar`, `G_draws`, `sigma_G`) are converted to the
+  units of `Y` at the end, never re-projected. `corrG` comes from the
+  standardised `G`; `blocks` stay standardised.
+- **Never average block draws to get a spread** (overconfident by ~`sqrt(c)`);
+  `spread = "mixture"` is the default, and `corrG_draws` mixes each block's own
+  correlation draws. Mixed draws are pointwise, not valid matrices.
+- **REML uncertainty** is a joint normal approximation from each block's `vcov`,
+  drawn in the main process (`n_draws`, seeded from `seed`).
+- **Defaults come from the engine** (`.indri_engine_defaults()`,
+  `.indri_default_s()`, `.indri_default_cores()`): s = 3 cap, c = 3 stanimal /
+  1 REML, asreml 2 workers. Change them only with a new measurement
+  (`block_size_sweep.R`, `uncertainty_coverage.R`).
+- **`min_cooccurrence` counts distinct subsets**; `indri_subsets()` tops up to
+  the guarantee, never repeats a subset, and caps c by block width. Keep the
+  test that sweeps seeds: a single seed once passed while the guarantee was
+  broken.
+- **Non-converged REML blocks are reported, not refitted** (measured to be
+  uncertified optima). stanimal blocks with Rhat >= 1.05 warn
+  (`options(indri.warn_rhat = FALSE)`; the test helper sets it).
+- **Equal weights and the least-squares projection** stay the defaults; their
+  alternatives were measured and lost or tied.
+- **Progress bar**: `progress = getOption("indri.progress", interactive())`; with
+  parallel blocks it sends load-balanced rounds, without it one `parLapply()`.
 
 ## Running studies
 
-The studies in `examples/` fit many Stan models; run anything beyond the test
-suite on a machine with spare cores, not a laptop. If you use a remote
-machine, sync it through git (commit and push locally, then fast-forward the
-remote checkout) rather than copying files.
+The studies fit many models; run them on a machine with spare cores, synced
+through git (commit and push, then fast-forward the remote checkout).
 
 ```sh
-# one seed per process, detached so a dropped connection does not kill the run
+# one seed per process, detached
 for s in 1 2 3; do
   INDRI_COVERAGE_SEEDS=$s INDRI_COVERAGE_CORES=48 \
-    nohup Rscript examples/uncertainty_coverage.R \
-    > results/uncertainty_coverage_seed$s.log 2>&1 &
+    nohup Rscript examples/uncertainty_coverage.R > results/cov_seed$s.log 2>&1 &
 done
 ```
 
-The `INDRI_*_CORES` variables are a total process budget for `fit_G()`, not a
-worker count; see STATUS.md, "Running the studies". The 12-trait coverage study
-takes about 3 minutes per seed at 48 cores.
+Traps:
 
-Gotchas:
-
-- **`pgrep -f <script>` matches its own wait loop.** A
-  `while pgrep -f uncertainty_coverage.R; do sleep 30; done` run through
-  `ssh` or `bash -c` never exits, because the loop's own command line contains
-  the pattern. Wait for the summary CSVs to appear instead, or anchor the
-  pattern (`pgrep -f '^Rscript examples/'`).
-- **More than ~125 parallel blocks needs `Rscript --max-connections=N`.**
-  Each PSOCK worker holds one R connection and R allows 128 by default, so
-  `fit_G(cores = 256)` with one process per block fails in `makeCluster()`
-  with "all 128 connections are in use". Pass `--max-connections=1024` (R >=
-  4.4). If `makeCluster()` fails with "port ... cannot be opened", another
-  service owns a port in R's random range (11000-11999); set
-  `R_PARALLEL_PORT` to a free one.
-- When pulling results back from a remote machine, batch them into one
-  transfer (`ssh host 'tar cf - <files>' | tar xf -`); many separate
-  connections can trip SSH rate limiting.
-
-Tracked results (`results/validation_12_traits_*.csv`,
-`results/uncertainty_coverage_*.csv`) are whitelisted in `.gitignore`. A study
-overwrites them where it runs, so on a remote checkout: copy the CSVs back,
-commit them locally, then discard the remote's copies (`git checkout --
-results/` for modified files; remove new ones after checking they match the
-committed copy) before the next fast-forward, which otherwise refuses to
-overwrite them.
+- **Never wait on, or kill by, a process-name pattern from inside
+  `ssh '...'`.** `pgrep -f`, `ps | grep "[x]yz"` and `pkill -f` match the remote
+  shell running the command, whose command line contains the pattern: wait
+  loops never end and `pkill` kills its own session. Wait for output files
+  (newer than a marker written at launch) and kill by PID. `Rscript` re-execs as
+  `R --file=...`, so match `file=examples/...`.
+- **More than ~125 parallel blocks** needs `Rscript --max-connections=1024`
+  (R allows 128 connections; each PSOCK worker holds one). If `makeCluster()`
+  fails with "port ... cannot be opened", another service owns a port in R's
+  random range (11000-11999): set `R_PARALLEL_PORT`.
+- **Write stdout and data streams separately**: anything a remote command prints
+  corrupts a `ssh host 'tar cf - ...' | tar xf -` transfer. Batch transfers into
+  one connection; many connections can trip SSH rate limits.
+- **Results**: `results/validation_12_traits_*.csv` and
+  `results/uncertainty_coverage_*.csv` are tracked. On a remote checkout, copy
+  them back and commit locally, then discard the remote copies before the next
+  fast-forward. A rename step must check its source exists, or a failed run
+  passes off an old file as new.
 
 ## Conventions
 
-- Keep changes surgical; update the roxygen docs and regenerate `man/` when the
-  public API changes.
-- Add tests for anything that failed or that encodes a discovered gotcha.
-- Update `NOTES.md`/`STATUS.md` when a decision changes or a study is measured.
-- Commit messages are plain English, one line, with a body when needed.
+- Keep changes surgical; regenerate `man/` when roxygen changes.
+- Add a test for anything that failed or that encodes a gotcha.
+- Update `NOTES.md` when a design decision changes and `STATUS.md` when a study
+  is measured.
+- Commit messages: a plain-English line, a body when needed.

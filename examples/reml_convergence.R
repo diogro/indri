@@ -1,6 +1,7 @@
 # What are the non-converged REML pairs, and can a refit rescue them?
 #
-# Fits every trait pair once (s = 2, c = 1, the REML default), then for every
+# Fits every trait pair once (s = 2, c = 1: pairs, the design of this study; the
+# REML default is now s = 3), then for every
 # pair whose fit reports no convergence:
 #   1. describes it: estimated genetic correlation, heritabilities, error
 #      against the truth, next to the same numbers for the converged pairs;
@@ -54,7 +55,8 @@ h2_true <- diag(truth) / (diag(truth) + diag(resid))
 
 ## Fit every pair once --------------------------------------------------------
 
-fit <- fit_G(Y, A = A, engine = engine_name, cores = cores, seed = 1000L + seed)
+fit <- fit_G(Y, A = A, engine = engine_name, s = 2L, min_cooccurrence = 1L,
+             cores = cores, seed = 1000L + seed)
 stopifnot(ncol(fit$subsets) == 2L)
 
 engine <- indri_engine(engine_name)

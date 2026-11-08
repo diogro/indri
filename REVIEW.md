@@ -6,14 +6,19 @@ results mean. Overall the code is in good shape: the engine contract is clean,
 the global standardisation is careful, and the analytical PSD gradient is
 correct (derivation checked against the objective).
 
-Status of the findings (updated 2026-11-07):
+A dated record: the findings below are kept as written, with what became of
+each. Current results are in STATUS.md, the current design in NOTES.md.
 
-| # | finding | state |
+| # | finding | outcome |
 |---|---|---|
-| 1 | subset sampler misses `min_cooccurrence` | **fixed** (`0837352`) |
-| 2 | averaged `G_draws` overconfident | **diagnosed and fixed** in `f3abee8` / `96f0894`: mixture 0.89 vs average 0.40; left: `corrG_draws`, flip the default |
-| 3 | LKJ prior confounds the full-model comparison | open — REML full-model baseline is STATUS item 1 |
-| 4 | doc drift | docs fixed; M3 done (generalised in stanimal, wired in indri); all-NA diagnostics flag fixed (now `NA`); asreml now takes `init`, `maxit`, `updates` from `engine_args`, and single-trait blocks; its no-columns formula still open |
+| 1 | subset sampler misses `min_cooccurrence` | **fixed** (`0837352`): greedy top-up; subsets are now also distinct, with c capped by block width |
+| 2 | averaged `G_draws` overconfident | **fixed**: mixture assembly is the default (`8c71f25`), `corrG_draws` added, REML engines given draws from their sampling covariance (`49f0657`); measured 0.95-0.98 coverage |
+| 3 | LKJ prior confounds the full-model comparison | **addressed**: a REML full model proved impractical, so comparisons are against the true G; the stanimal engine now uses `lkj_prior = 1` and 4-trait blocks, which removed most of the shrinkage |
+| 4 | plan and doc drift | **fixed**: M3 done through stanimal 0.8.0, docs rewritten, all-NA diagnostics now `NA`, asreml takes `init`, `maxit`, `updates`. Still open: the asreml formula when `X` has no columns |
+
+Found later, outside this review: sommer returned blocks in alphabetical trait
+order (`4b5748a`), and CmdStan output files collided between fits from the
+same random state (indri per-block directories; stanimal 0.8.1).
 
 ## 1. Bug: `indri_subsets()` does not guarantee `min_cooccurrence`
 
@@ -129,11 +134,11 @@ Dropping it is fine as long as nothing cites "the method wins at K = 30".
 - **`.indri_diagnostics()`**: reports `converged = TRUE` when every block
   returned NA (the rstan path), so failures there go unnoticed.
 
-## Suggested order
+## Suggested order (as written, with outcomes)
 
-1. ~~Fix the sampler and its test.~~ Done.
-2. ~~Run the coverage study with both draw assemblies.~~ Done: mixture wins.
-   Follow-up: `corrG_draws`, then `spread = "mixture"` as the default.
-3. Re-baseline the K = 30 claim against a REML full model.
-
-Then the existing STATUS items (missing data end to end, asreml at K = 30).
+1. Fix the sampler and its test. *Done.*
+2. Run the coverage study with both draw assemblies. *Done: the mixture won and
+   is the default.*
+3. Re-baseline the K = 30 claim against a REML full model. *Dropped: full
+   multi-trait REML fits are too slow and rarely converge; compared against the
+   truth instead.*

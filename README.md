@@ -1,37 +1,35 @@
 # indri
 
 Estimates the **additive genetic covariance matrix G** (traits × traits) for
-large trait sets — without ever fitting one giant multivariate animal model.
+large trait sets, without fitting one giant multivariate animal model.
 
 It does this LiMMBo's way: split the traits into many small, overlapping
-subsets, fit a small animal model on each, then reassemble the subset estimates
-into a single positive semi-definite matrix. The per-subset fit is pluggable, so
-the same estimator runs on a Bayesian sampler or on a REML engine. See the
-[original LiMMBo paper](#reference) for the method.
+subsets, fit a small animal model on each, and reassemble the estimates into a
+single positive semi-definite matrix. The per-subset fit is pluggable, so the
+same estimator runs on a Bayesian sampler or on a REML engine, and every engine
+comes with per-entry uncertainty. See the [LiMMBo paper](#reference).
 
-> **Status:** working package, M1/M2/M4 measured. `G` itself is validated
-> (within ~2× the full model's error at 12 traits, and better than it on one
-> 30-trait seed); the default averaged uncertainty is overconfident, while
-> `spread = "mixture"` covers ~89% at nominal 95% — see the caveats below and
-> [STATUS.md](STATUS.md).
+> **Status (0.2.0):** working and validated on simulations of up to 35 traits.
+> The assembled `G` is as accurate as the full model where the full model can
+> be fitted; the 95% bands cover the true correlations about 95-97% of the
+> time. See [STATUS.md](STATUS.md) for the numbers.
 
 ## Install
 
 ```r
-# from GitHub
 remotes::install_github("diogro/indri")
 ```
 
-You also need at least one block engine, plus the data it requires:
+You also need at least one block engine:
 
-| Engine | Package | Need | Returns |
+| Engine | Package | Needs | Uncertainty |
 |---|---|---|---|
-| `"stanimal"` (default) | [`stanimal`](https://github.com/meyer-lab-cshl/stanimal) | CmdStan | posterior draws + assembled uncertainty |
-| `"sommer"` | [`sommer`](https://cran.r-project.org/package=sommer) | dense `A` | REML point estimate + SEs |
-| `"asreml"` | ASReml-R (licensed) | sparse `A` | REML point estimate + SEs |
+| `"stanimal"` (default) | [`stanimal`](https://github.com/diogro/stanimal) (>= 0.8.0 recommended) | CmdStan | posterior draws |
+| `"sommer"` | [`sommer`](https://cran.r-project.org/package=sommer) | | REML sampling distribution |
+| `"asreml"` | ASReml-R | a licence (one seat per worker) | REML sampling distribution |
 
-The default engine is `"stanimal"`; the REML engines are much faster for
-large N but drop incomplete rows and (for asreml) need a licence.
+stanimal models gaps in `Y` and gives a posterior; the REML engines are much
+faster for large N.
 
 ## Quick start
 
@@ -39,7 +37,7 @@ large N but drop incomplete rows and (for asreml) need a licence.
 library(indri)
 set.seed(1)
 
-# A known 6-trait genetic covariance and a small sibship design.
+# A known 6-trait genetic covariance on a sibship design.
 G_true <- stanimal::random_covariance(
   n_traits = 6, method = "partial", min_var = 0.8, max_var = 1.4
 )
@@ -52,79 +50,67 @@ Y <- t(chol(A)) %*% matrix(stats::rnorm(nrow(A) * 6), nrow(A), 6) %*% chol(G_tru
      matrix(stats::rnorm(nrow(A) * 6), nrow(A), 6) %*% chol(E_true)
 colnames(Y) <- paste0("trait", 1:6)
 
-# Estimate G from trait subsets. `s` controls how many trait pairs each subset
-# covers (the subset itself has a few more traits). It defaults to at most 4.
 fit <- fit_G(
   Y, A = A, engine = "stanimal",
   engine_args = list(chains = 1, iter = 600, refresh = 0, show_messages = FALSE)
 )
 
-fit             # summary print
-fit$G           # assembled G, in the units of Y
-fit$corrG       # ... as correlations
-fit$y_sd        # per-trait scales used for the internal standardisation
+fit                                            # summary print
+fit$G                                          # G, in the units of Y
+fit$corrG                                      # genetic correlations
+apply(fit$corrG_draws, 1:2, quantile, 0.975)   # per-entry upper 95% bound
 ```
 
-Add fixed effects with a design matrix: `fit_G(Y, X = X, A = A, ...)`, where
-`X` has one row per individual (intercept and covariates are fine).
+Fixed effects go in a design matrix, `fit_G(Y, X = X, A = A, ...)`, with one
+row per individual; each block fit handles them.
 
 ## What you get back
 
-`fit_G()` returns an `indri_fit` object:
-
 | slot | what it is |
 |---|---|
-| `G`, `corrG` | the assembled estimate, covariance and correlation scale |
-| `G_draws` | block posterior draws assembled by `spread` (`"average"` or `"mixture"`; stanimal only) |
-| `coverage` | how many subsets covered each trait pair |
-| `subsets` | the trait subsets that were fitted |
-| `diagnostics` | per-block convergence (Rhat for stanimal, flags for REML) |
-| `y_mean`, `y_sd` | the internal standardisation (the raw `blocks` are on that scale) |
+| `G`, `corrG`, `sigma_G` | the assembled estimate (`G` and `sigma_G` in the units of `Y`) |
+| `G_draws`, `corrG_draws` | assembled draws (traits × traits × draws), for per-entry intervals |
+| `G_bar` | the average of the blocks before the PSD projection |
+| `subsets`, `coverage` | the trait subsets fitted, and how many covered each pair |
+| `diagnostics` | per-block convergence; uncertified blocks listed by trait |
+| `blocks` | the raw block fits, on the internal standardised scale |
+| `y_mean`, `y_sd` | that standardisation |
 
-`print()`, `summary()` and `plot()` are provided.
+`print()`, `summary()` and `plot()` are provided. A progress bar of the block
+fits shows in interactive sessions (`progress = TRUE` forces it).
 
-## Caveats worth knowing before you use it
+## Caveats worth knowing
 
-- **Blocks are small by default.** Every engine fits overlapping blocks of up
-  to four traits (`s = 3`): stanimal with each pair in three distinct blocks
-  and `lkj_prior = 1`, the REML engines with each pair in at least one. Larger
-  blocks were measured to shrink stanimal's correlations (and undercover) and
-  to give the REML engines nothing for their cost.
-- **asreml needs a licence seat per worker.** It runs two workers by default
-  (a standard licence allows two processes, on one machine at a time); pass
-  `cores = 1` if yours has one seat.
-
-- **Scale.** `G`, `G_bar`, `G_draws` and `sigma_G` are in the units of `Y`.
-  indri still standardises every trait once and fits, assembles and projects
-  on that scale; only the assembled outputs are converted. The raw fits in
-  `fit$blocks` stay standardised (`fit$y_sd` converts). Fits made before this
-  change (indri up to `4e8a719`) returned `G` standardised.
-- **Uncertainty: use `spread = "mixture"`.** Blocks are fitted to the same
-  data, so averaging their draws (the current default) narrows the band by
-  about the square root of a pair's coverage: ~40% coverage at nominal 95% on
-  a 12-trait simulation. The mixture assembly covers ~89% (the full model:
-  ~80%). Neither is a joint posterior, and mixed draws are pointwise — a mixed
-  matrix need not be positive semi-definite.
-- **Point estimate is the headline.** The assembled `G` itself is the
-  well-validated output; at 30 traits it beat the full model on both accuracy
-  and wall clock in the current measurements.
+- **Intervals are per entry.** The draws are assembled from dependent blocks:
+  use them for intervals on individual covariances and correlations, not for
+  functions of the whole matrix (eigenvalues, integration). Measured coverage
+  at nominal 95%: 0.96-0.98 for the REML engines, about 0.95 for stanimal.
+- **Strong correlations are shrunk a little**, so integration is understated
+  rather than overstated: the eigenvalue variance of `corrG` came out at about
+  75-85% of the truth's at 35 traits.
+- **Blocks are small by default**: up to four traits each, every pair in three
+  distinct blocks for stanimal (fitted with `lkj_prior = 1`) and in at least one
+  for the REML engines. Larger blocks shrank stanimal's correlations and gave
+  the REML engines nothing for their cost.
+- **asreml needs a licence seat per worker.** It runs two workers by default; a
+  standard licence allows two processes on one machine at a time. Use
+  `cores = 1` with a single seat.
+- **Units.** `G` is in the units of `Y` since 0.2.0; fits saved by 0.1.0 hold a
+  standardised `G`.
 
 ## Repository map
 
-- [`NOTES.md`](NOTES.md) — design, engine contract, verified call forms.
-- [`STATUS.md`](STATUS.md) — where the work stands and what's measured.
-- [`AGENTS.md`](AGENTS.md) — guidance for coding agents working on the package.
-- [`examples/`](examples/README.md) — runnable studies: the M1 validation gate,
-  the cross-engine comparison, the block-size sweep, the uncertainty coverage
-  study, and a real-data example (the `ratones` mice).
+- [`NOTES.md`](NOTES.md): design, engine contract and the reasons for the
+  defaults.
+- [`STATUS.md`](STATUS.md): what has been measured and what comes next.
+- [`AGENTS.md`](AGENTS.md): guidance for coding agents working on the package.
+- [`examples/`](examples/README.md): worked examples and the validation studies.
 
 ## Scope
 
-In scope: `G` (traits × traits additive genetic covariance) from a phenotype
-matrix `Y`, a design `X` and a known relationship matrix `A`.
-
-Out of scope for now: `E`/`P` reporting, association testing, breeding values,
-missing-data imputation, model comparison.
+In scope: `G` from a phenotype matrix `Y`, a design `X` and a known
+relationship matrix `A`. Out of scope for now: `E`/`P` reporting, association
+testing, breeding values, imputation, model comparison.
 
 ## Reference
 

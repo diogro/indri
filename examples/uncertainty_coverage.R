@@ -1,12 +1,14 @@
-# M4 uncertainty study: does the assembled block uncertainty cover the truth?
+# Uncertainty study: does the assembled block uncertainty cover the truth?
 #
-# Simulates a known 12-trait genetic covariance, fits it two ways — indri on
-# trait subsets (stanimal engine) and the full 12-trait model — and reports the
-# fraction of true correlation entries inside each estimate's 95% band, per
-# pair-coverage count for indri.
+# Simulates a known K-trait genetic covariance (12 by default), fits it with
+# indri on any engine and, optionally, the full stanimal model, and reports the
+# fraction of true correlation entries inside each estimate's 95% band (per
+# pair-coverage count for indri), the band width, the slope of estimate on
+# truth, and the eigenvalue variance of corrG against the truth's.
 #
-# The indri band comes from the block posteriors, assembled three ways from the
-# same fit, on the correlation scale (each block's draws -> correlation draws):
+# For stanimal the band comes from the block posteriors, assembled three ways
+# from the same fit, on the correlation scale (each block's draws -> correlation
+# draws):
 #   indri_average   draw d averaged over covering blocks (what G_draws did by
 #                   default); shrinks the spread by ~1/sqrt(coverage)
 #   indri_mixture   each entry of draw d taken from one random covering block
@@ -26,7 +28,7 @@
 #   INDRI_COVERAGE_ITER    indri iterations per block chain (400)
 #   INDRI_COVERAGE_CI      interval level (0.95)
 #   INDRI_COVERAGE_ENGINE  stanimal, sommer or asreml (stanimal). REML engines
-#                          use their defaults (pairs, once each) and are scored
+#                          use their defaults (s = 3, c = 1) and are scored
 #                          on fit$corrG_draws, drawn from each pair's REML
 #                          sampling covariance; with one block per pair there
 #                          is nothing to average or mix.

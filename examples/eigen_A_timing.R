@@ -1,6 +1,7 @@
 # M3 timing: what does sharing the eigendecomposition of A save per block?
 #
-# Fits one six-trait block (the size indri uses at s = 4) at increasing N with
+# Fits one six-trait block (indri's block size at s = 4; the default is now
+# s = 3, four traits) at increasing N with
 # short chains, so the fixed per-fit costs are visible, three ways:
 #   old     stanimal decomposes A in Stan, once per chain (stanimal <= 0.7.4)
 #   new     stanimal decomposes A once per fit, in R
