@@ -30,8 +30,8 @@
 #' heterozygote indicator (1 for genotype 1, 0 for both homozygotes).
 #' `pvalues` is then the joint test of both terms (2 degrees of freedom per
 #' trait), `pvalues_dominance` the test of the dominance term with the
-#' additive one in the null (1 per trait), and `betas` and `betas_dominance`
-#' the two effects of the joint model. A SNP observed in only two genotype
+#' additive one in the null (1 per trait), and `a` and `d` the additive and
+#' dominance effects of the joint model. A SNP observed in only two genotype
 #' classes has a dominance term collinear with its dosage: it keeps the
 #' additive-only test in `pvalues`, gets `NA` dominance results, and is
 #' `FALSE` in `dominance_estimable`. Missing genotypes are imputed by the
@@ -74,10 +74,12 @@
 #' @param chunk_size Number of SNPs rotated at a time.
 #'
 #' @return An object of class `indri_gwas`: `pvalues` (a vector over SNPs,
-#'   or SNPs by traits), `betas` (SNPs by traits, in the units of `Y` per
-#'   unit of genotype), `delta`, `pvalues_adjust` and `n_tests` when
+#'   or SNPs by traits), `a` (the additive effects, SNPs by traits, in the
+#'   units of `Y` per allele; not to be confused with the relationship
+#'   matrix `A`), `delta`, `pvalues_adjust` and `n_tests` when
 #'   adjusted, `snp_info`, `mode`, `model` and `call`. With
-#'   `dominance = TRUE` also `pvalues_dominance`, `betas_dominance` and
+#'   `dominance = TRUE` also `pvalues_dominance`, `d` (the dominance effects: the
+#'   heterozygote's deviation from the homozygotes' midpoint) and
 #'   `dominance_estimable`; `pvalues_adjust` then adjusts the joint test.
 #' @seealso [fit_G()], [indri_effective_tests()]
 #' @references
@@ -202,11 +204,11 @@ indri_gwas <- function(Y, genotypes, fit = NULL, G = NULL, E = NULL, A = NULL,
                        estimable)
   }
 
-  out <- list(pvalues = scan$pvalues, betas = scan$betas, delta = scan$delta,
+  out <- list(pvalues = scan$pvalues, a = scan$betas, delta = scan$delta,
               pvalues_adjust = NULL, n_tests = NULL, snp_info = snp_info,
               dominance = dominance,
               pvalues_dominance = scan$pvalues_dominance,
-              betas_dominance = scan$betas_dominance,
+              d = scan$betas_dominance,
               dominance_estimable = estimable,
               mode = mode, model = model, n_individuals = N, traits = traits,
               call = call)
@@ -612,26 +614,26 @@ as.data.frame.indri_gwas <- function(x, row.names = NULL, optional = FALSE,
                                      ...) {
   info <- x$snp_info
   if (!"snp" %in% names(info))
-    info <- cbind(snp = rownames(x$betas), info, stringsAsFactors = FALSE)
+    info <- cbind(snp = rownames(x$a), info, stringsAsFactors = FALSE)
   if (x$mode == "multi_trait") {
-    betas <- as.data.frame(x$betas)
-    names(betas) <- paste0("beta_", colnames(x$betas))
-    out <- cbind(info, pvalue = unname(x$pvalues), betas)
+    a <- as.data.frame(x$a)
+    names(a) <- paste0("a_", colnames(x$a))
+    out <- cbind(info, pvalue = unname(x$pvalues), a)
     if (isTRUE(x$dominance)) {
-      dom <- as.data.frame(x$betas_dominance)
-      names(dom) <- paste0("beta_dominance_", colnames(x$betas_dominance))
+      dom <- as.data.frame(x$d)
+      names(dom) <- paste0("d_", colnames(x$d))
       out <- cbind(out, pvalue_dominance = unname(x$pvalues_dominance), dom,
                    dominance_estimable = unname(x$dominance_estimable))
     }
   } else {
     out <- do.call(rbind, lapply(colnames(x$pvalues), function(k) {
       part <- cbind(info, trait = k, pvalue = unname(x$pvalues[, k]),
-                    beta = unname(x$betas[, k]), stringsAsFactors = FALSE)
+                    a = unname(x$a[, k]), stringsAsFactors = FALSE)
       if (!is.null(x$pvalues_adjust))
         part$pvalue_adjust <- unname(x$pvalues_adjust[, k])
       if (isTRUE(x$dominance)) {
         part$pvalue_dominance <- unname(x$pvalues_dominance[, k])
-        part$beta_dominance <- unname(x$betas_dominance[, k])
+        part$d <- unname(x$d[, k])
         part$dominance_estimable <- unname(x$dominance_estimable)
       }
       part

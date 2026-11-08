@@ -69,10 +69,12 @@ each SNP; see the Dominance section. Needs genotypes coded 0, 1 and 2.}
 }
 \value{
 An object of class \code{indri_gwas}: \code{pvalues} (a vector over SNPs,
-or SNPs by traits), \code{betas} (SNPs by traits, in the units of \code{Y} per
-unit of genotype), \code{delta}, \code{pvalues_adjust} and \code{n_tests} when
+or SNPs by traits), \code{a} (the additive effects, SNPs by traits, in the
+units of \code{Y} per allele; not to be confused with the relationship
+matrix \code{A}), \code{delta}, \code{pvalues_adjust} and \code{n_tests} when
 adjusted, \code{snp_info}, \code{mode}, \code{model} and \code{call}. With
-\code{dominance = TRUE} also \code{pvalues_dominance}, \code{betas_dominance} and
+\code{dominance = TRUE} also \code{pvalues_dominance}, \code{d} (the dominance effects: the
+heterozygote's deviation from the homozygotes' midpoint) and
 \code{dominance_estimable}; \code{pvalues_adjust} then adjusts the joint test.
 }
 \description{
@@ -110,8 +112,8 @@ With \code{dominance = TRUE} each SNP enters as its additive dosage (0/1/2) and 
 heterozygote indicator (1 for genotype 1, 0 for both homozygotes).
 \code{pvalues} is then the joint test of both terms (2 degrees of freedom per
 trait), \code{pvalues_dominance} the test of the dominance term with the
-additive one in the null (1 per trait), and \code{betas} and \code{betas_dominance}
-the two effects of the joint model. A SNP observed in only two genotype
+additive one in the null (1 per trait), and \code{a} and \code{d} the additive and
+dominance effects of the joint model. A SNP observed in only two genotype
 classes has a dominance term collinear with its dosage: it keeps the
 additive-only test in \code{pvalues}, gets \code{NA} dominance results, and is
 \code{FALSE} in \code{dominance_estimable}. Missing genotypes are imputed by the

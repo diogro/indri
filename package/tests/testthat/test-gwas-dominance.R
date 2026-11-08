@@ -21,8 +21,8 @@ test_that("the multi-trait LMM tests additive and dominance jointly", {
     expect_rel_equal(scan$pvalues[j], joint$p, 1e-8, label = paste("joint", j))
     expect_rel_equal(scan$pvalues_dominance[j], dom$p, 1e-8,
                      label = paste("dominance", j))
-    expect_equal(unname(scan$betas[j, ]), joint$beta[1, ], tolerance = 1e-8)
-    expect_equal(unname(scan$betas_dominance[j, ]), joint$beta[2, ],
+    expect_equal(unname(scan$a[j, ]), joint$beta[1, ], tolerance = 1e-8)
+    expect_equal(unname(scan$d[j, ]), joint$beta[2, ],
                  tolerance = 1e-8)
   }
 })
@@ -64,7 +64,7 @@ test_that("the single-trait LMM and LM test additive and dominance jointly", {
                                A = d$A, delta = delta[[k]])
     expect_rel_equal(lmm$pvalues[j, k], joint$p, 1e-8)
     expect_rel_equal(lmm$pvalues_dominance[j, k], dom$p, 1e-8)
-    expect_equal(c(lmm$betas[j, k], lmm$betas_dominance[j, k]), joint$beta,
+    expect_equal(c(lmm$a[j, k], lmm$d[j, k]), joint$beta,
                  tolerance = 1e-8)
     ols <- dense_nested_single(d$Y[, k], d$X, cbind(d$X, a, h))
     expect_rel_equal(lm$pvalues[j, k], ols$p, 1e-8)
@@ -84,9 +84,9 @@ test_that("a SNP without all three genotypes keeps an additive-only test", {
   expect_true(all(scan$dominance_estimable[-1]))
   expect_named(scan$dominance_estimable, colnames(d$geno))
   expect_equal(scan$pvalues[[1]], additive$pvalues[[1]], tolerance = 1e-10)
-  expect_equal(scan$betas[1, ], additive$betas[1, ], tolerance = 1e-10)
+  expect_equal(scan$a[1, ], additive$a[1, ], tolerance = 1e-10)
   expect_true(is.na(scan$pvalues_dominance[[1]]))
-  expect_true(all(is.na(scan$betas_dominance[1, ])))
+  expect_true(all(is.na(scan$d[1, ])))
 })
 
 test_that("missing genotypes are imputed in both codings", {
@@ -133,16 +133,16 @@ test_that("dominance results reach the data frame and the print", {
                       delta = 1, dominance = TRUE)
   df <- as.data.frame(multi)
   expect_equal(df$pvalue_dominance, unname(multi$pvalues_dominance))
-  expect_true(all(paste0("beta_dominance_", colnames(d$Y)) %in% names(df)))
+  expect_true(all(paste0("d_", colnames(d$Y)) %in% names(df)))
   expect_equal(df$dominance_estimable, unname(multi$dominance_estimable))
   expect_output(print(multi), "dominance")
 
   single <- indri_gwas(d$Y, d$geno, A = d$A, X = d$X, mode = "single_trait",
                        dominance = TRUE)
   long <- as.data.frame(single)
-  expect_true(all(c("pvalue_dominance", "beta_dominance") %in% names(long)))
-  expect_equal(long$beta_dominance[long$trait == "beak"],
-               unname(single$betas_dominance[, "beak"]))
+  expect_true(all(c("pvalue_dominance", "d") %in% names(long)))
+  expect_equal(long$d[long$trait == "beak"],
+               unname(single$d[, "beak"]))
 
   plain <- indri_gwas(d$Y, d$geno, A = d$A, X = d$X, mode = "single_trait")
   expect_false(plain$dominance)

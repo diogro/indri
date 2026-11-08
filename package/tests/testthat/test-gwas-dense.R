@@ -11,7 +11,7 @@ test_that("the multi-trait LMM matches dense GLS at a given delta", {
     ref <- dense_multi(d$Y, d$X, d$geno[, j], E = d$E, G = d$G, A = d$A,
                        delta = 0.7)
     expect_rel_equal(scan$pvalues[j], ref$p, 1e-8, label = paste("p", j))
-    expect_equal(unname(scan$betas[j, ]), unname(ref$beta), tolerance = 1e-8,
+    expect_equal(unname(scan$a[j, ]), unname(ref$beta), tolerance = 1e-8,
                  label = paste("beta", j))
   }
 })
@@ -46,7 +46,7 @@ test_that("the multi-trait LM uses the residual covariance after X", {
   for (j in seq_len(d$M)) {
     ref <- dense_multi(d$Y, d$X, d$geno[, j], E = E_lm)
     expect_rel_equal(scan$pvalues[j], ref$p, 1e-8, label = paste("p", j))
-    expect_equal(unname(scan$betas[j, ]), unname(ref$beta), tolerance = 1e-8)
+    expect_equal(unname(scan$a[j, ]), unname(ref$beta), tolerance = 1e-8)
   }
   # an explicit E replaces the residual covariance
   other <- indri_gwas(d$Y, d$geno, E = d$E, X = d$X, model = "lm")
@@ -68,7 +68,7 @@ test_that("the single-trait LMM fits delta per trait by REML", {
                           delta = scan$delta[[k]])
       expect_rel_equal(scan$pvalues[j, k], ref$p, 1e-8,
                        label = paste("p", j, k))
-      expect_equal(scan$betas[j, k], ref$beta, tolerance = 1e-8)
+      expect_equal(scan$a[j, k], ref$beta, tolerance = 1e-8)
     }
   }
 })
@@ -101,7 +101,7 @@ test_that("the single-trait LM is ordinary least squares", {
     ref <- dense_single(d$Y[, k], d$X, d$geno[, j])
     expect_rel_equal(scan$pvalues[j, k], ref$p, 1e-8)
     ols <- stats::lm.fit(cbind(d$X, d$geno[, j]), d$Y[, k])$coefficients
-    expect_equal(scan$betas[j, k], unname(utils::tail(ols, 1L)),
+    expect_equal(scan$a[j, k], unname(utils::tail(ols, 1L)),
                  tolerance = 1e-8)
   }
 })
@@ -113,7 +113,7 @@ test_that("the result does not depend on the chunk size", {
   b <- indri_gwas(d$Y, d$geno, G = d$G, E = d$E, A = d$A, X = d$X,
                   chunk_size = 4L)
   expect_equal(a$pvalues, b$pvalues, tolerance = 1e-12)
-  expect_equal(a$betas, b$betas, tolerance = 1e-12)
+  expect_equal(a$a, b$a, tolerance = 1e-12)
 })
 
 test_that("a causal SNP is found by the multi-trait test", {

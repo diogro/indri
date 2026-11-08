@@ -12,9 +12,9 @@ test_that("the multi-trait LMM reproduces limmbo", {
                      mode = "multi_trait", model = "lmm",
                      delta = f$delta$multi_lmm)
   expect_rel_equal(scan$pvalues, f$p$multi_lmm, 1e-6)
-  expect_equal(unname(scan$betas), unname(f$beta$multi_lmm), tolerance = 1e-6)
+  expect_equal(unname(scan$a), unname(f$beta$multi_lmm), tolerance = 1e-6)
   expect_equal(names(scan$pvalues), rownames(f$beta$multi_lmm))
-  expect_equal(colnames(scan$betas), colnames(f$Y))
+  expect_equal(colnames(scan$a), colnames(f$Y))
 })
 
 test_that("the multi-trait LM reproduces limmbo given its residual shape", {
@@ -24,7 +24,7 @@ test_that("the multi-trait LM reproduces limmbo given its residual shape", {
   scan <- indri_gwas(f$Y, f$geno, E = f$Cn_lm, X = f$X,
                      mode = "multi_trait", model = "lm")
   expect_rel_equal(scan$pvalues, f$p$multi_lm, 1e-5)
-  expect_equal(unname(scan$betas), unname(f$beta$multi_lm), tolerance = 1e-8)
+  expect_equal(unname(scan$a), unname(f$beta$multi_lm), tolerance = 1e-8)
 })
 
 test_that("the single-trait LMM reproduces limmbo", {
@@ -32,7 +32,7 @@ test_that("the single-trait LMM reproduces limmbo", {
   scan <- indri_gwas(f$Y, f$geno, A = f$A, X = f$X, mode = "single_trait",
                      model = "lmm", delta = f$delta$single_lmm)
   expect_rel_equal(scan$pvalues, f$p$single_lmm, 1e-8)
-  expect_equal(unname(scan$betas), unname(f$beta$single_lmm),
+  expect_equal(unname(scan$a), unname(f$beta$single_lmm),
                tolerance = 1e-8)
 })
 
@@ -41,7 +41,7 @@ test_that("the single-trait LM reproduces limmbo", {
   scan <- indri_gwas(f$Y, f$geno, X = f$X, mode = "single_trait",
                      model = "lm")
   expect_rel_equal(scan$pvalues, f$p$single_lm, 1e-8)
-  expect_equal(unname(scan$betas), unname(f$beta$single_lm), tolerance = 1e-8)
+  expect_equal(unname(scan$a), unname(f$beta$single_lm), tolerance = 1e-8)
 })
 
 test_that("the effective number of tests and the adjustments match limmbo", {

@@ -12,7 +12,7 @@ test_that("samples are matched by name across Y, genotypes, A and X", {
   shuffled <- indri_gwas(d$Y, d$geno[o, ], G = d$G, E = d$E,
                          A = d$A[rev(o), rev(o)], X = d$X[o, ], delta = 1)
   expect_equal(shuffled$pvalues, ref$pvalues, tolerance = 1e-10)
-  expect_equal(shuffled$betas, ref$betas, tolerance = 1e-10)
+  expect_equal(shuffled$a, ref$a, tolerance = 1e-10)
 
   bad <- d$geno
   rownames(bad)[1] <- "nobody"
@@ -39,7 +39,7 @@ test_that("G and E are matched to the traits of Y by name", {
   moved <- indri_gwas(d$Y, d$geno, G = d$G[o, o], E = d$E[o, o], A = d$A,
                       X = d$X, delta = 1)
   expect_equal(moved$pvalues, ref$pvalues, tolerance = 1e-10)
-  expect_equal(colnames(moved$betas), colnames(d$Y))
+  expect_equal(colnames(moved$a), colnames(d$Y))
   wrong <- d$G
   dimnames(wrong) <- list(letters[1:3], letters[1:3])
   expect_error(indri_gwas(d$Y, d$geno, G = wrong, E = d$E, A = d$A, X = d$X),
@@ -110,7 +110,7 @@ test_that("missing genotypes are mean-imputed and monomorphic SNPs give NA", {
   expect_warning(scan <- scan_lmm(modifyList(d, list(geno = geno)), delta = 1),
                  "monomorphic")
   expect_true(is.na(scan$pvalues[3]))
-  expect_true(all(is.na(scan$betas[3, ])))
+  expect_true(all(is.na(scan$a[3, ])))
   expect_false(anyNA(scan$pvalues[-3]))
 })
 
@@ -128,19 +128,19 @@ test_that("results are named and convert to a data frame", {
   d <- simulate_gwas_data(seed = 39)
   multi <- scan_lmm(d, delta = 1)
   expect_named(multi$pvalues, colnames(d$geno))
-  expect_equal(dimnames(multi$betas), list(colnames(d$geno), colnames(d$Y)))
+  expect_equal(dimnames(multi$a), list(colnames(d$geno), colnames(d$Y)))
   expect_equal(multi$mode, "multi_trait")
   expect_equal(multi$model, "lmm")
   df <- as.data.frame(multi)
   expect_equal(nrow(df), d$M)
   expect_equal(df$pvalue, unname(multi$pvalues))
-  expect_true(all(paste0("beta_", colnames(d$Y)) %in% names(df)))
+  expect_true(all(paste0("a_", colnames(d$Y)) %in% names(df)))
 
   single <- indri_gwas(d$Y, d$geno, A = d$A, X = d$X, mode = "single_trait",
                        adjust = "bonferroni")
   long <- as.data.frame(single)
   expect_equal(nrow(long), d$M * d$P)
-  expect_true(all(c("snp", "trait", "pvalue", "beta", "pvalue_adjust") %in%
+  expect_true(all(c("snp", "trait", "pvalue", "a", "pvalue_adjust") %in%
                     names(long)))
   expect_equal(long$pvalue[long$trait == "tail"],
                unname(single$pvalues[, "tail"]))

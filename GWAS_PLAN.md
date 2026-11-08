@@ -129,7 +129,7 @@ as.data.frame(scan)        # one row per SNP (and trait), for write.csv()
   the Kronecker rotation. Sample IDs are matched by row names across `Y`,
   `A` and `genotypes`, the way `fit_G()` matches `A`.
 - **Return value:** an `indri_gwas` object holding `pvalues` (M, or M x P),
-  `betas` (M x P), `delta`, `pvalues_adjust` and `n_tests` for single-trait
+  `a` (additive effects, M x P), `delta`, `pvalues_adjust` and `n_tests` for single-trait
   scans with an adjustment, `snp_info`, `call`, `mode` and `model`.
 - **Genotypes:** missing values are mean-imputed per SNP. A monomorphic SNP
   gets `NA` p-values and effects, with a warning.
@@ -237,8 +237,8 @@ No new hard dependencies. A PLINK reader (`BEDMatrix` or `genio`) can be a
 9. **Dominance (added 2026-11-08):** `dominance = TRUE` adds a heterozygote
    indicator per SNP next to its 0/1/2 dosage. `pvalues` becomes the joint
    additive + dominance test (2 df per trait), `pvalues_dominance` tests
-   dominance given additive (1 df per trait), and `betas`/`betas_dominance`
-   are the joint model's effects. SNPs seen in only two genotype classes keep
+   dominance given additive (1 df per trait), and `a`/`d` are the joint
+   model's additive and dominance effects (Falconer's symbols). SNPs seen in only two genotype classes keep
    the additive-only test and are `FALSE` in `dominance_estimable`.
    `test-gwas-dominance.R` checks it against dense nested GLS.
 
