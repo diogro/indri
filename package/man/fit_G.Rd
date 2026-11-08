@@ -74,8 +74,8 @@ every observed value and lets the engine handle the gaps: stanimal
 integrates them out, and the REML engines use each individual's observed
 traits (a missing value is one missing record, not a missing individual).
 \code{"complete_block"} drops incomplete individuals once, before subsetting;
-it discards information (with 15\\% of values missing at random, a third of
-the individuals and about 20\\% wider standard errors).}
+it discards information (with 15\% of values missing at random, a third of
+the individuals and about 20\% wider standard errors).}
 
 \item{spread}{How \code{G_draws} and \code{corrG_draws} combine the block posteriors.
 \code{"mixture"} (the default) takes each entry of each draw from one covering

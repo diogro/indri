@@ -56,8 +56,8 @@
 #'   integrates them out, and the REML engines use each individual's observed
 #'   traits (a missing value is one missing record, not a missing individual).
 #'   `"complete_block"` drops incomplete individuals once, before subsetting;
-#'   it discards information (with 15\% of values missing at random, a third of
-#'   the individuals and about 20\% wider standard errors).
+#'   it discards information (with 15% of values missing at random, a third of
+#'   the individuals and about 20% wider standard errors).
 #' @param cores Total number of concurrent processes for the whole fit,
 #'   not the number of subsets to run at once. Defaults to 1, except for
 #'   `"asreml"`, which defaults to 2: every worker checks out its own ASReml
