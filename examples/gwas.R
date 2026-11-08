@@ -172,7 +172,7 @@ dir.create("examples/figures", showWarnings = FALSE, recursive = TRUE)
 file <- "examples/figures/gwas_manhattan.png"
 grDevices::png(file, width = 1400, height = 900, res = 120)
 graphics::layout(matrix(c(1, 1, 4, 2, 2, 5, 3, 3, 6), 3, byrow = TRUE))
-graphics::par(mar = c(3.5, 4.5, 2.5, 1))
+graphics::par(mar = c(4.2, 4.5, 2.5, 1), mgp = c(2.4, 0.8, 0))
 
 x_pos <- seq_len(M)
 colours <- c("grey25", "grey60")[snp_info$chrom %% 2 + 1]
