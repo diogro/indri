@@ -153,7 +153,7 @@ engine$fit(Y, X, a_forms, control) -> list(
 ```
 
 Each engine declares `capabilities`: `draws`, `se`, `vcov`, `a_form`,
-`missing` (whether it models gaps), and optionally `default_s`,
+`missing` (whether it handles gaps in `Y`), and optionally `default_s`,
 `default_cooccurrence`, `default_cores` and `default_chains`. Capabilities are
 decided in the main process; `fit()` only uses what `a_forms` carries (PSOCK
 workers load the installed package).
@@ -161,8 +161,8 @@ workers load the installed package).
 | engine | estimator | uncertainty | A form | gaps in Y | cost per block |
 |---|---|---|---|---|---|
 | `stanimal` | posterior mean (NUTS), `lkj_prior = 1` | posterior draws | eigendecomposition (shared) | modelled | highest |
-| `sommer` | REML (`mmes`, AI with EM recovery) | `vcov` from its natural-scale parameters | dense `A^-1` | rows dropped | low |
-| `asreml` | REML (AI) | `vcov` = inverse AI matrix | sparse `A^-1` | rows dropped | lowest; licence seats |
+| `sommer` | REML (`mmes`, AI with EM recovery) | `vcov` from its natural-scale parameters | dense `A^-1` | missing records skipped | low |
+| `asreml` | REML (AI) | `vcov` = inverse AI matrix | sparse `A^-1` | partly observed rows kept | lowest; licence seats |
 
 Rules:
 
@@ -176,10 +176,15 @@ Rules:
    of a factor), as stanimal requires: the responses are centred, and without
    a constant the REML engines would fit different models.
    `stanimal::animal_design()` builds `Y`, `X` and `A` from a formula.
-4. **Missing data is a capability.** stanimal models gaps; the REML engines
-   would drop incomplete rows per block, which breaks "the same data in every
-   block", so `missing = "error"` (default) refuses and `"complete_block"`
-   drops incomplete individuals once, before subsetting.
+4. **Gaps are handled by every engine.** stanimal integrates them out; in
+   sommer's long format a gap is one missing record (`naMethodY =
+   "exclude"` drops that row only), and asreml keeps partly observed rows
+   (`na.method(y = "include")`), so an individual contributes every trait it
+   has. The two REML engines agree exactly on gapped data. `missing =
+   "model"` (default) passes gaps through; `"complete_block"` drops incomplete
+   individuals once, before subsetting, and costs information (15% of values
+   missing at random left 311 of 500 individuals and 29% wider standard
+   errors, against 7% when the gaps are kept).
 
 ### Engine specifics
 
@@ -267,7 +272,7 @@ A method that understates integration is preferred to one that overstates it.
 fit_G(Y, X = NULL, A, s = NULL, min_cooccurrence = NULL, subsets = NULL,
       engine = "stanimal", engine_args = list(),
       assembly = c("ls", "average"), weights = c("none", "inverse_variance"),
-      missing = c("error", "complete_block"), spread = c("mixture", "average"),
+      missing = c("model", "complete_block"), spread = c("mixture", "average"),
       cores = NULL, n_draws = 1000L, seed = NULL,
       progress = getOption("indri.progress", interactive()))
 ```
@@ -313,7 +318,7 @@ engine is loaded at package load; each is checked at call time.
 
 Decided (with the evidence in STATUS.md):
 
-1. **Default engine: stanimal.** It gives a posterior and models gaps; the REML
+1. **Default engine: stanimal.** It gives a posterior; the REML
    engines are the fast choice for large N.
 2. **Engines are `Suggests:`**, checked at call time.
 3. **Assembly: least-squares projection**, average available.
@@ -328,8 +333,9 @@ Decided (with the evidence in STATUS.md):
 
 Open:
 
-- **Missing data.** `"error"` stays the default; the gap paths have not been
-  exercised end to end.
+- **Missing data across blocks.** Each engine handles gaps within a block;
+  how gaps that differ between traits affect the assembly, and stanimal's
+  imputation against REML on gapped data, have not been measured.
 - **Factor (horseshoe) prior for stanimal blocks.** It changes what G is
   estimated; not exposed yet.
 - **A REML full model as reference** was dropped: full multi-trait REML fits are
@@ -350,7 +356,8 @@ Open:
   the wrong term.
 - **Licensed dependency.** asreml cannot run in CI; its tests skip without a
   licence, and the engine fails with an actionable message.
-- **Missing data interacts with subsetting** differently per engine.
+- **Missing data**: a trait with many gaps is weakly estimated in every block
+  it enters, and pair coverage does not see it.
 
 ## 14. References
 

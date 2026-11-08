@@ -183,14 +183,22 @@ draws are unchanged.
   `maxit = 50` and up to 5 updates while unconverged, which matched sommer
   exactly at no cost when a fit converges early. The convergence study above
   had an intercept only, where non-convergence was benign.
+- **Gaps in Y with the REML engines**: they were flagged as unable to handle
+  gaps, so `fit_G()` refused them or dropped incomplete individuals. Both
+  handle gaps natively (sommer's long format skips the missing record, asreml
+  keeps partly observed rows) and agree exactly; `missing = "model"` is now
+  the default for every engine. Keeping the gaps cost 7% in standard error at
+  15% missing, against 29% for dropping incomplete individuals.
 - **Design checks**: `fit_G()` refuses an `X` that cannot represent a constant,
   is rank deficient, has no columns or has missing values, as stanimal does;
   without a constant sommer and asreml fitted different models.
 
 ## Next
 
-1. **Missing data end to end.** Gaps in `Y` have never gone through `fit_G()`
-   on a real fit, with stanimal (modelled) or with `missing = "complete_block"`.
+1. **Missing data across the assembly.** Every engine now handles gaps within a
+   block (the REML engines agree exactly on gapped data); still unmeasured:
+   coverage and accuracy of the assembled G when traits have unequal gaps, and
+   stanimal's imputation against REML on the same gapped data.
 2. **Real data.** Run the defaults on the ratones mice (`ratones_G.R`, 35
    traits) and compare engines there.
 3. **Large-N overhead.** With the decomposition shared, about 12 s per block

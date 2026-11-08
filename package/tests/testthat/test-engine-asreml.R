@@ -6,7 +6,7 @@ test_that("the asreml engine returns a covariance and standard errors", {
   expect_equal(engine$capabilities$a_form, "sparse_inverse")
   expect_false(engine$capabilities$draws)
   expect_true(engine$capabilities$se)
-  expect_false(engine$capabilities$missing)
+  expect_true(engine$capabilities$missing)   # gaps are single missing records
 
   forms <- indri_a_forms(data$A, need = engine$capabilities$a_form)
   expect_true("sparse_inverse" %in% names(forms))

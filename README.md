@@ -28,8 +28,9 @@ You also need at least one block engine:
 | `"sommer"` | [`sommer`](https://cran.r-project.org/package=sommer) | | REML sampling distribution |
 | `"asreml"` | [ASReml-R](https://vsni.co.uk/software/asreml-r/) | a licence (one seat per worker) | REML sampling distribution |
 
-stanimal models gaps in `Y` and gives a posterior; the REML engines are much
-faster for large N.
+Every engine accepts gaps (`NA`) in `Y` and uses each individual's observed
+traits. stanimal gives a posterior; the REML engines are much faster for large
+N.
 
 ## Quick start
 

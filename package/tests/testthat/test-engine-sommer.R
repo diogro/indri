@@ -6,7 +6,7 @@ test_that("the sommer engine returns a covariance and standard errors", {
   expect_equal(engine$capabilities$a_form, "inverse")
   expect_false(engine$capabilities$draws)
   expect_true(engine$capabilities$se)
-  expect_false(engine$capabilities$missing)
+  expect_true(engine$capabilities$missing)   # gaps are single missing records
 
   forms <- indri_a_forms(data$A, need = engine$capabilities$a_form)
   expect_true("inverse" %in% names(forms))
@@ -160,4 +160,34 @@ test_that("every matrix in a fit carries the trait names of Y", {
   expect_equal(rownames(b$vcov),
                c(paste(own[1], own[1], sep = ","), paste(own[2], own[1], sep = ","),
                  paste(own[2], own[2], sep = ",")))
+})
+
+test_that("the REML engines keep partly observed individuals, and agree", {
+  skip_if_not_installed("sommer")
+  # A gap is one missing record: sommer's long format drops that row only,
+  # asreml keeps the individual's other traits. Checked against each other.
+  set.seed(5)
+  A <- kronecker(diag(60), matrix(0.5, 5, 5)); diag(A) <- 1
+  N <- nrow(A); ids <- paste0("id", seq_len(N))
+  G <- matrix(c(1, 0.5, 0.3, 0.5, 0.8, -0.2, 0.3, -0.2, 0.9), 3)
+  Y <- t(chol(A)) %*% matrix(rnorm(N * 3), N) %*% chol(G) +
+    matrix(rnorm(N * 3), N) %*% diag(sqrt(c(0.6, 0.7, 0.5)))
+  Y <- scale(Y); dimnames(Y) <- list(ids, c("t1", "t2", "t3"))
+  Y[sample(length(Y), round(0.15 * length(Y)))] <- NA
+  X <- matrix(1, N, 1, dimnames = list(ids, "intercept"))
+  fs <- .indri_sommer_fit(Y, X, indri_a_forms(A, need = "inverse"))
+  expect_true(all(is.finite(fs$G)))
+  expect_false(is.null(fs$vcov))
+
+  # fit_G passes the gaps through instead of refusing or dropping rows
+  fit <- fit_G(Y, A = A, engine = "sommer", cores = 1L, n_draws = 20L, seed = 1L)
+  expect_equal(fit$n_individuals, N)
+  expect_true(all(is.finite(fit$G)))
+  dropped <- fit_G(Y, A = A, engine = "sommer", missing = "complete_block",
+                   cores = 1L, n_draws = 20L, seed = 1L)
+  expect_equal(dropped$n_individuals, sum(stats::complete.cases(Y)))
+
+  skip_if_no_asreml()
+  fa <- .indri_asreml_fit(Y, X, indri_a_forms(A, need = "sparse_inverse"))
+  expect_equal(unname(fa$G), unname(fs$G), tolerance = 1e-3)
 })

@@ -15,7 +15,7 @@ fit_G(
   engine_args = list(),
   assembly = c("ls", "average"),
   weights = c("none", "inverse_variance"),
-  missing = c("error", "complete_block"),
+  missing = c("model", "complete_block"),
   spread = c("mixture", "average"),
   cores = NULL,
   n_draws = 1000L,
@@ -24,8 +24,8 @@ fit_G(
 )
 }
 \arguments{
-\item{Y}{Phenotype matrix, individuals in rows and traits in columns. Gaps are
-allowed when the engine can handle them; see \code{missing}.}
+\item{Y}{Phenotype matrix, individuals in rows and traits in columns. Gaps
+(\code{NA}) are allowed with every engine; see \code{missing}.}
 
 \item{X}{Fixed-effect design, one row per individual. Defaults to an
 intercept. It must have full column rank and be able to represent a
@@ -69,9 +69,13 @@ standard error for REML engines, per-entry posterior variance for the
 draws-based stanimal engine). Weights apply to both the average and the
 projection.}
 
-\item{missing}{What to do when \code{Y} has gaps and the engine cannot handle them:
-\code{"error"}, or \code{"complete_block"} to drop incomplete individuals once, before
-subsetting, so every block sees the same rows.}
+\item{missing}{What to do with gaps in \code{Y}. \code{"model"} (the default) keeps
+every observed value and lets the engine handle the gaps: stanimal
+integrates them out, and the REML engines use each individual's observed
+traits (a missing value is one missing record, not a missing individual).
+\code{"complete_block"} drops incomplete individuals once, before subsetting;
+it discards information (with 15\\% of values missing at random, a third of
+the individuals and about 20\\% wider standard errors).}
 
 \item{spread}{How \code{G_draws} and \code{corrG_draws} combine the block posteriors.
 \code{"mixture"} (the default) takes each entry of each draw from one covering

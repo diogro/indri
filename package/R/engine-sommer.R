@@ -12,7 +12,9 @@
       # joint sampling covariance of the G entries, from which fit_G() draws
       vcov = TRUE,
       a_form = "inverse",
-      missing = FALSE,
+      # gaps in Y are fine: a missing value is one missing observation, and the
+      # REML fit uses everything else the individual has
+      missing = TRUE,
       # 4-trait blocks, each pair in at least one; see
       # .indri_engine_defaults()
       default_s = 3L,

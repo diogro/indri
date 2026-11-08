@@ -15,8 +15,8 @@
 #' do not combine them directly with the assembled outputs (`y_sd` converts
 #' between the two).
 #'
-#' @param Y Phenotype matrix, individuals in rows and traits in columns. Gaps are
-#'   allowed when the engine can handle them; see `missing`.
+#' @param Y Phenotype matrix, individuals in rows and traits in columns. Gaps
+#'   (`NA`) are allowed with every engine; see `missing`.
 #' @param X Fixed-effect design, one row per individual. Defaults to an
 #'   intercept. It must have full column rank and be able to represent a
 #'   constant (an intercept, or the indicators of every level of a factor).
@@ -51,9 +51,13 @@
 #'   standard error for REML engines, per-entry posterior variance for the
 #'   draws-based stanimal engine). Weights apply to both the average and the
 #'   projection.
-#' @param missing What to do when `Y` has gaps and the engine cannot handle them:
-#'   `"error"`, or `"complete_block"` to drop incomplete individuals once, before
-#'   subsetting, so every block sees the same rows.
+#' @param missing What to do with gaps in `Y`. `"model"` (the default) keeps
+#'   every observed value and lets the engine handle the gaps: stanimal
+#'   integrates them out, and the REML engines use each individual's observed
+#'   traits (a missing value is one missing record, not a missing individual).
+#'   `"complete_block"` drops incomplete individuals once, before subsetting;
+#'   it discards information (with 15\% of values missing at random, a third of
+#'   the individuals and about 20\% wider standard errors).
 #' @param cores Total number of concurrent processes for the whole fit,
 #'   not the number of subsets to run at once. Defaults to 1, except for
 #'   `"asreml"`, which defaults to 2: every worker checks out its own ASReml
@@ -153,7 +157,7 @@ fit_G <- function(Y, X = NULL, A, s = NULL, min_cooccurrence = NULL,
                   subsets = NULL, engine = "stanimal", engine_args = list(),
                   assembly = c("ls", "average"),
                   weights = c("none", "inverse_variance"),
-                  missing = c("error", "complete_block"),
+                  missing = c("model", "complete_block"),
                   spread = c("mixture", "average"),
                   cores = NULL, n_draws = 1000L, seed = NULL,
                   progress = getOption("indri.progress", interactive())) {
@@ -179,9 +183,9 @@ fit_G <- function(Y, X = NULL, A, s = NULL, min_cooccurrence = NULL,
   X <- .indri_design(X, nrow(Y), rownames(Y))
 
   if (anyNA(Y)) {
-    if (isTRUE(engine$capabilities$missing)) {
-      # the engine models the gaps
-    } else if (missing == "error") {
+    if (missing == "model" && isTRUE(engine$capabilities$missing)) {
+      # the engine handles the gaps
+    } else if (missing == "model") {
       stop("`Y` has gaps and the ", engine$name, " engine cannot handle them. ",
            "Use `missing = \"complete_block\"` to drop incomplete individuals.",
            call. = FALSE)
