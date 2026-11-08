@@ -16,7 +16,7 @@ variables; the main ones are below. `*_CORES` is a process budget for
 | script | what it does | settings |
 |---|---|---|
 | `six_traits.R` | the whole pipeline on six traits against a known G: coverage, per-pair correlations, variances, a plot. About three minutes | none |
-| `ratones_G.R` | real data: the ratones mice shipped with stanimal (329 mice, 35 skull traits, pedigree), G against P | `INDRI_RATONES_CORES`, `_ITER`, `_CHAINS`, `_SEED` |
+| `ratones_G.R` | real data: the ratones mice shipped with stanimal (329 mice, 35 skull traits, pedigree), G against P | `INDRI_RATONES_ENGINE`, `_CORES`, `_ITER`, `_CHAINS`, `_SEED`, `_TAG` |
 | `compare_engines.R` | one simulated dataset on stanimal, sommer and asreml, against the truth and each other | `INDRI_ENGINE_K`, `_CORES`, `_CORES_SOMMER`, `_CORES_ASREML`, `_S*`, `_SOMMER`, `_ASREML` |
 
 The studies used to choose indri's defaults (validation against the full
