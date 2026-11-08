@@ -13,3 +13,5 @@ results/*
 !results/validation_12_traits_*.csv
 !results/uncertainty_coverage_*.csv
 *.rds
+# test fixtures are data the suite needs
+!package/tests/testthat/fixtures/**/*.rds

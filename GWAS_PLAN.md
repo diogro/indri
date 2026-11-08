@@ -46,13 +46,13 @@ comes over:
 Model, for `N` individuals, `P` traits and one SNP `g`:
 
 ```
-Y = X B + g beta' + U + Eps,   vec(U) ~ N(0, Cg (x) K),   vec(Eps) ~ N(0, Cn (x) I)
+Y = X B + g beta' + U + Eps,   vec(U) ~ N(0, Cg (x) A),   vec(Eps) ~ N(0, Cn (x) I)
 ```
 
 With `Cg` and `Cn` fixed, as in LiMMBo, the covariance diagonalises once for
 the whole scan:
 
-1. `K = Q diag(lambda) Q'`, decomposed once. indri already has this through
+1. `A = Q diag(lambda) Q'`, decomposed once. indri already has this through
    the `"eigen"` A form in `a_forms.R`.
 2. `Cn = L L'`, and `L^-1 Cg L^-T = W diag(d) W'`. Let `T = L^-T W`.
 3. Rotate: `Y* = Q' Y T`, `X* = Q' X`, `G* = Q' G`, where `G` holds the
@@ -63,7 +63,7 @@ the whole scan:
    weighted regressions**: column `k` of `Y*` on `[X*, g*]` with weights
    `1 / (lambda_i d_k + delta)`.
 5. **`G` and `E` are shapes, not literal covariances.** The covariance is
-   `sigma^2 (G (x) K + delta E (x) I)`. The ratio `delta` is fitted once under
+   `sigma^2 (G (x) A + delta E (x) I)`. The ratio `delta` is fitted once under
    the null by REML, unless the caller passes it. `sigma^2` is profiled under
    each model. The statistic is the likelihood ratio
    `NP log(q0 / q1) ~ chi^2_P`, where `q` is the generalised residual sum of
@@ -84,7 +84,7 @@ Cost:
 This uses the same rotate-once idea as stanimal's `animalModelG.stan`.
 
 - **Single-trait LMM:** the same rotation with `P = 1`, covariance
-  `sigma^2 (K + delta I)`. Each trait's `delta` is fitted by REML under the
+  `sigma^2 (A + delta I)`. Each trait's `delta` is fitted by REML under the
   null and held fixed across SNPs (the P3D/EMMAX approximation). The option
   `single_trait_variance = "fit"` takes `delta = E_kk / G_kk` from the indri
   fit instead.
@@ -98,7 +98,7 @@ This uses the same rotate-once idea as stanimal's `animalModelG.stan`.
 Names follow the package (`fit_G`, `indri_*`):
 
 ```r
-scan <- indri_gwas(Y, genotypes, fit = NULL, G = NULL, E = NULL, K = NULL,
+scan <- indri_gwas(Y, genotypes, fit = NULL, G = NULL, E = NULL, A = NULL,
                    X = NULL, snp_info = NULL,
                    mode = c("multi_trait", "single_trait"),
                    model = c("lmm", "lm"),
@@ -116,8 +116,8 @@ as.data.frame(scan)        # one row per SNP (and trait), for write.csv()
   `G`/`E`, matched to the columns of `Y` by name. One of them is required for
   the multi-trait LMM. The single-trait LMM needs neither unless
   `single_trait_variance = "fit"`.
-- **`K` is required for the LMMs.** An indri fit does not keep `A`, and
-  storing it would make every fit `N x N`. A scan on a genomic relationship
+- **`A` is required for the LMMs**, as in `fit_G()`. An indri fit does not
+  keep it, and storing it would make every fit `N x N`. A scan on a genomic relationship
   matrix with `G` estimated on a pedigree `A` is the caller's choice.
 - **`delta`** fixes the null variance ratio instead of estimating it: a
   scalar for the multi-trait test, one value per trait for the single-trait
@@ -126,7 +126,7 @@ as.data.frame(scan)        # one row per SNP (and trait), for write.csv()
   extra columns of `X`.
 - **Requirements:** `Y` must be complete in v1, since a missing entry breaks
   the Kronecker rotation. Sample IDs are matched by row names across `Y`,
-  `K` and `genotypes`, the way `fit_G()` matches `A`.
+  `A` and `genotypes`, the way `fit_G()` matches `A`.
 - **Return value:** an `indri_gwas` object holding `pvalues` (M, or M x P),
   `betas` (M x P), `delta`, `pvalues_adjust` and `n_tests` for single-trait
   scans with an adjustment, `snp_info`, `call`, `mode` and `model`.
@@ -171,7 +171,8 @@ PCs, a relationship matrix, and `Cg`/`Cn`. The simulation is described in
 Done. `fixtures/limmbo/make_limmbo_fixtures.py` runs limmbo's `GWAS` class
 on the first 250 samples, with the shipped `Cg`/`Cn`, and writes every input
 and output. Run it from the limmbo checkout with
-`PYTHONPATH=. pixi run python <script> <outdir>`. `K` is stored as an
+`PYTHONPATH=. pixi run python <script> <outdir>`. The relationship matrix
+(limmbo's `K.csv`) is stored as `A.rds`, an
 xz-compressed `.rds`, so the fixtures take 520 KB.
 
 What LIMIX does, found from these fixtures and its source:

@@ -10,7 +10,7 @@ indri_gwas(
   fit = NULL,
   G = NULL,
   E = NULL,
-  K = NULL,
+  A = NULL,
   X = NULL,
   snp_info = NULL,
   mode = c("multi_trait", "single_trait"),
@@ -34,7 +34,7 @@ units of \code{Y}, instead of \code{fit}. Matched to the columns of \code{Y} by 
 when both are named. For the multi-trait LM, \code{E} replaces the residual
 covariance.}
 
-\item{K}{Relationship matrix of the individuals; required for
+\item{A}{Relationship matrix of the individuals; required for
 \code{model = "lmm"}.}
 
 \item{X}{Fixed-effects design with full column rank that can represent a
@@ -48,7 +48,7 @@ results.}
 \item{mode}{\code{"multi_trait"} for one joint test per SNP, \code{"single_trait"}
 for one test per SNP and trait.}
 
-\item{model}{\code{"lmm"} (with \code{K}) or \code{"lm"}.}
+\item{model}{\code{"lmm"} (with \code{A}) or \code{"lm"}.}
 
 \item{single_trait_variance}{For the single-trait LMM, \code{"reml"} fits each
 trait's variance ratio, \code{"fit"} takes it from \code{G} and \code{E}.}
@@ -72,7 +72,7 @@ adjusted, \code{snp_info}, \code{mode}, \code{model} and \code{call}.
 \description{
 Tests each SNP for association with the traits in \code{Y}, either jointly
 (one multi-trait "any effect" test per SNP) or trait by trait, in a linear
-mixed model with relationship matrix \code{K} or in a linear model. The
+mixed model with relationship matrix \code{A} or in a linear model. The
 multi-trait mixed model uses the genetic and residual covariances \code{G} and
 \code{E}, usually from \code{\link[=fit_G]{fit_G()}}, which is what makes it feasible for many
 traits.
@@ -83,21 +83,21 @@ For \code{N} individuals, \code{P} traits and one SNP \code{g},
 \verb{Y = X B + g beta' + U + Eps}. Every test profiles an overall scale
 \code{sigma^2} and is a likelihood-ratio test:
 \itemize{
-\item multi-trait LMM: \verb{vec(U + Eps) ~ N(0, sigma^2 (G (x) K + delta E (x) I))},
+\item multi-trait LMM: \verb{vec(U + Eps) ~ N(0, sigma^2 (G (x) A + delta E (x) I))},
 \code{P} degrees of freedom. \code{G} and \code{E} set the shape; the ratio \code{delta} is
 fitted once by REML under the null (no SNP) and held fixed for every SNP.
 With \code{G} and \code{E} fitted to the same data it should be near 1, and is
 returned so that it can be checked.
 \item multi-trait LM: \verb{sigma^2 E (x) I}, \code{P} degrees of freedom, with \code{E} by
 default the covariance of the residuals of \code{Y} on \code{X}.
-\item single-trait LMM: per trait, \verb{sigma^2 (K + delta I)}, one degree of
+\item single-trait LMM: per trait, \verb{sigma^2 (A + delta I)}, one degree of
 freedom, with \code{delta} fitted by REML under the null
 (\code{single_trait_variance = "reml"}) or taken as \code{E[k, k] / G[k, k]}
 (\code{"fit"}).
 \item single-trait LM: ordinary least squares.
 }
 
-The covariance is diagonalised once (eigenvectors of \code{K}, then of \code{G}
+The covariance is diagonalised once (eigenvectors of \code{A}, then of \code{G}
 relative to \code{E}), so the scan costs one \verb{N x N} rotation of the genotypes
 plus \verb{O(N P)} per SNP.
 }

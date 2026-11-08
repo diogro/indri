@@ -11,6 +11,7 @@ cd limmbo
 PYTHONPATH=. pixi run python /path/to/make_limmbo_fixtures.py <outdir>
 ```
 
-then convert `K.csv` to `K.rds` (`saveRDS(K, "K.rds", compress = "xz")`).
+then convert `K.csv`, the relationship matrix, to `A.rds`, the name indri
+uses for it (`saveRDS(A, "A.rds", compress = "xz")`).
 `log_delta.csv` holds the null variance ratio LIMIX fitted for each test;
 the tests pass it to `indri_gwas(delta =)`.

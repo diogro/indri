@@ -2,7 +2,7 @@
 #'
 #' Tests each SNP for association with the traits in `Y`, either jointly
 #' (one multi-trait "any effect" test per SNP) or trait by trait, in a linear
-#' mixed model with relationship matrix `K` or in a linear model. The
+#' mixed model with relationship matrix `A` or in a linear model. The
 #' multi-trait mixed model uses the genetic and residual covariances `G` and
 #' `E`, usually from [fit_G()], which is what makes it feasible for many
 #' traits.
@@ -12,20 +12,20 @@
 #' `Y = X B + g beta' + U + Eps`. Every test profiles an overall scale
 #' `sigma^2` and is a likelihood-ratio test:
 #'
-#' * multi-trait LMM: `vec(U + Eps) ~ N(0, sigma^2 (G (x) K + delta E (x) I))`,
+#' * multi-trait LMM: `vec(U + Eps) ~ N(0, sigma^2 (G (x) A + delta E (x) I))`,
 #'   `P` degrees of freedom. `G` and `E` set the shape; the ratio `delta` is
 #'   fitted once by REML under the null (no SNP) and held fixed for every SNP.
 #'   With `G` and `E` fitted to the same data it should be near 1, and is
 #'   returned so that it can be checked.
 #' * multi-trait LM: `sigma^2 E (x) I`, `P` degrees of freedom, with `E` by
 #'   default the covariance of the residuals of `Y` on `X`.
-#' * single-trait LMM: per trait, `sigma^2 (K + delta I)`, one degree of
+#' * single-trait LMM: per trait, `sigma^2 (A + delta I)`, one degree of
 #'   freedom, with `delta` fitted by REML under the null
 #'   (`single_trait_variance = "reml"`) or taken as `E[k, k] / G[k, k]`
 #'   (`"fit"`).
 #' * single-trait LM: ordinary least squares.
 #'
-#' The covariance is diagonalised once (eigenvectors of `K`, then of `G`
+#' The covariance is diagonalised once (eigenvectors of `A`, then of `G`
 #' relative to `E`), so the scan costs one `N x N` rotation of the genotypes
 #' plus `O(N P)` per SNP.
 #'
@@ -37,7 +37,7 @@
 #'   units of `Y`, instead of `fit`. Matched to the columns of `Y` by name
 #'   when both are named. For the multi-trait LM, `E` replaces the residual
 #'   covariance.
-#' @param K Relationship matrix of the individuals; required for
+#' @param A Relationship matrix of the individuals; required for
 #'   `model = "lmm"`.
 #' @param X Fixed-effects design with full column rank that can represent a
 #'   constant, as for [fit_G()]; defaults to an intercept. Principal
@@ -47,7 +47,7 @@
 #'   results.
 #' @param mode `"multi_trait"` for one joint test per SNP, `"single_trait"`
 #'   for one test per SNP and trait.
-#' @param model `"lmm"` (with `K`) or `"lm"`.
+#' @param model `"lmm"` (with `A`) or `"lm"`.
 #' @param single_trait_variance For the single-trait LMM, `"reml"` fits each
 #'   trait's variance ratio, `"fit"` takes it from `G` and `E`.
 #' @param delta Optional fixed variance ratio for the LMMs, instead of the
@@ -69,7 +69,7 @@
 #' genetic association studies. bioRxiv, preprint.
 #' \doi{10.1101/255497}
 #' @export
-indri_gwas <- function(Y, genotypes, fit = NULL, G = NULL, E = NULL, K = NULL,
+indri_gwas <- function(Y, genotypes, fit = NULL, G = NULL, E = NULL, A = NULL,
                        X = NULL, snp_info = NULL,
                        mode = c("multi_trait", "single_trait"),
                        model = c("lmm", "lm"),
@@ -107,13 +107,13 @@ indri_gwas <- function(Y, genotypes, fit = NULL, G = NULL, E = NULL, K = NULL,
   .indri_check_design(X)
 
   if (model == "lmm") {
-    if (is.null(K))
-      stop("`K` is required for model = \"lmm\".", call. = FALSE)
-    K <- .indri_gwas_matrix(K, "K")
-    if (is.null(rownames(K)) && !is.null(colnames(K))) rownames(K) <- colnames(K)
-    if (is.null(colnames(K))) colnames(K) <- rownames(K)
-    K <- .indri_gwas_rows(K, rownames(Y), N, "K")
-    K <- t(.indri_gwas_rows(t(K), rownames(Y), N, "K"))
+    if (is.null(A))
+      stop("`A` is required for model = \"lmm\".", call. = FALSE)
+    A <- .indri_gwas_matrix(A, "A")
+    if (is.null(rownames(A)) && !is.null(colnames(A))) rownames(A) <- colnames(A)
+    if (is.null(colnames(A))) colnames(A) <- rownames(A)
+    A <- .indri_gwas_rows(A, rownames(Y), N, "A")
+    A <- t(.indri_gwas_rows(t(A), rownames(Y), N, "A"))
   }
 
   if (!is.null(snp_info)) {
@@ -162,10 +162,10 @@ indri_gwas <- function(Y, genotypes, fit = NULL, G = NULL, E = NULL, K = NULL,
             if (sum(monomorphic) > 5L) ", ...", call. = FALSE)
 
   scan <- if (mode == "multi_trait") {
-    .indri_gwas_multi(Y, X, genotypes, G, E, K, model, delta, chunk_size,
+    .indri_gwas_multi(Y, X, genotypes, G, E, A, model, delta, chunk_size,
                       monomorphic)
   } else {
-    .indri_gwas_single(Y, X, genotypes, G, E, K, model, delta,
+    .indri_gwas_single(Y, X, genotypes, G, E, A, model, delta,
                        single_trait_variance, chunk_size, monomorphic)
   }
 
@@ -215,7 +215,7 @@ indri_effective_tests <- function(Y, X = NULL) {
 # of a rotated response, with per-entry variances V[i, c] (see
 # .indri_gwas_columns()).
 
-.indri_gwas_multi <- function(Y, X, genotypes, G, E, K, model, delta,
+.indri_gwas_multi <- function(Y, X, genotypes, G, E, A, model, delta,
                               chunk_size, monomorphic) {
   N <- nrow(Y); P <- ncol(Y)
   if (model == "lm" && is.null(E)) {
@@ -229,7 +229,7 @@ indri_effective_tests <- function(Y, X = NULL) {
     eg <- eigen((Gw + t(Gw)) / 2, symmetric = TRUE)
     d <- pmax(eg$values, 0)
     Tm <- backsolve(t(L), eg$vectors)
-    rot <- .indri_gwas_rotation(K)
+    rot <- .indri_gwas_rotation(A)
   } else {
     d <- rep(0, P)
     Tm <- backsolve(t(L), diag(P))
@@ -262,11 +262,11 @@ indri_effective_tests <- function(Y, X = NULL) {
        delta = if (model == "lmm") unname(delta) else NULL)
 }
 
-.indri_gwas_single <- function(Y, X, genotypes, G, E, K, model, delta,
+.indri_gwas_single <- function(Y, X, genotypes, G, E, A, model, delta,
                                single_trait_variance, chunk_size,
                                monomorphic) {
   N <- nrow(Y); P <- ncol(Y)
-  rot <- if (model == "lmm") .indri_gwas_rotation(K)
+  rot <- if (model == "lmm") .indri_gwas_rotation(A)
          else list(Q = NULL, lambda = rep(0, N))
   Ys <- .indri_gwas_rotate(rot$Q, Y)
   Xs <- .indri_gwas_rotate(rot$Q, X)
@@ -362,10 +362,10 @@ indri_effective_tests <- function(Y, X = NULL) {
   exp(stats::optimize(criterion, c(-12, 12), tol = 1e-9)$minimum)
 }
 
-.indri_gwas_rotation <- function(K) {
-  e <- eigen((K + t(K)) / 2, symmetric = TRUE)
+.indri_gwas_rotation <- function(A) {
+  e <- eigen((A + t(A)) / 2, symmetric = TRUE)
   if (min(e$values) < -1e-8 * max(abs(e$values)))
-    stop("`K` must be positive semi-definite.", call. = FALSE)
+    stop("`A` must be positive semi-definite.", call. = FALSE)
   list(Q = e$vectors, lambda = pmax(e$values, 0))
 }
 

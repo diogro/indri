@@ -8,7 +8,7 @@
 
 test_that("the multi-trait LMM reproduces limmbo", {
   f <- limmbo_fixture()
-  scan <- indri_gwas(f$Y, f$geno, G = f$Cg, E = f$Cn, K = f$K, X = f$X,
+  scan <- indri_gwas(f$Y, f$geno, G = f$Cg, E = f$Cn, A = f$A, X = f$X,
                      mode = "multi_trait", model = "lmm",
                      delta = f$delta$multi_lmm)
   expect_rel_equal(scan$pvalues, f$p$multi_lmm, 1e-6)
@@ -29,7 +29,7 @@ test_that("the multi-trait LM reproduces limmbo given its residual shape", {
 
 test_that("the single-trait LMM reproduces limmbo", {
   f <- limmbo_fixture()
-  scan <- indri_gwas(f$Y, f$geno, K = f$K, X = f$X, mode = "single_trait",
+  scan <- indri_gwas(f$Y, f$geno, A = f$A, X = f$X, mode = "single_trait",
                      model = "lmm", delta = f$delta$single_lmm)
   expect_rel_equal(scan$pvalues, f$p$single_lmm, 1e-8)
   expect_equal(unname(scan$betas), unname(f$beta$single_lmm),
@@ -49,11 +49,11 @@ test_that("the effective number of tests and the adjustments match limmbo", {
   # limmbo counted from the raw phenotypes; indri_gwas() uses the residuals
   # after X, which indri_effective_tests() gives with X.
   expect_equal(indri_effective_tests(f$Y), f$effective_tests, tolerance = 1e-10)
-  bonf <- indri_gwas(f$Y, f$geno, K = f$K, X = f$X, mode = "single_trait",
+  bonf <- indri_gwas(f$Y, f$geno, A = f$A, X = f$X, mode = "single_trait",
                      delta = f$delta$single_lmm, adjust = "bonferroni")
   expect_equal(unname(bonf$pvalues_adjust), unname(f$padjust$lmm_bonferroni),
                tolerance = 1e-8)
-  eff <- indri_gwas(f$Y, f$geno, K = f$K, X = f$X, mode = "single_trait",
+  eff <- indri_gwas(f$Y, f$geno, A = f$A, X = f$X, mode = "single_trait",
                     delta = f$delta$single_lmm, adjust = "effective")
   expect_equal(eff$n_tests, indri_effective_tests(f$Y, f$X), tolerance = 1e-12)
   expect_equal(unname(eff$pvalues_adjust),
