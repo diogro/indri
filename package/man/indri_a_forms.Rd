@@ -21,8 +21,9 @@ with it is identical to one fitted without).
 \description{
 The engines do not agree on how the relationship matrix arrives: a Bayesian
 model takes it dense or as its eigendecomposition, sommer takes its inverse
-marked as such, and ASReml takes a sparse three-column inverse. Build the forms once per run so that a
-loop over many trait subsets pays for each one only once.
+marked as such, and ASReml takes a sparse three-column inverse. Build the
+forms once per run so that a loop over many trait subsets pays for each one
+only once.
 }
 \examples{
 # A relationship matrix for two pairs of full siblings.

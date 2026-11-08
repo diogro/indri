@@ -9,22 +9,20 @@ R CMD INSTALL package
 Rscript examples/six_traits.R
 ```
 
-Every study script documents its settings in its header as `INDRI_*`
-environment variables; the main ones are below. `*_CORES` is a process budget
-for `fit_G()`, not a worker count. Run one seed per process for long studies.
+Scripts with settings document them in their header as `INDRI_*` environment
+variables; the main ones are below. `*_CORES` is a process budget for
+`fit_G()`, not a worker count.
 
 | script | what it does | settings |
 |---|---|---|
 | `six_traits.R` | the whole pipeline on six traits against a known G: coverage, per-pair correlations, variances, a plot. About three minutes | none |
 | `ratones_G.R` | real data: the ratones mice shipped with stanimal (329 mice, 35 skull traits, pedigree), G against P | `INDRI_RATONES_CORES`, `_ITER`, `_CHAINS`, `_SEED` |
-| `validation_12_traits.R` | the M1 gate: indri against the full 12-trait stanimal model | `INDRI_STUDY_SEEDS`, `_CORES`, `_WEIGHTS` |
 | `compare_engines.R` | one simulated dataset on stanimal, sommer and asreml, against the truth and each other | `INDRI_ENGINE_K`, `_CORES`, `_CORES_SOMMER`, `_CORES_ASREML`, `_S*`, `_SOMMER`, `_ASREML` |
-| `uncertainty_coverage.R` | coverage, width, shrinkage slope and integration (eigenvalue variance) of the 95% bands, any engine, optional full model | `INDRI_COVERAGE_ENGINE`, `_K`, `_NFAM`, `_SEEDS`, `_CORES`, `_S`, `_C`, `_S_STAN`, `_LKJ`, `_FULL`, `_DRAWS` |
-| `block_size_sweep.R` | accuracy, time and convergence over block sizes `s` and coverage `c`, same data within a seed | `INDRI_SWEEP_ENGINE`, `_K`, `_SEED`, `_S`, `_C`, `_CORES` |
-| `reml_convergence.R` | the REML pairs that report no convergence, and five ways of refitting them | `INDRI_CONV_ENGINE`, `_K`, `_SEED`, `_CORES` |
-| `eigen_A_timing.R` | what sharing the eigendecomposition of `A` saves per stanimal block | `INDRI_TIMING_MODE`, `_LIB`, `_N`, `_ITER`, `_REPS` |
 
-What each study measured is recorded in [STATUS.md](../STATUS.md).
+The studies used to choose indri's defaults (validation against the full
+model, uncertainty coverage, block sizes, REML convergence, eigendecomposition
+timing) are no longer here; their results are in [STATUS.md](../STATUS.md)
+and the scripts in git history at `7b67eab`.
 
 ## Reading `six_traits.R`
 

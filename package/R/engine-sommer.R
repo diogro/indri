@@ -1,6 +1,7 @@
 # sommer engine: one multivariate animal model per trait subset, fitted with
-# sommer::mmes() in long format. REML point estimates with delta-method standard
-# errors, which the assembly can use for inverse-variance weighting.
+# sommer::mmes() in long format. REML estimates with standard errors and the
+# joint sampling covariance of the G entries (`vcov`), from which fit_G()
+# draws the block's uncertainty.
 
 .indri_engine_sommer <- function() {
   list(
@@ -119,7 +120,7 @@
 
   vcov <- .indri_sommer_vcov(fit, traits, single)
 
-  llik <- tail(fit$llik, 1)
+  llik <- utils::tail(fit$llik, 1)
   if (length(llik) != 1L || !is.finite(llik)) llik <- NA_real_
 
   # Return every matrix in the column order of Y. sommer labels them by trait

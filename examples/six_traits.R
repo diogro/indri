@@ -53,12 +53,11 @@ colnames(Y) <- trait_names
 
 ## Fit ---------------------------------------------------------------------
 
-# A note on what to expect. The block fits are Bayesian, and stanimal puts an
-# LKJ(2) prior on the trait correlations, which pulls them towards zero; at 200
-# individuals that prior still has weight, so the reported correlations sit a
-# little closer to zero than the truth. This is the estimator, not the
-# subsetting: stanimal's own full 6-trait model shrinks the same way. Widen the
-# prior with `engine_args = list(lkj_prior = 1)` if you want it weaker.
+# A note on what to expect. The block fits are Bayesian, with indri's default
+# LKJ(1) prior on the trait correlations (uniform over correlation matrices).
+# At 200 individuals the strongest correlations still come out a little closer
+# to zero than the truth; that is the estimator at this sample size, not the
+# subsetting. `engine_args = list(lkj_prior = 2)` regularises more.
 
 # `s = 3` makes each subset cover 3 - 1 = 2 trait pairs, which works out to 4
 # traits per subset. With min_cooccurrence = 3 every pair of the 6 traits is

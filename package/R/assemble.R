@@ -118,9 +118,11 @@ indri_assemble <- function(blocks, subsets, K = NULL,
   NULL
 }
 
-#' Assemble block posterior draws into one array
+#' Assemble block draws into one array
 #'
-#' Combines the per-block posterior draws into a `K` by `K` by `D` array. Either
+#' Combines the per-block draws (posterior draws, or the REML engines' normal
+#' draws) into a `K` by `K` by `D` array. [fit_G()] uses `"mixture"`; the
+#' default here is `"average"` only for backward compatibility. Either
 #' way the result carries block-level uncertainty through; it is **not** a
 #' posterior over the joint matrix, because subsets share traits and data and
 #' are therefore dependent. See `NOTES.md`.
@@ -143,7 +145,8 @@ indri_assemble <- function(blocks, subsets, K = NULL,
 #' @param subsets Integer matrix of trait indices, one subset per row.
 #' @param K Number of traits; inferred from `subsets` when `NULL`, which is only
 #'   right when the subsets happen to reach the last trait.
-#' @param method `"average"` or `"mixture"`; see Details.
+#' @param method `"average"` or `"mixture"`; see Details. Use `"mixture"` for
+#'   intervals: `"average"` is overconfident.
 #' @param seed Optional seed for the block choice in `"mixture"`. The caller's
 #'   random state is left untouched.
 #'

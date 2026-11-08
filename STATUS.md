@@ -43,7 +43,10 @@ projection; asreml on 2 workers. NOTES.md §9 lists the evidence for each.
 
 All studies simulate a known G with `stanimal::random_covariance(method =
 "partial")` on a sibship design (families of five, N = 300 unless stated) and
-score `corrG` against the truth. Scripts are in `examples/`.
+score `corrG` against the truth. The study scripts named below were removed
+from `examples/` once their decisions were made; they are in git history at
+`7b67eab` (`git show 7b67eab:examples/uncertainty_coverage.R`), and their
+tracked outputs are in `results/`.
 
 ### Accuracy against the full model (M1 gate)
 
@@ -198,15 +201,18 @@ draws are unchanged.
 
 ## Running the studies
 
-Each script documents its settings in its header (`INDRI_*` environment
-variables); `examples/README.md` lists them. One seed per process, detached:
+The remaining examples (`six_traits.R`, `ratones_G.R`, `compare_engines.R`)
+document their settings in their headers; see `examples/README.md`. To rerun a
+removed study, restore it from `7b67eab` first:
 
 ```sh
+git show 7b67eab:examples/uncertainty_coverage.R > examples/uncertainty_coverage.R
 INDRI_COVERAGE_SEEDS=1 INDRI_COVERAGE_CORES=48 \
   nohup Rscript examples/uncertainty_coverage.R > results/cov_seed1.log 2>&1 &
 ```
 
-`*_CORES` is a process budget for `fit_G()`, not a worker count. Results go to
-`results/`; `validation_12_traits_*.csv` and `uncertainty_coverage_*.csv` are
-tracked, everything else is ignored. AGENTS.md has the practical traps
-(connection limits, ports, licence seats, process-name matching).
+`*_CORES` is a process budget for `fit_G()`, not a worker count; run one seed
+per process. `results/validation_12_traits_*.csv` and
+`results/uncertainty_coverage_*.csv` are tracked, everything else under
+`results/` is ignored. AGENTS.md has the practical traps (connection limits,
+ports, licence seats, process-name matching).

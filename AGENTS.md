@@ -111,8 +111,8 @@ Each of these cost real debugging time; several are invisible in the code.
   drawn in the main process (`n_draws`, seeded from `seed`).
 - **Defaults come from the engine** (`.indri_engine_defaults()`,
   `.indri_default_s()`, `.indri_default_cores()`): s = 3 cap, c = 3 stanimal /
-  1 REML, asreml 2 workers. Change them only with a new measurement
-  (`block_size_sweep.R`, `uncertainty_coverage.R`).
+  1 REML, asreml 2 workers. Change them only with a new measurement (the
+  studies behind them are in git history at `7b67eab`; STATUS.md).
 - **`min_cooccurrence` counts distinct subsets**; `indri_subsets()` tops up to
   the guarantee, never repeats a subset, and caps c by block width. Keep the
   test that sweeps seeds: a single seed once passed while the guarantee was
@@ -131,10 +131,10 @@ The studies fit many models; run them on a machine with spare cores, synced
 through git (commit and push, then fast-forward the remote checkout).
 
 ```sh
-# one seed per process, detached
-for s in 1 2 3; do
-  INDRI_COVERAGE_SEEDS=$s INDRI_COVERAGE_CORES=48 \
-    nohup Rscript examples/uncertainty_coverage.R > results/cov_seed$s.log 2>&1 &
+# one run per process, detached
+for k in 10 16 30; do
+  INDRI_ENGINE_K=$k INDRI_ENGINE_CORES=48 \
+    nohup Rscript examples/compare_engines.R > results/compare_k$k.log 2>&1 &
 done
 ```
 

@@ -2,7 +2,7 @@
 % Please edit documentation in R/assemble.R
 \name{indri_assemble_draws}
 \alias{indri_assemble_draws}
-\title{Assemble block posterior draws into one array}
+\title{Assemble block draws into one array}
 \usage{
 indri_assemble_draws(
   draws,
@@ -20,7 +20,8 @@ indri_assemble_draws(
 \item{K}{Number of traits; inferred from \code{subsets} when \code{NULL}, which is only
 right when the subsets happen to reach the last trait.}
 
-\item{method}{\code{"average"} or \code{"mixture"}; see Details.}
+\item{method}{\code{"average"} or \code{"mixture"}; see Details. Use \code{"mixture"} for
+intervals: \code{"average"} is overconfident.}
 
 \item{seed}{Optional seed for the block choice in \code{"mixture"}. The caller's
 random state is left untouched.}
@@ -30,7 +31,9 @@ A \code{K} by \code{K} by \code{D} array. Entries no subset covers are 0 for
 \code{"average"} and \code{NA} for \code{"mixture"}.
 }
 \description{
-Combines the per-block posterior draws into a \code{K} by \code{K} by \code{D} array. Either
+Combines the per-block draws (posterior draws, or the REML engines' normal
+draws) into a \code{K} by \code{K} by \code{D} array. \code{\link[=fit_G]{fit_G()}} uses \code{"mixture"}; the
+default here is \code{"average"} only for backward compatibility. Either
 way the result carries block-level uncertainty through; it is \strong{not} a
 posterior over the joint matrix, because subsets share traits and data and
 are therefore dependent. See \code{NOTES.md}.

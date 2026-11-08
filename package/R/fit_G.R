@@ -39,8 +39,9 @@
 #'   same trait context adds nothing, so the value is capped at what the block
 #'   width allows (1 for two-trait blocks).
 #' @param subsets Optional precomputed subset matrix, from [indri_subsets()].
-#' @param engine Block engine: `"stanimal"` (posterior draws), `"sommer"` or
-#'   `"asreml"` (REML point estimates).
+#' @param engine Block engine: `"stanimal"` (Bayesian, posterior draws, models
+#'   gaps in `Y`), `"sommer"` or `"asreml"` (REML, with uncertainty from each
+#'   block's sampling covariance; much faster for large N).
 #' @param engine_args List of arguments passed to the engine's fit function.
 #' @param assembly `"ls"` fits the closest positive semi-definite matrix to all
 #'   the subset estimates; `"average"` keeps the plain average, nudged onto the
@@ -70,10 +71,9 @@
 #'   `"mixture"` (the default) takes each entry of each draw from one covering
 #'   block at random; `"average"` averages draw `d` across the covering blocks.
 #'   Blocks are fitted to the same individuals, so averaging their independent
-#'   chains is overconfident by roughly the square root of a pair's coverage:
-#'   on a 12-trait simulation the averaged 95% band covered the true
-#'   correlation 40% of the time and the mixture 89% (the full model: 80%).
-#'   See [indri_assemble_draws()].
+#'   chains is overconfident by roughly the square root of a pair's coverage
+#'   (40% coverage of the true correlations at nominal 95%, against 95-97% for
+#'   the mixture at the default settings). See [indri_assemble_draws()].
 #' @param n_draws Number of draws per block for the REML engines, which
 #'   report a joint sampling covariance of each block's G entries (the inverse
 #'   average-information matrix) instead of posterior draws: indri draws from
@@ -415,7 +415,7 @@ fit_G <- function(Y, X = NULL, A, s = NULL, min_cooccurrence = NULL,
   }, logical(1))
 
   # Which blocks said no. For the REML engines this is almost always "optimum
-  # reached, convergence not certified": examples/reml_convergence.R found the
+  # reached, convergence not certified": a convergence study (STATUS.md) found the
   # flagged pairs as accurate as the rest, at the same optimum from every
   # starting point, and no refit (more iterations, other starts, a larger
   # block) improved them. They are reported, not refitted or dropped.
@@ -453,11 +453,11 @@ fit_G <- function(Y, X = NULL, A, s = NULL, min_cooccurrence = NULL,
 
 # Subset size and co-occurrence when the caller gives neither. stanimal keeps
 # the sqrt(K) rule; the REML engines use s = 3 (4-trait blocks), which the
-# sweeps at K = 16 and 30 (examples/block_size_sweep.R) found slightly more
+# sweeps at K = 16 and 30 (STATUS.md) found slightly more
 # accurate than pairs at the same or lower cost. stanimal asks for each pair
 # in 3 distinct trait contexts, the REML engines for 1: at s = 3 three
 # contexts gave the same accuracy and coverage as one (examples/
-# uncertainty_coverage.R, K = 12 and 30) at about twice the blocks.
+# STATUS.md, K = 12 and 30) at about twice the blocks.
 # indri_subsets() never repeats a block.
 .indri_engine_defaults <- function(engine, K) {
   caps <- engine$capabilities

@@ -20,8 +20,11 @@ An engine list.
 \description{
 The per-subset fit is a plugin. An engine is a list with a \code{name}, a
 \code{capabilities} list and a \code{fit} function with the signature
-\code{fit(Y, X, a_forms, control)} returning at least \code{G}, \code{E}, and one of \code{draws}
-(an \code{s} by \code{s} by \code{D} array) or \code{se} (an \code{s} by \code{s} matrix).
+\code{fit(Y, X, a_forms, control)} returning at least \code{G} and \code{E} (on the
+standardised scale, in the column order of \code{Y}), plus either posterior
+\code{draws} (an \code{s} by \code{s} by \code{D} array; stanimal) or \code{se} and \code{vcov}, the joint
+sampling covariance of the lower-triangle G entries (the REML engines), from
+which \code{\link[=fit_G]{fit_G()}} draws.
 }
 \details{
 LiMMBo delegates its subset fits to limix; indri delegates to stanimal,

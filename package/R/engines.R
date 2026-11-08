@@ -2,8 +2,11 @@
 #'
 #' The per-subset fit is a plugin. An engine is a list with a `name`, a
 #' `capabilities` list and a `fit` function with the signature
-#' `fit(Y, X, a_forms, control)` returning at least `G`, `E`, and one of `draws`
-#' (an `s` by `s` by `D` array) or `se` (an `s` by `s` matrix).
+#' `fit(Y, X, a_forms, control)` returning at least `G` and `E` (on the
+#' standardised scale, in the column order of `Y`), plus either posterior
+#' `draws` (an `s` by `s` by `D` array; stanimal) or `se` and `vcov`, the joint
+#' sampling covariance of the lower-triangle G entries (the REML engines), from
+#' which [fit_G()] draws.
 #'
 #' LiMMBo delegates its subset fits to limix; indri delegates to stanimal,
 #' sommer or ASReml-R, because the right engine depends on the number of

@@ -1,6 +1,7 @@
 # asreml engine: one multivariate animal model per trait subset, fitted with
-# asreml::asreml() in wide format. REML point estimates with standard errors
-# from the variance-component table, for inverse-variance assembly weighting.
+# asreml::asreml() in wide format. REML estimates with standard errors from the
+# variance-component table and the inverse AI matrix of the G entries (`vcov`),
+# from which fit_G() draws the block's uncertainty.
 #
 # ASReml-R is licensed and not on CRAN; the engine errors with asreml's own
 # message when the package is missing or unlicensed.

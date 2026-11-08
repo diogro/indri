@@ -48,8 +48,9 @@ message("N = ", nrow(Y), " individuals, ", ncol(Y), " traits")
 
 ## Fit ------------------------------------------------------------------------
 
-# The default subset size caps at 4, so a 35-trait fit runs as ~400 six-trait
-# blocks. The stanimal engine returns posterior draws per block.
+# With the defaults a 35-trait fit runs as about 600 four-trait blocks, each
+# pair in three distinct ones. The stanimal engine returns posterior draws per
+# block.
 fit <- fit_G(
   Y, X = X, A = A, engine = "stanimal",
   engine_args = list(chains = chains, iter = iter, init = 0.5,

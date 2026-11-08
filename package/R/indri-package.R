@@ -2,8 +2,8 @@
 #'
 #' Fits a multivariate animal model on many small trait subsets and reassembles
 #' the subset estimates into one positive semi-definite additive genetic
-#' covariance matrix. See `NOTES.md` in the repository root for the estimator,
-#' the engine contract and the milestones.
+#' covariance matrix. Start with [fit_G()]; `NOTES.md` in the repository root
+#' describes the estimator, the engine contract and the defaults.
 #'
 #' @references
 #' Meyer, H. V., Casale, F. P., Stegle, O., and Birney, E. (2018). LiMMBo:

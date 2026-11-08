@@ -8,11 +8,12 @@
 #' Three things differ from LiMMBo's implementation. The permutation that
 #' orders the pairs is seeded here, so the result is reproducible (LiMMBo draws
 #' it from the global numpy generator and is not), and the caller's random seed
-#' is restored afterwards. And the coverage is guaranteed: LiMMBo's passes
-#' cover each pair only `ceiling(min_cooccurrence / 2)` times by construction
-#' and leave the rest to chance, which often falls short; indri adds greedily
-#' built subsets of the same width until every pair reaches
-#' `min_cooccurrence`.
+#' is restored afterwards. The coverage is guaranteed: LiMMBo's passes cover
+#' each pair only `ceiling(min_cooccurrence / 2)` times by construction and
+#' leave the rest to chance, which often falls short; indri adds greedily built
+#' subsets of the same width until every pair reaches `min_cooccurrence`. And
+#' coverage counts distinct subsets: a subset is never repeated, since a pair
+#' estimated twice in the same trait context adds nothing.
 #'
 #' Note that the subset size is not exactly `s`. A subset covers `s - 1` trait
 #' pairs, which is up to `2 * (s - 1)` distinct traits; the subsets therefore
@@ -22,8 +23,8 @@
 #' @param K Number of traits.
 #' @param s Subset size parameter, at least 2. Controls how many trait pairs
 #'   each subset covers.
-#' @param min_cooccurrence Minimum number of times every trait pair must be
-#'   sampled.
+#' @param min_cooccurrence Minimum number of distinct subsets every trait pair
+#'   must appear in.
 #' @param seed Optional seed for the subset construction. The caller's random
 #'   state is left untouched.
 #'

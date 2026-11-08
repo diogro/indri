@@ -53,8 +53,9 @@ width allows (1 for two-trait blocks).}
 
 \item{subsets}{Optional precomputed subset matrix, from \code{\link[=indri_subsets]{indri_subsets()}}.}
 
-\item{engine}{Block engine: \code{"stanimal"} (posterior draws), \code{"sommer"} or
-\code{"asreml"} (REML point estimates).}
+\item{engine}{Block engine: \code{"stanimal"} (Bayesian, posterior draws, models
+gaps in \code{Y}), \code{"sommer"} or \code{"asreml"} (REML, with uncertainty from each
+block's sampling covariance; much faster for large N).}
 
 \item{engine_args}{List of arguments passed to the engine's fit function.}
 
@@ -76,10 +77,9 @@ subsetting, so every block sees the same rows.}
 \code{"mixture"} (the default) takes each entry of each draw from one covering
 block at random; \code{"average"} averages draw \code{d} across the covering blocks.
 Blocks are fitted to the same individuals, so averaging their independent
-chains is overconfident by roughly the square root of a pair's coverage:
-on a 12-trait simulation the averaged 95\% band covered the true
-correlation 40\% of the time and the mixture 89\% (the full model: 80\%).
-See \code{\link[=indri_assemble_draws]{indri_assemble_draws()}}.}
+chains is overconfident by roughly the square root of a pair's coverage
+(40\% coverage of the true correlations at nominal 95\%, against 95-97\% for
+the mixture at the default settings). See \code{\link[=indri_assemble_draws]{indri_assemble_draws()}}.}
 
 \item{cores}{Total number of concurrent processes for the whole fit,
 not the number of subsets to run at once. Defaults to 1, except for
