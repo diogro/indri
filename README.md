@@ -26,7 +26,7 @@ You also need at least one block engine:
 |---|---|---|---|
 | `"stanimal"` (default) | [`stanimal`](https://github.com/diogro/stanimal) (>= 0.8.0 recommended) | CmdStan | posterior draws |
 | `"sommer"` | [`sommer`](https://cran.r-project.org/package=sommer) | | REML sampling distribution |
-| `"asreml"` | ASReml-R | a licence (one seat per worker) | REML sampling distribution |
+| `"asreml"` | [ASReml-R](https://vsni.co.uk/software/asreml-r/) | a licence (one seat per worker) | REML sampling distribution |
 
 stanimal models gaps in `Y` and gives a posterior; the REML engines are much
 faster for large N.
