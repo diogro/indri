@@ -2,8 +2,12 @@
 # across traits: the multi-trait test against single-trait tests adjusted
 # for the number of traits (LiMMBo's comparison, here with indri's G and E).
 #
-# Run from the repository root:
-#   Rscript examples/gwas_power.R
+# Run from the repository root, with BLAS and OpenMP limited to one thread
+# (they must be set before R starts; each forked replicate is meant to use
+# one core, and a multithreaded BLAS otherwise starts hundreds of threads
+# per process):
+#   OPENBLAS_NUM_THREADS=1 OMP_NUM_THREADS=1 MKL_NUM_THREADS=1 \
+#     Rscript examples/gwas_power.R
 #
 # Needs sommer and stanimal (for random_covariance()). Settings:
 #   INDRI_GWAS_STUDY_P       traits                           (default 10)
@@ -32,6 +36,10 @@
 # results/gwas_power_P<P>_summary.csv (power at alpha = 1e-5 and 5e-8).
 
 Sys.setenv(OMP_NUM_THREADS = "1")
+if (!identical(Sys.getenv("OPENBLAS_NUM_THREADS"), "1"))
+  warning("OPENBLAS_NUM_THREADS is not 1: with a multithreaded BLAS every ",
+          "replicate starts many threads. Set it before starting R.",
+          call. = FALSE, immediate. = TRUE)
 library(indri)
 source("examples/gwas_simulate.R")
 

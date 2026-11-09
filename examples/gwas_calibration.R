@@ -1,8 +1,12 @@
 # Calibration of indri_gwas() under the null: genomic inflation and type-I
 # error of every test, on simulated sibs with no causal SNPs.
 #
-# Run from the repository root:
-#   Rscript examples/gwas_calibration.R
+# Run from the repository root, with BLAS and OpenMP limited to one thread
+# (they must be set before R starts; each forked replicate is meant to use
+# one core, and a multithreaded BLAS otherwise starts hundreds of threads
+# per process):
+#   OPENBLAS_NUM_THREADS=1 OMP_NUM_THREADS=1 MKL_NUM_THREADS=1 \
+#     Rscript examples/gwas_calibration.R
 #
 # Needs sommer and stanimal (for random_covariance()). Settings:
 #   INDRI_GWAS_STUDY_P       traits                          (default 10)
@@ -15,6 +19,10 @@
 # and results/gwas_calibration_P<P>_summary.csv.
 
 Sys.setenv(OMP_NUM_THREADS = "1")
+if (!identical(Sys.getenv("OPENBLAS_NUM_THREADS"), "1"))
+  warning("OPENBLAS_NUM_THREADS is not 1: with a multithreaded BLAS every ",
+          "replicate starts many threads. Set it before starting R.",
+          call. = FALSE, immediate. = TRUE)
 library(indri)
 source("examples/gwas_simulate.R")
 
