@@ -215,6 +215,58 @@ with the effective-tests adjustment):
 - The dominance test finds overdominant SNPs that the additive tests miss
   (multi-trait additive 0.02-0.32 in the same cells).
 
+**Second round** (LKJ(2) G, well conditioned; 20 replicates unless stated):
+
+| P, N | test | lambda_gc | type-I 1e-2 / 1e-3 / 1e-4 | delta |
+|---|---|---|---|---|
+| 30, 500 | multi-trait LMM, indri G and E | 0.993 | 0.0067 / 0.00044 / 0.00004 | 1.13 |
+| 30, 500 | same, E from a Schafer-Strimmer shrunk residual covariance | 0.993 | 0.0075 / 0.00051 / 0.00003 | 1.03 |
+| 100, 300 | multi-trait LMM, indri G and E | 0.902 | 0.00011 / 0.00001 / 0 | 1.49 |
+| 100, 300 | same, shrunk E | 0.883 | 0.00025 / 0.00001 / 0 | 0.96 |
+| 100, 300 | multi-trait LMM, true G and E | 1.006 | 0.0116 / 0.0013 / 0.0001 | 0.99 |
+
+- **Shrinking E buys nothing.** At 30 traits both are calibrated; at 100
+  traits and 300 individuals both are very conservative (1% of the nominal
+  rate at 1e-2) while the truth is calibrated, so the loss is in `G`, which
+  is noise-dominated at that size (below).
+- Power with the LKJ `G`: the joint test still leads in every pattern, by
+  less for a single trait (30 traits, h = 0.25%: 0.87 against 0.675; 100
+  traits, h = 0.1%: 0.66 against 0.38), and keeps its power at 100 traits
+  despite being conservative there. `h` is a share of `trace(G + E)`, so the
+  same `h` is a larger effect per trait at more traits: compare tests within
+  a column, not across trait counts.
+
+**Shrinking the assembled genetic correlations** (`shrinkage_G.R`, sommer,
+N = 300; Ledoit-Wolf intensity from the per-entry variance of
+`corrG_draws`; scores against the true genetic correlations):
+
+| G, K | method | lambda | median err | strongest 10% err | slope | rel. Frobenius | integration |
+|---|---|---|---|---|---|---|---|
+| partial, 35 | none | | **0.120** | **0.090** | 0.94 | **0.41** | 1.05 |
+| partial, 35 | towards zero | 0.27 | 0.149 | 0.267 | 0.69 | 0.44 | 0.57 |
+| partial, 35 | towards phenotypic | 0.78 | 0.164 | 0.352 | 0.58 | 0.49 | 0.41 |
+| LKJ, 35 | none | | 0.137 | **0.153** | 0.86 | 1.23 | 2.24 |
+| LKJ, 35 | towards phenotypic | 1.00 | **0.093** | 0.178 | 0.47 | **0.84** | 0.65 |
+| LKJ, 100 | none | | 0.121 | 0.140 | 0.84 | 1.79 | 3.90 |
+| LKJ, 100 | towards phenotypic | 1.00 | **0.065** | **0.114** | 0.48 | **0.98** | 0.92 |
+
+(Towards the mean correlation behaved like towards zero.)
+
+- **With a strong genetic structure, shrinkage only hurts.** The
+  intensity from the draws is too large there (the REML bands are
+  conservative, 0.96-0.98 coverage), and the strongest correlations are
+  pulled in by a factor of 3.
+- **With a weak structure the estimate is mostly noise.** The relative
+  error of the unshrunk `corrG` exceeds 1, and it *overstates* integration
+  2.2x (35 traits) to 3.9x (100 traits): the opposite of the strong-`G`
+  case above (STATUS "Integration", 0.75-0.85). The intensity goes to 1 for
+  every target, so "shrinkage" is replacement, and the phenotypic
+  correlations beat the assembled `G` on median and Frobenius error. That
+  is a statement about these data sizes, not a reason to report `P`.
+- **No shrinkage option for now.** A useful one would need an intensity
+  that is not overconservative for strong structure, and a check of what it
+  does to the association tests at K close to N.
+
 ## Changes and fixes
 
 - **indri 0.2.0 (breaking):** `G`, `G_bar`, `G_draws` and `sigma_G` are returned
@@ -282,18 +334,16 @@ with the effective-tests adjustment):
    block. Measure before optimising.
 4. **stanimal review**, set aside for later: its own `lkj_prior` default, and
    releasing the Laplace labels.
-5. **GWAS power with a well-conditioned G.** Rerun `gwas_power.R` with a G
-   whose smallest eigenvalue is not near zero (an LKJ or factor G) to measure
-   the joint test's edge without the near-singular `G` of the "partial"
-   generator, and at K closer to N (e.g. 100 traits, N = 300), where the
-   residual covariance behind `E` degrades.
-6. **Shrinkage of G and E** (Schäfer & Strimmer 2005; bending, Hayes & Hill
-   1981; Meyer & Kirkpatrick 2010): rescore the saved 35-trait fits with
-   shrinkage after the projection, intensity from the per-entry variance of
-   the draws, targets diagonal / proportional to P / constant correlation;
-   score error, the strongest 10% and integration (shrinkage towards zero
-   correlation would deepen the integration understatement). Add a shrunk-`E`
-   scan to the calibration study at K close to N.
+5. **The multi-trait test at K close to N** (100 traits, N = 300) is very
+   conservative with indri's `G` (1% of the nominal rate at 1e-2): the
+   assembled `G` is noise-dominated there. Try a regularised `G` in the scan
+   (shrunk towards the phenotypic correlations, or a factor `G`) and score
+   calibration and power; and record when `fit_G()`'s `G` should be trusted
+   (per-entry draw variance against the spread of the estimate).
+6. **Shrinkage intensity.** The Ledoit-Wolf intensity from the REML draws
+   overshrinks a strong `G`; a cross-validated or bootstrap intensity, or
+   stanimal's posterior draws, may do better. Bending (Hayes and Hill 1981;
+   Meyer and Kirkpatrick 2010) remains the quantitative-genetics framing.
 
 ## Running the studies
 
