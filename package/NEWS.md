@@ -1,7 +1,7 @@
 # indri (development version)
 
 * `indri_locus_G()` builds the additive (`G`) and dominance (`D`) covariance
-  matrices, and the full-sib `G / 2 + D / 4`, implied by per-locus additive
+  matrices implied by per-locus additive
   and dominance effects, allele frequencies and linkage disequilibrium
   (Melo, Marroig and Wolf 2019, Eqs. 7-14). It takes `indri_gwas()`'s `a`
   and `d` directly, with frequencies and composite LD from the genotypes.

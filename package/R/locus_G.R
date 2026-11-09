@@ -19,8 +19,7 @@
 #'
 #' where `lambda_jx` is the linkage disequilibrium between loci `j` and `x`.
 #' From an unphased genotype matrix it is the composite estimate
-#' `lambda_jx = Cov(g_j, g_x) / 2` of the dosages. The covariance between full
-#' sibs is `G / 2 + D / 4`.
+#' `lambda_jx = Cov(g_j, g_x) / 2` of the dosages.
 #'
 #' The effects are on the scale of [indri_gwas()]'s `a` and `d`: `a` is the
 #' effect of one copy of the counted allele (half the difference between the
@@ -39,7 +38,7 @@
 #'   diagonal is ignored), instead of the estimate from `genotypes`.
 #' @param ld If `FALSE`, ignore linkage disequilibrium (only the per-locus
 #'   sums).
-#' @return A list with `G`, `D` and `full_sib` (traits by traits), `alpha`
+#' @return A list with `G` and `D` (traits by traits), `alpha`
 #'   (the average effects, loci by traits), `p` and `loci` (the loci used).
 #' @references Melo, D., Marroig, G. and Wolf, J. B. (2019). Genomic
 #'   perspective on multivariate variation, pleiotropy, and evolution.
@@ -129,6 +128,6 @@ indri_locus_G <- function(a, d = NULL, genotypes = NULL, p = NULL,
   G <- (G + t(G)) / 2
   D <- (D + t(D)) / 2
   dimnames(G) <- dimnames(D) <- list(traits, traits)
-  list(G = G, D = D, full_sib = G / 2 + D / 4, alpha = alpha,
+  list(G = G, D = D, alpha = alpha,
        p = stats::setNames(p, rownames(a)), loci = rownames(a))
 }

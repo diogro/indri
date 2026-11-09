@@ -8,7 +8,6 @@ test_that("one locus gives 2pq alpha alpha' and (2pq)^2 d d'", {
   alpha <- a + (0.7 - 0.3) * d
   expect_equal(unname(out$G), unname(2 * 0.3 * 0.7 * crossprod(alpha)))
   expect_equal(unname(out$D), (2 * 0.3 * 0.7)^2 * crossprod(d))
-  expect_equal(out$full_sib, out$G / 2 + out$D / 4)
   expect_equal(dimnames(out$G), list(c("x", "y", "z"), c("x", "y", "z")))
   expect_equal(unname(out$alpha), unname(alpha))
 })

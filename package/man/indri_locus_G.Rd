@@ -33,7 +33,7 @@ diagonal is ignored), instead of the estimate from \code{genotypes}.}
 sums).}
 }
 \value{
-A list with \code{G}, \code{D} and \code{full_sib} (traits by traits), \code{alpha}
+A list with \code{G} and \code{D} (traits by traits), \code{alpha}
 (the average effects, loci by traits), \code{p} and \code{loci} (the loci used).
 }
 \description{
@@ -57,8 +57,7 @@ dominance effects \code{d_j} (vectors over the traits), the average effect is
 
 where \code{lambda_jx} is the linkage disequilibrium between loci \code{j} and \code{x}.
 From an unphased genotype matrix it is the composite estimate
-\code{lambda_jx = Cov(g_j, g_x) / 2} of the dosages. The covariance between full
-sibs is \code{G / 2 + D / 4}.
+\code{lambda_jx = Cov(g_j, g_x) / 2} of the dosages.
 
 The effects are on the scale of \code{\link[=indri_gwas]{indri_gwas()}}'s \code{a} and \code{d}: \code{a} is the
 effect of one copy of the counted allele (half the difference between the
