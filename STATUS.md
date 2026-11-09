@@ -379,6 +379,13 @@ covariance has no background GxE. Interaction test (`pvalues_gxe`):
    environment-specific `G` for a discrete environment, or the
    genomic-control-style correction of the interaction test by its own
    lambda. Measure against the polygenic scenario before choosing.
+   **Chosen: environment-specific G.** `fit_G_env()` (experimental, sommer)
+   fits character states. First trial (3 traits, true cross-sex r_G 0.5,
+   900 sibs in families of 6, 8 seeds): mean estimates 0.31-0.54 per seed,
+   0.45 overall, individual traits 0.18-0.79, about 1 s per fit. Next:
+   measure recovery against design (N, family size, how many relatives of
+   the other sex), then scan with the environment-specific covariance and
+   rerun the polygenic GxE calibration.
 
 ## Running the studies
 

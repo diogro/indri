@@ -266,4 +266,12 @@ No new hard dependencies. A PLINK reader (`BEDMatrix` or `genio`) can be a
    GxE does to the interaction test. `test-gwas-gxe.R` checks every mode
    and model against dense nested GLS.
 
+13. **Environment-specific G (2026-11-09):** polygenic GxE inflated the
+   interaction test (STATUS.md), so the background needs G per environment
+   and between environments. `fit_G_env()` (experimental) estimates it from
+   character states (trait x environment, each observed in its own group)
+   with `fit_G()`; `E` is block diagonal. Still to do: the scan with that
+   covariance (no longer `G (x) A + E (x) I`, so not one rotation), and a
+   study of how well the between-environment covariance is recovered.
+
 Work happens on the `gwas` branch, tests first.

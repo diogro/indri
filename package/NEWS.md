@@ -1,5 +1,15 @@
 # indri (development version)
 
+* `fit_G_env()` (experimental) estimates the genetic covariance of traits
+  within and between the groups of a discrete environment (sex, diet,
+  site), fitting each trait in each environment as its own "character
+  state" with `fit_G()` (sommer by default). `G` holds the
+  within-environment blocks and the genetic covariance between
+  environments (`corr_between`: each trait's cross-environment genetic
+  correlation); `E` is block diagonal, as no individual is observed in two
+  environments. The first step towards modelling polygenic GxE in the
+  association scans.
+
 * `indri_gwas(gxe = )` fits genotype-by-environment interactions: each SNP's
   dosage also enters multiplied by the named columns of `X` (sex, diet, a
   covariate), whose main effects are in the model already. `pvalues` is the
