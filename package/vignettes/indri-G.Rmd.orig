@@ -1,0 +1,271 @@
+---
+title: "Estimating G for many traits: engines and priors"
+output: rmarkdown::html_vignette
+vignette: >
+  %\VignetteIndexEntry{Estimating G for many traits: engines and priors}
+  %\VignetteEngine{knitr::rmarkdown}
+  %\VignetteEncoding{UTF-8}
+---
+
+```{r knitr, include = FALSE}
+knitr::opts_chunk$set(collapse = TRUE, comment = "#>", error = FALSE, fig.path = "figures/indri-G-",
+                      fig.width = 7, fig.height = 4.5, dpi = 96)
+```
+
+This vignette estimates the additive genetic covariance matrix **G** of nine
+growth traits in mice with each of indri's three engines, shows how to read a
+fit, and gives a rule for choosing the prior of the Bayesian engine. It was
+precomputed: the fits take from seconds (REML) to many minutes (stanimal).
+
+## How indri estimates G
+
+A multivariate animal model on many traits is expensive: the number of
+parameters grows with the square of the number of traits, and fitting all of
+them at once is slow and often unstable. indri, following LiMMBo (Meyer et al.
+2018), fits many small animal models instead, each on a subset of the traits,
+so that every pair of traits is estimated in several subsets. It then averages
+the subset estimates of each covariance and projects the result onto the
+positive semi-definite matrices, so that the assembled `G` is a covariance
+matrix. The small fit is done by a pluggable **engine**: `"sommer"` and
+`"asreml"` (REML) or `"stanimal"` (a Bayesian sampler).
+
+## The data
+
+An F3 intercross of two inbred mouse strains selected for large (LG/J) and
+small (SM/J) body size ships with indri. The parental strains are fully
+inbred and the F1 all heterozygous, so the F2 parents of the F3 are unrelated
+founders, and the F3 mice are related only through them: full sibs (1/2) and,
+for nine sires with two mates, half sibs (1/4). `lgsm_A` is that relationship
+matrix. The traits are the nine weekly weight gains (`growth12`, the gain from
+week 1 to week 2, to `growth910`), and the fixed effects those of the original
+analyses: sex, rearing cohort and litter size at birth and at weaning.
+
+```{r setup-data, code = readLines("setup.R")}
+```
+
+```{r data-size}
+dim(Y)
+round(colMeans(Y), 2)
+```
+
+One caveat before any fit: the full sibs also share a mother and a litter,
+and indri's models have one random effect, the additive one. Variance shared
+by littermates (maternal effects, a common nest) therefore ends up partly in
+`G`. Some pups were cross-fostered, which separates the litter environment
+from the mother, but the model here does not use it. Read the `G` below as an
+additive-plus-litter covariance; the original analyses included a dam effect.
+
+## Three engines on the same data
+
+All three engines take the same call; only `engine` changes. The REML engines
+run in seconds:
+
+```{r fit-reml}
+time_sommer <- system.time(
+  fit_sommer <- fit_G(Y, X = X, A = A, engine = "sommer", cores = cores,
+                      seed = 1L, progress = FALSE))
+fit_sommer
+```
+
+```{r fit-asreml}
+has_asreml <- nzchar(system.file(package = "asreml"))
+if (has_asreml) {
+  time_asreml <- system.time(
+    fit_asreml <- fit_G(Y, X = X, A = A, engine = "asreml", cores = 2L,
+                        seed = 1L, progress = FALSE))
+}
+```
+
+asreml needs a licence seat per worker; a standard licence allows two
+processes on one machine, hence `cores = 2`.
+
+The stanimal engine samples each block's posterior with CmdStan. It is far
+slower, and gives posterior draws instead of a normal approximation. Each
+block runs four chains here, so a budget of `cores` processes runs
+`cores / 4` blocks at a time:
+
+```{r fit-stanimal}
+stan_args <- list(chains = 4L, iter = 2000L, refresh = 0,
+                  show_messages = FALSE)
+time_stanimal <- system.time(
+  fit_stanimal <- fit_G(Y, X = X, A = A, engine = "stanimal",
+                        engine_args = stan_args, cores = cores, seed = 1L,
+                        progress = FALSE))
+```
+
+```{r engine-table}
+fits <- list(sommer = fit_sommer, stanimal = fit_stanimal)
+if (has_asreml) fits <- c(fits[1], list(asreml = fit_asreml), fits[2])
+times <- c(sommer = time_sommer[["elapsed"]],
+           asreml = if (has_asreml) time_asreml[["elapsed"]],
+           stanimal = time_stanimal[["elapsed"]])
+upper <- function(m) m[upper.tri(m)]
+data.frame(
+  engine = names(fits),
+  seconds = round(times[names(fits)]),
+  blocks = vapply(fits, function(f) nrow(f$subsets), integer(1)),
+  mean_abs_corrG = vapply(fits, function(f) mean(abs(upper(f$corrG))), numeric(1)),
+  corr_with_sommer = vapply(fits, function(f)
+    cor(upper(f$corrG), upper(fit_sommer$corrG)), numeric(1)),
+  row.names = NULL)
+```
+
+```{r engine-figure, fig.height = 4}
+library(ggplot2)
+pairs <- do.call(rbind, lapply(names(fits)[-1], function(e)
+  data.frame(engine = e, sommer = upper(fit_sommer$corrG),
+             other = upper(fits[[e]]$corrG))))
+ggplot(pairs, aes(sommer, other)) +
+  geom_abline(linetype = "dashed", colour = "grey50") +
+  geom_point() + facet_wrap(~ engine) + coord_equal() +
+  labs(x = "genetic correlation, sommer", y = "genetic correlation, other engine") +
+  theme_minimal()
+```
+
+The two REML engines fit the same model by the same criterion and should
+agree closely. stanimal's correlations follow the same structure; at this
+sample size the prior on the block correlations has some pull, which the
+next section examines.
+
+## Reading a fit
+
+```{r read-fit}
+round(fit_sommer$corrG, 2)
+round(sqrt(diag(fit_sommer$G)), 2)     # genetic standard deviations, in grams
+summary(fit_sommer)$min_eigenvalue
+fit_sommer$diagnostics$n_unconverged
+```
+
+- `G` and `sigma_G` are in the units of the traits (grams, and grams
+  squared); `corrG` holds the genetic correlations.
+- Every pair of traits is estimated in several distinct blocks
+  (`fit$coverage`); `G_bar` is their plain average, and `G` its projection
+  onto the covariance matrices. The difference shows how much the
+  projection had to change:
+
+```{r projection}
+round(max(abs(fit_sommer$G - fit_sommer$G_bar)), 3)
+```
+
+- Intervals come from `corrG_draws`, which mixes each block's draws
+  (posterior draws for stanimal, a normal approximation for the REML
+  engines). They are intervals for each entry, not draws of a whole matrix:
+
+```{r intervals}
+lo <- apply(fit_sommer$corrG_draws, 1:2, quantile, 0.025)
+hi <- apply(fit_sommer$corrG_draws, 1:2, quantile, 0.975)
+data.frame(pair = c("growth12-growth23", "growth34-growth45", "growth12-growth910"),
+           estimate = round(c(fit_sommer$corrG[1, 2], fit_sommer$corrG[3, 4],
+                              fit_sommer$corrG[1, 9]), 2),
+           lower = round(c(lo[1, 2], lo[3, 4], lo[1, 9]), 2),
+           upper = round(c(hi[1, 2], hi[3, 4], hi[1, 9]), 2))
+```
+
+- `diagnostics` lists the blocks that did not converge: for the REML
+  engines, optima that could not be certified (simulations found them as
+  accurate as the rest); for stanimal, blocks with split-Rhat above 1.05 or
+  divergent transitions, which deserve attention (next section).
+- `E` is the residual covariance (the residual covariance after `X` minus
+  `G`), used by the association scans of the next vignettes.
+
+## Choosing the LKJ prior for stanimal
+
+stanimal puts an LKJ prior on the correlation matrix of each block. With
+`lkj_prior = 1` it is uniform over correlation matrices; larger values pull
+the block correlations towards zero. indri's default for its blocks is 1. In
+simulations of 12 to 35 traits on a few hundred individuals, blocks of up to
+four traits under LKJ(1) gave 95% intervals that covered the true genetic
+correlations about 95% of the time and the least shrinkage of strong
+correlations; LKJ(2) shrank more and covered less (89-94%).
+
+A stronger prior earns its keep when the data cannot identify the block
+correlations: blocks whose chains disagree (split-Rhat at or above 1.05) or
+diverge, which indri reports with a warning. On another mouse data set (35
+skull traits, 329 mice) a third of the blocks did not mix under LKJ(1), and
+longer chains did not help; a stronger prior is the remedy there, not more
+iterations.
+
+The same nine traits under three priors:
+
+```{r fit-lkj}
+lkj_fits <- list(`1` = fit_stanimal)
+for (eta in c(2, 4)) {
+  lkj_fits[[as.character(eta)]] <- suppressWarnings(fit_G(
+    Y, X = X, A = A, engine = "stanimal",
+    engine_args = c(stan_args, list(lkj_prior = eta)), cores = cores,
+    seed = 1L, progress = FALSE))
+}
+```
+
+```{r lkj-table}
+width <- function(f) mean(upper(apply(f$corrG_draws, 1:2, quantile, 0.975) -
+                                  apply(f$corrG_draws, 1:2, quantile, 0.025)))
+slope <- function(f) unname(coef(lm(upper(f$corrG) ~ upper(fit_sommer$corrG)))[2])
+data.frame(
+  lkj_prior = names(lkj_fits),
+  blocks_not_mixing = vapply(lkj_fits, function(f) f$diagnostics$n_unconverged, numeric(1)),
+  max_rhat = round(vapply(lkj_fits, function(f) f$diagnostics$max_rhat, numeric(1)), 3),
+  mean_abs_corrG = round(vapply(lkj_fits, function(f) mean(abs(upper(f$corrG))), numeric(1)), 3),
+  slope_on_sommer = round(vapply(lkj_fits, slope, numeric(1)), 2),
+  interval_width = round(vapply(lkj_fits, width, numeric(1)), 2),
+  row.names = NULL)
+```
+
+```{r lkj-figure, fig.height = 4}
+lkj_pairs <- do.call(rbind, lapply(names(lkj_fits), function(eta)
+  data.frame(lkj = paste("LKJ", eta), sommer = upper(fit_sommer$corrG),
+             stanimal = upper(lkj_fits[[eta]]$corrG))))
+ggplot(lkj_pairs, aes(sommer, stanimal)) +
+  geom_abline(linetype = "dashed", colour = "grey50") +
+  geom_point() + facet_wrap(~ lkj) + coord_equal() +
+  labs(x = "genetic correlation, sommer (REML)",
+       y = "genetic correlation, stanimal") +
+  theme_minimal()
+```
+
+A slope below 1 against the REML estimates is the prior's shrinkage. The rule
+of thumb:
+
+1. **Start with the default, LKJ(1).** It is the least informative choice,
+   and in simulations it gave nominal coverage.
+2. **Look at `diagnostics`.** If blocks do not mix (Rhat >= 1.05, divergent
+   transitions) and longer chains do not fix them, raise the prior to 2, and
+   to 4 if needed, and report it: the correlations will be shrunk towards
+   zero accordingly.
+3. **Compare with a REML engine.** sommer takes seconds; a stanimal fit far
+   from it, beyond what the prior's shrinkage explains, is worth a second
+   look.
+
+## G against the phenotypic covariance
+
+```{r g-vs-p}
+library(evolqg)
+resid <- lm.fit(X, Y)$residuals
+P <- crossprod(resid) / (nrow(Y) - ncol(X))
+G <- fit_sommer$G
+data.frame(
+  comparison = c("random skewers", "Krzanowski (first 4 PCs)", "Mantel (correlations)"),
+  similarity = round(c(RandomSkewers(G, P)[[1]],
+                       KrzCor(G, P, ret.dim = 4),
+                       MantelCor(cov2cor(G), cov2cor(P), permutations = 999)[[1]]), 2))
+c(integration_G = CalcEigenVar(cov2cor(G)), integration_P = CalcEigenVar(cov2cor(P)))
+```
+
+```{r save, include = FALSE}
+saveRDS(fit_sommer, "cache/fit_sommer.rds")
+saveRDS(fit_stanimal, "cache/fit_stanimal.rds")
+```
+
+## Summary
+
+- The three engines estimate the same `G`; sommer and asreml agree closely
+  and take seconds, stanimal takes much longer and gives posterior draws.
+- Start stanimal at LKJ(1), and raise the prior only for blocks that do not
+  mix.
+- `G` here includes variance shared by littermates.
+
+## Reference
+
+Meyer, H. V., Casale, F. P., Stegle, O. and Birney, E. (2018). LiMMBo: a
+simple, scalable approach for linear mixed models in high-dimensional genetic
+association studies. *bioRxiv*. <https://doi.org/10.1101/255497>

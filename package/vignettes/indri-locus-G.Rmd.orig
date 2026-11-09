@@ -1,0 +1,142 @@
+---
+title: "G from locus effects"
+output: rmarkdown::html_vignette
+vignette: >
+  %\VignetteIndexEntry{G from locus effects}
+  %\VignetteEngine{knitr::rmarkdown}
+  %\VignetteEncoding{UTF-8}
+---
+
+```{r knitr, include = FALSE}
+knitr::opts_chunk$set(collapse = TRUE, comment = "#>", error = FALSE, fig.path = "figures/indri-locus-G-",
+                      fig.width = 7, fig.height = 4, dpi = 96)
+```
+
+How much of the genetic covariance between traits do the mapped loci explain?
+`indri_locus_G()` turns the additive and dominance effects of loci into the
+covariance matrices they imply (Melo, Marroig and Wolf 2019). This vignette
+applies it to the loci found in the vignette *Genome scans for many traits*
+and compares the result with the polygenic `G` of *Estimating G for many
+traits*. It was precomputed.
+
+## The idea
+
+A locus with allele frequency `p` (and `q = 1 - p`), additive effects `a` and
+dominance effects `d` across the traits contributes `2pq α α'` to the
+additive covariance matrix `G`, where `α = a + (q - p) d` is the average
+effect of an allele substitution, and `(2pq)² d d'` to the dominance matrix
+`D`. Loci in linkage disequilibrium add cross terms. Summing over loci gives
+the `G` and `D` the loci imply.
+
+## Setup
+
+```{r setup-data, code = readLines("setup.R")}
+```
+
+```{r inputs}
+fit <- if (file.exists("cache/fit_sommer.rds")) readRDS("cache/fit_sommer.rds") else
+  fit_G(Y, X = X, A = A, engine = "sommer", cores = cores, seed = 1L,
+        progress = FALSE)
+dom <- if (file.exists("cache/scan_dominance.rds")) readRDS("cache/scan_dominance.rds") else
+  indri_gwas(Y, dosage, fit = fit, A = A, X = X, snp_info = info,
+             dominance = TRUE)
+```
+
+## Choosing the loci
+
+Markers in an F3 are strongly linked, so the effects of neighbouring markers
+mostly measure the same QTL. Taking every significant marker would count each
+QTL many times; one marker per peak, the strongest of each chromosome with a
+signal, avoids that:
+
+```{r loci}
+threshold <- 0.05 / ncol(dosage)
+best <- tapply(seq_along(dom$pvalues), info$chrom, function(i)
+  i[which.min(dom$pvalues[i])])
+loci <- info$snp[best[dom$pvalues[best] <= threshold]]
+loci
+```
+
+## G and D from those loci
+
+```{r locus-g}
+locus <- indri_locus_G(dom$a[loci, , drop = FALSE], dom$d[loci, , drop = FALSE], genotypes = dosage)
+round(sqrt(diag(locus$G)), 3)
+round(cov2cor(locus$G), 2)
+```
+
+The allele frequencies and the linkage disequilibrium between the chosen
+loci come from the genotypes (`ld = TRUE`, the default), so loci on the same
+chromosome are not counted as independent.
+
+How much of the genetic variance of each trait do they account for?
+
+```{r variance-share}
+round(diag(locus$G) / diag(fit$G), 2)
+```
+
+## Comparing with the polygenic G
+
+```{r compare}
+library(evolqg)
+compare <- function(x, y) c(
+  random_skewers = RandomSkewers(x, y)[[1]],
+  krzanowski = KrzCor(x, y, ret.dim = 4),
+  correlation_of_entries = cor(cov2cor(x)[upper.tri(x)], cov2cor(y)[upper.tri(y)]))
+round(rbind(`loci G vs polygenic G` = compare(locus$G, fit$G),
+            `loci D vs loci G` = compare(locus$D + diag(1e-8, nrow(locus$D)), locus$G)), 2)
+```
+
+Random skewers compares the responses of the two matrices to the same random
+selection gradients; Krzanowski's statistic the subspaces of their first four
+principal components. A high similarity says the loci found reproduce the
+pattern of the genetic covariance, even if they explain only part of its
+magnitude.
+
+```{r compare-figure, fig.height = 4}
+library(ggplot2)
+entries <- data.frame(polygenic = cov2cor(fit$G)[upper.tri(fit$G)],
+                      loci = cov2cor(locus$G)[upper.tri(locus$G)])
+ggplot(entries, aes(polygenic, loci)) +
+  geom_abline(linetype = "dashed", colour = "grey50") +
+  geom_point() + coord_equal() +
+  labs(x = "genetic correlation, polygenic G (fit_G)",
+       y = "genetic correlation implied by the loci") +
+  theme_minimal()
+```
+
+## With and without linkage disequilibrium
+
+```{r ld}
+no_ld <- indri_locus_G(dom$a[loci, , drop = FALSE], dom$d[loci, , drop = FALSE], genotypes = dosage, ld = FALSE)
+round(c(with_ld = sum(diag(locus$G)), without_ld = sum(diag(no_ld$G))), 4)
+```
+
+## Effects from other software
+
+`indri_locus_G()` accepts effects from any mapping method, as a matrix or a
+data frame with a column of marker names, with traits in columns or
+(`traits_in = "rows"`) in rows. Its help page lists the conventions those
+effects must follow: the effect allele must be the allele the genotypes
+count, `d` the heterozygote's deviation from the homozygote midpoint, and the
+units those of the traits.
+
+```{r other-software}
+effects <- data.frame(marker = loci, dom$a[loci, , drop = FALSE])   # as another tool might give
+other <- indri_locus_G(effects, genotypes = dosage)
+all.equal(other$G, indri_locus_G(dom$a[loci, , drop = FALSE], genotypes = dosage)$G)
+```
+
+## Caveats
+
+- Effects from a single-marker scan are marginal and, at the markers chosen
+  for being significant, biased upwards (the winner's curse); a joint
+  multi-locus model, as in the original analysis, gives better estimates.
+- The loci found are those with large effects; many small ones make up the
+  rest of `G`.
+
+## Reference
+
+Melo, D., Marroig, G. and Wolf, J. B. (2019). Genomic perspective on
+multivariate variation, pleiotropy, and evolution. *Journal of Heredity*
+110, 479-493. <https://doi.org/10.1093/jhered/esz011>

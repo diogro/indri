@@ -1,0 +1,172 @@
+---
+title: "Genome scans for many traits: additive and dominance effects"
+output: rmarkdown::html_vignette
+vignette: >
+  %\VignetteIndexEntry{Genome scans for many traits: additive and dominance effects}
+  %\VignetteEngine{knitr::rmarkdown}
+  %\VignetteEncoding{UTF-8}
+---
+
+```{r knitr, include = FALSE}
+knitr::opts_chunk$set(collapse = TRUE, comment = "#>", error = FALSE, fig.path = "figures/indri-gwas-",
+                      fig.width = 7, fig.height = 3.2, dpi = 96)
+```
+
+This vignette scans the genome of the LG/SM F3 mice for loci affecting nine
+weekly weight gains: jointly across the nine traits, trait by trait, and for
+dominance. It uses the `G` and `E` estimated in the vignette
+*Estimating G for many traits*, and was precomputed.
+
+## Setup
+
+```{r setup-data, code = readLines("setup.R")}
+```
+
+```{r fit}
+fit <- if (file.exists("cache/fit_sommer.rds")) readRDS("cache/fit_sommer.rds") else
+  fit_G(Y, X = X, A = A, engine = "sommer", cores = cores, seed = 1L,
+        progress = FALSE)
+c(mice = nrow(Y), traits = ncol(Y), markers = ncol(dosage))
+```
+
+The genotypes are the additive coding of `lgsm_genotypes` plus one: 0, 1 and
+2 copies of one parental allele. `info` places the 353 markers on the
+genetic map (cM).
+
+## The multi-trait scan
+
+One test per marker against all nine traits at once, in a linear mixed model
+whose covariance is `G` and `E` with the relationship matrix `A`:
+
+```{r multi}
+multi <- indri_gwas(Y, dosage, fit = fit, A = A, X = X, snp_info = info)
+multi
+summary(multi, n = 8)
+```
+
+`delta` is the ratio between `E` and `G` that the scan re-fits under the
+null; a value near 1 says the `G` and `E` from `fit_G()` describe the data
+being scanned. The genomic inflation factor `lambda_gc` compares the median
+test statistic with its null expectation. In a genome full of real loci, as
+in a cross between lines selected for size, it is expected above 1.
+
+```{r multi-plot}
+threshold <- 0.05 / ncol(dosage)
+plot(multi, threshold = threshold)
+```
+
+The dashed line is the Bonferroni threshold for 353 markers. Markers in an
+F3 are strongly linked, so a QTL lifts a whole stretch of chromosome; a
+region, not a single marker, is the unit of discovery.
+
+## Trait by trait
+
+```{r single}
+single <- indri_gwas(Y, dosage, A = A, X = X, snp_info = info,
+                     mode = "single_trait", adjust = "effective")
+single$n_tests
+plot(single, threshold = threshold)
+```
+
+The single-trait tests are adjusted for the number of traits by their
+effective number (Galwey 2009), counted from the correlations of the traits
+after the fixed effects. Each marker's smallest adjusted p-value is plotted.
+
+```{r compare}
+hits <- data.frame(
+  multi_trait = sum(multi$pvalues <= threshold),
+  single_trait = sum(apply(single$pvalues_adjust, 1, min) <= threshold),
+  both = sum(multi$pvalues <= threshold &
+               apply(single$pvalues_adjust, 1, min) <= threshold))
+hits
+```
+
+The joint test gains where a locus has modest effects on several traits; a
+single-trait test gains where one trait carries all of the effect. In
+simulations the joint test was the more powerful one for most patterns of
+effects (STATUS.md), with the largest gains when the effects run against
+the correlations between traits.
+
+## Empirical thresholds
+
+Permuting the genotypes across mice gives empirical p-values and a
+permutation estimate of the false discovery rate:
+
+```{r permutations}
+perm <- indri_gwas(Y, dosage, fit = fit, A = A, X = X, snp_info = info,
+                   n_permutations = 999L, fdr = 0.05, seed = 1L, cores = cores)
+perm$fdr_threshold
+sum(perm$qvalues_empirical <= 0.05)
+```
+
+Permuting genotypes across relatives ignores their relatedness (the
+permuted genotypes no longer follow the pedigree), so treat these as a check
+on the analytic p-values, not a replacement.
+
+## Dominance
+
+In an F3 the three genotypes occur at about 1/4, 1/2 and 1/4 at every marker,
+so dominance is estimable everywhere:
+
+```{r dominance}
+dom <- indri_gwas(Y, dosage, fit = fit, A = A, X = X, snp_info = info,
+                  dominance = TRUE)
+c(estimable = sum(dom$dominance_estimable),
+  dominance_hits = sum(dom$pvalues_dominance <= threshold, na.rm = TRUE))
+plot(dom, which = "dominance", threshold = threshold)
+```
+
+`pvalues` is now the joint test of the additive and dominance effects, and
+`pvalues_dominance` tests dominance given the additive effect. `a` is the
+effect of one allele copy (half the difference between the homozygotes) and
+`d` the deviation of the heterozygote from their midpoint.
+
+## Effects across the growth curve
+
+The additive and dominance effects at the strongest marker of each
+chromosome with a signal, across the nine weeks:
+
+```{r effects, fig.height = 4.5}
+best <- tapply(seq_along(dom$pvalues), info$chrom, function(i)
+  i[which.min(dom$pvalues[i])])
+best <- best[dom$pvalues[best] <= threshold]
+effects <- do.call(rbind, lapply(best, function(j) rbind(
+  data.frame(marker = info$snp[j], chrom = info$chrom[j], effect = "a",
+             week = seq_along(traits), value = dom$a[j, ]),
+  data.frame(marker = info$snp[j], chrom = info$chrom[j], effect = "d",
+             week = seq_along(traits), value = dom$d[j, ]))))
+effects$label <- paste0("chr ", effects$chrom, " (", effects$marker, ")")
+library(ggplot2)
+ggplot(effects, aes(week, value, colour = effect)) +
+  geom_hline(yintercept = 0, colour = "grey60") +
+  geom_line() + geom_point(size = 1) +
+  facet_wrap(~ label) +
+  labs(x = "growth interval (week k to k + 1)", y = "effect (grams)") +
+  theme_minimal()
+```
+
+Additive effects concentrated early or late in growth separate loci acting on
+early and late growth, the pattern the original analysis of these mice
+reported for the first seven intervals (Melo, Marroig and Wolf 2019).
+
+```{r save, include = FALSE}
+saveRDS(dom, "cache/scan_dominance.rds")
+saveRDS(multi, "cache/scan_multi.rds")
+```
+
+## Summary
+
+- One joint test per marker across nine traits, in a mixed model with `G`,
+  `E` and `A`.
+- Single-trait tests adjusted for the effective number of traits.
+- Dominance and additive effects together, and their profiles across the
+  growth curve.
+
+## References
+
+Galwey, N. W. (2009). A new measure of the effective number of tests.
+*Genetic Epidemiology* 33, 559-568.
+
+Melo, D., Marroig, G. and Wolf, J. B. (2019). Genomic perspective on
+multivariate variation, pleiotropy, and evolution. *Journal of Heredity*
+110, 479-493. <https://doi.org/10.1093/jhered/esz011>

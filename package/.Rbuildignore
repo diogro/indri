@@ -1,1 +1,5 @@
 ^data-raw$
+^vignettes/.*\.Rmd\.orig$
+^vignettes/precompute\.R$
+^vignettes/cache$
+^vignettes/setup\.R$
