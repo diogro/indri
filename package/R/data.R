@@ -60,8 +60,10 @@
 #' Values are as in the source files, apart from the gains computed from
 #' them: no transformation, no correction for the rearing covariates.
 #'
-#' @source Provenance to be documented. Built by `data-raw/lgsm.R` from the
-#'   mouseGrowthQTLs analysis repository.
+#' @source Melo, D., Marroig, G. and Wolf, J. B. (2019). Genomic perspective
+#'   on multivariate variation, pleiotropy, and evolution. Journal of
+#'   Heredity 110, 479-493. \doi{10.1093/jhered/esz011}.
+#'   Built by `data-raw/lgsm.R` from that study's analysis files.
 #' @seealso [lgsm_traits], [lgsm_genotypes], [lgsm_markers]
 "lgsm_f3"
 
@@ -95,8 +97,10 @@
 #' The 1934 mice are the 1552 genotyped F3 mice of [lgsm_f3] and 382 of their
 #' F2 parents. Which strain's allele is coded `+1` is as in the source.
 #'
-#' @source Provenance to be documented. Built by `data-raw/lgsm.R` from the
-#'   mouseGrowthQTLs analysis repository.
+#' @source Melo, D., Marroig, G. and Wolf, J. B. (2019). Genomic perspective
+#'   on multivariate variation, pleiotropy, and evolution. Journal of
+#'   Heredity 110, 479-493. \doi{10.1093/jhered/esz011}.
+#'   Built by `data-raw/lgsm.R` from that study's analysis files.
 #' @examples
 #' dosage <- lgsm_genotypes$A + 1
 #' f3 <- rownames(dosage) %in% lgsm_f3$ID
@@ -112,7 +116,10 @@
 #'   rs3684333, unknown in the source). Pass it as `snp_info` to
 #'   [indri_gwas()] (with `pos = bp` or `pos = cM`) to place the markers on
 #'   a Manhattan plot.
-#' @source Provenance to be documented. Built by `data-raw/lgsm.R`.
+#' @source Melo, D., Marroig, G. and Wolf, J. B. (2019). Genomic perspective
+#'   on multivariate variation, pleiotropy, and evolution. Journal of
+#'   Heredity 110, 479-493. \doi{10.1093/jhered/esz011}.
+#'   Built by `data-raw/lgsm.R` from that study's analysis files.
 "lgsm_markers"
 
 #' LG/SM F3 intercross: pedigree

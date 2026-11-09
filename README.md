@@ -193,7 +193,9 @@ covariance between traits.
 strains: `lgsm_f3` (1611 mice; growth (weekly gains), raw weekly weight,
 mandible area and necropsy traits, listed in `lgsm_traits`), `lgsm_genotypes` (353 markers coded additive `A`,
 dominance `D` and imprinting `I`; `A + 1` is the 0/1/2 dosage
-`indri_gwas()` takes), `lgsm_markers` (the map), and `lgsm_pedigree` and
+`indri_gwas()` takes; data from Melo, Marroig and Wolf 2019,
+[doi:10.1093/jhered/esz011](https://doi.org/10.1093/jhered/esz011)),
+`lgsm_markers` (the map), and `lgsm_pedigree` and
 `lgsm_A` (the F3 relationship matrix; the F2 parents are unrelated founders,
 as the P strains are inbred and the F1 all heterozygous).
 

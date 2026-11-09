@@ -19,8 +19,10 @@ The 1934 mice are the 1552 genotyped F3 mice of \link{lgsm_f3} and 382 of their
 F2 parents. Which strain's allele is coded \code{+1} is as in the source.
 }
 \source{
-Provenance to be documented. Built by \code{data-raw/lgsm.R} from the
-mouseGrowthQTLs analysis repository.
+Melo, D., Marroig, G. and Wolf, J. B. (2019). Genomic perspective
+on multivariate variation, pleiotropy, and evolution. Journal of
+Heredity 110, 479-493. \doi{10.1093/jhered/esz011}.
+Built by \code{data-raw/lgsm.R} from that study's analysis files.
 }
 \usage{
 lgsm_genotypes

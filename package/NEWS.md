@@ -1,5 +1,8 @@
 # indri (development version)
 
+* The LG/SM data sets cite their source: Melo, Marroig and Wolf (2019),
+  Journal of Heredity 110, 479-493, doi:10.1093/jhered/esz011.
+
 * Four vignettes on the growth traits of the LG/SM F3 mice: G estimation with
   the three engines and the choice of LKJ prior, genome scans for additive
   and dominance effects, G from locus effects, and genotype-by-sex scans.

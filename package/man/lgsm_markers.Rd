@@ -12,7 +12,10 @@ rs3684333, unknown in the source). Pass it as \code{snp_info} to
 a Manhattan plot.
 }
 \source{
-Provenance to be documented. Built by \code{data-raw/lgsm.R}.
+Melo, D., Marroig, G. and Wolf, J. B. (2019). Genomic perspective
+on multivariate variation, pleiotropy, and evolution. Journal of
+Heredity 110, 479-493. \doi{10.1093/jhered/esz011}.
+Built by \code{data-raw/lgsm.R} from that study's analysis files.
 }
 \usage{
 lgsm_markers
