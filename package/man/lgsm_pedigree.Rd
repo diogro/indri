@@ -5,9 +5,9 @@
 \alias{lgsm_pedigree}
 \title{LG/SM F3 intercross: pedigree}
 \format{
-A data frame: \code{ID}, \code{Sire}, \code{Dam} (\code{NA} for the 391 F2 founders,
-and the sire of four F3 mice, unrecorded in the source) and
-\code{generation} (\code{"F2"} or \code{"F3"}).
+A data frame: \code{ID}, \code{Sire}, \code{Dam} (\code{NA} for the 391 F2
+founders), \code{generation} (\code{"F2"} or \code{"F3"}) and \code{sire_inferred} (the four
+sires found from the markers; see \link{lgsm_f3}).
 }
 \source{
 Built by \code{data-raw/lgsm.R} from \link{lgsm_f3}.

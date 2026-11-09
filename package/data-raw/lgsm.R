@@ -75,26 +75,53 @@ stopifnot(sapply(chroms, function(x) sum(grepl("^A[0-9]+$", names(x)))) ==
 lgsm_genotypes <- list(A = coding("A"), D = coding("D"), I = coding("I"))
 stopifnot(all(lgsm_genotypes$D == (lgsm_genotypes$A == 0L)))
 
+## Missing sires, from the markers -----------------------------------------
+
+# Four F3 mice have no recorded sire: 1133, 1139 and 1140 (family 199, dam
+# 135) and 1109 (dam 207). Their sires were found by Mendelian exclusion:
+# among the genotyped sires, the one with no locus where no allele of the
+# dam plus one of the sire gives the offspring's genotype. On 25 mice with a
+# known sire the true sire had 0 exclusions in every case and the next best
+# candidate at least 12; here the inferred sire has 0 and the next best 12
+# (family 199) and 23 (1109). Sire 165 also sired families 46 and 200, and
+# sire 229 family 71.
+dosage <- lgsm_genotypes$A + 1L
+exclusions <- function(off, dam, sire) {
+  g <- dosage[as.character(c(off, dam, sire)), ]
+  from <- list(0L, 0:1, 1L)
+  sum(!vapply(seq_len(ncol(g)), function(l)
+    any(outer(from[[g[2, l] + 1L]], from[[g[3, l] + 1L]], `+`) == g[1, l]),
+    logical(1)))
+}
+inferred <- c(`1133` = 165L, `1139` = 165L, `1140` = 165L, `1109` = 229L)
+rows <- match(as.integer(names(inferred)), lgsm_f3$ID)
+stopifnot(all(is.na(lgsm_f3$Sire[rows])),
+          sum(is.na(lgsm_f3$Sire)) == length(inferred))
+for (i in seq_along(rows))
+  stopifnot(exclusions(lgsm_f3$ID[rows[i]], lgsm_f3$Dam[rows[i]],
+                       inferred[[i]]) == 0L)
+lgsm_f3$sire_inferred <- FALSE
+lgsm_f3$Sire[rows] <- unname(inferred)
+lgsm_f3$sire_inferred[rows] <- TRUE
+
 ## Pedigree and relationship matrix ----------------------------------------
 
 # The cross: P are the inbred LG/J and SM/J strains, the F1 are all
 # heterozygous (so identical), and the F2 parents of the F3 are unrelated
 # and not inbred. The F2 are therefore the founders: F3 mice are related
-# only through shared F2 parents. Four F3 mice have no recorded sire (three
-# in family 199, and 1109); every dam mated once, so offspring of a dam are
-# taken to share its unknown mate.
+# only through shared F2 parents.
 parents <- sort(unique(c(lgsm_f3$Sire, lgsm_f3$Dam)))
 stopifnot(!length(intersect(lgsm_f3$Sire, lgsm_f3$Dam)),
-          !any(lgsm_f3$ID %in% parents),
-          all(table(unique(lgsm_f3[c("Sire", "Dam")])$Dam) == 1L))
+          !any(lgsm_f3$ID %in% parents), !anyNA(lgsm_f3$Sire))
 lgsm_pedigree <- rbind(
   data.frame(ID = parents, Sire = NA_integer_, Dam = NA_integer_,
              generation = "F2", stringsAsFactors = FALSE),
   data.frame(ID = lgsm_f3$ID, Sire = lgsm_f3$Sire, Dam = lgsm_f3$Dam,
              generation = "F3", stringsAsFactors = FALSE))
+lgsm_pedigree$sire_inferred <- c(rep(FALSE, length(parents)),
+                                 lgsm_f3$sire_inferred)
 
-sire <- ifelse(is.na(lgsm_f3$Sire), paste0("mate_of_", lgsm_f3$Dam),
-               as.character(lgsm_f3$Sire))
+sire <- as.character(lgsm_f3$Sire)
 dam <- as.character(lgsm_f3$Dam)
 shared <- function(a, b) outer(a, b, "==")
 # a quarter of the parent pairs the two mice share (founders unrelated)

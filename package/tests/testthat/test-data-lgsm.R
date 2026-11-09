@@ -48,8 +48,27 @@ test_that("the pedigree has the F2 as unrelated founders", {
   expect_equal(nrow(f2), 391L)
   expect_true(all(is.na(f2$Sire) & is.na(f2$Dam)))
   expect_equal(f3$ID, lgsm_f3$ID)
-  expect_true(all(c(f3$Sire, f3$Dam) %in% c(f2$ID, NA)))
-  expect_equal(sum(is.na(f3$Sire)), 4L)
+  expect_true(all(c(f3$Sire, f3$Dam) %in% f2$ID))
+  expect_equal(f3$ID[f3$sire_inferred], c(1109L, 1133L, 1139L, 1140L))
+})
+
+test_that("the inferred sires are consistent with the markers", {
+  dosage <- lgsm_genotypes$A + 1L
+  from <- list(0L, 0:1, 1L)
+  exclusions <- function(off, dam, sire) {
+    g <- dosage[as.character(c(off, dam, sire)), ]
+    sum(!vapply(seq_len(ncol(g)), function(l)
+      any(outer(from[[g[2, l] + 1L]], from[[g[3, l] + 1L]], `+`) == g[1, l]),
+      logical(1)))
+  }
+  x <- lgsm_f3[lgsm_f3$sire_inferred, ]
+  expect_equal(x$Sire, c(229L, 165L, 165L, 165L))
+  for (i in seq_len(nrow(x)))
+    expect_equal(exclusions(x$ID[i], x$Dam[i], x$Sire[i]), 0L)
+  # a recorded sire passes the same check, and a wrong one does not
+  y <- lgsm_f3[!lgsm_f3$sire_inferred & lgsm_f3$ID == 492, ]
+  expect_equal(exclusions(y$ID, y$Dam, y$Sire), 0L)
+  expect_gt(exclusions(y$ID, y$Dam, 229L), 5L)
 })
 
 test_that("A is the F3 relationship matrix from that pedigree", {
@@ -70,9 +89,14 @@ test_that("A is the F3 relationship matrix from that pedigree", {
   expect_equal(lgsm_A[id(a), id(b)], 0.25)
   other <- which(lgsm_f3$Sire != lgsm_f3$Sire[a] & lgsm_f3$Dam != lgsm_f3$Dam[a])[1]
   expect_equal(lgsm_A[id(a), id(other)], 0)
-  # the three mice of family 199 (sire unrecorded) are full sibs
+  # family 199 (sire 165, inferred) are full sibs, and half sibs of the
+  # other families of sire 165; 1109 (sire 229) is a half sib of family 71
   f199 <- id(which(lgsm_f3$FAMILY == 199))
   expect_true(all(lgsm_A[f199, f199][upper.tri(diag(3))] == 0.5))
+  f46 <- id(which(lgsm_f3$FAMILY == 46))
+  expect_true(all(lgsm_A[f199, f46] == 0.25))
+  f71 <- id(which(lgsm_f3$FAMILY == 71))
+  expect_true(all(lgsm_A["1109", f71] == 0.25))
   expect_gt(min(eigen(lgsm_A, symmetric = TRUE, only.values = TRUE)$values),
             0.49)
 })

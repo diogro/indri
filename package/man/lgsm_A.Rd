@@ -19,10 +19,9 @@ lgsm_A
 \description{
 The additive relationship matrix of the 1611 F3 mice of \link{lgsm_f3}, from
 \link{lgsm_pedigree} with the F2 parents as unrelated, non-inbred founders:
-1 on the diagonal, 1/2 between full sibs, 1/4 between half sibs (nine
-sires mated twice) and 0 otherwise. Four F3 mice have no recorded sire;
-every dam mated once, so offspring of a dam share its unknown mate (the
-three mice of family 199 are full sibs).
+1 on the diagonal, 1/2 between full sibs, 1/4 between half sibs (sires
+with more than one mate) and 0 otherwise. The four sires missing in the
+source come from the markers (\code{lgsm_f3$sire_inferred}).
 }
 \examples{
 table(lgsm_A[upper.tri(lgsm_A)])

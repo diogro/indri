@@ -17,7 +17,9 @@
 #'   \item{ID}{mouse identifier; matches the row names of the
 #'     [lgsm_genotypes] matrices (as character).}
 #'   \item{FAMILY}{full-sib family.}
-#'   \item{Sire, Dam}{parents (F2 mice, genotyped in [lgsm_genotypes]).}
+#'   \item{Sire, Dam}{parents (F2 mice, genotyped in [lgsm_genotypes]). Four
+#'     sires are missing in the source and were inferred from the markers;
+#'     see `sire_inferred`.}
 #'   \item{NURSE}{the dam that reared the mouse (pups were cross-fostered,
 #'     see `xfostpair`).}
 #'   \item{SEX}{`"F"` or `"M"`.}
@@ -32,6 +34,13 @@
 #'     missing.}
 #'   \item{area1, ..., area7}{mandible areas, `NA` for the 95 mice without
 #'     them.}
+#'   \item{sire_inferred}{`TRUE` for the four mice whose sire is missing in
+#'     the source and was found by Mendelian exclusion: 1133, 1139 and 1140
+#'     (family 199, dam 135) are sired by 165, and 1109 (dam 207) by 229.
+#'     Each inferred sire is consistent with the offspring and dam at every
+#'     marker; the next best candidate fails at 12 or more (on mice with a
+#'     recorded sire, the recorded one always had none and the next best 12
+#'     or more).}
 #' }
 #' Values are as in the source files, apart from the gains computed from
 #' them: no transformation, no correction for the rearing covariates.
@@ -96,9 +105,9 @@
 #' inbred and the F1 all heterozygous, so the F2 are unrelated founders and
 #' have no recorded parents.
 #'
-#' @format A data frame: `ID`, `Sire`, `Dam` (`NA` for the 391 F2 founders,
-#'   and the sire of four F3 mice, unrecorded in the source) and
-#'   `generation` (`"F2"` or `"F3"`).
+#' @format A data frame: `ID`, `Sire`, `Dam` (`NA` for the 391 F2
+#'   founders), `generation` (`"F2"` or `"F3"`) and `sire_inferred` (the four
+#'   sires found from the markers; see [lgsm_f3]).
 #' @source Built by `data-raw/lgsm.R` from [lgsm_f3].
 #' @seealso [lgsm_A]
 "lgsm_pedigree"
@@ -107,10 +116,9 @@
 #'
 #' The additive relationship matrix of the 1611 F3 mice of [lgsm_f3], from
 #' [lgsm_pedigree] with the F2 parents as unrelated, non-inbred founders:
-#' 1 on the diagonal, 1/2 between full sibs, 1/4 between half sibs (nine
-#' sires mated twice) and 0 otherwise. Four F3 mice have no recorded sire;
-#' every dam mated once, so offspring of a dam share its unknown mate (the
-#' three mice of family 199 are full sibs).
+#' 1 on the diagonal, 1/2 between full sibs, 1/4 between half sibs (sires
+#' with more than one mate) and 0 otherwise. The four sires missing in the
+#' source come from the markers (`lgsm_f3$sire_inferred`).
 #'
 #' @format A 1611 x 1611 numeric matrix with the F3 IDs (as character) as
 #'   row and column names, in the order of `lgsm_f3$ID`. It is positive

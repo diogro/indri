@@ -51,7 +51,8 @@
   imprinting design, for the F3 mice and their F2 parents), `lgsm_markers`
   (the map), `lgsm_pedigree` and `lgsm_A` (the F3 relationship matrix, with
   the F2 parents as unrelated founders: the P strains are inbred and the F1
-  all heterozygous). Provenance still to be documented.
+  all heterozygous). The four sires missing in the source were inferred
+  from the markers by Mendelian exclusion (`sire_inferred`). Provenance still to be documented.
 
 # indri 0.2.0
 

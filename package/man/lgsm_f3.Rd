@@ -10,7 +10,9 @@ A data frame with one row per mouse:
 \item{ID}{mouse identifier; matches the row names of the
 \link{lgsm_genotypes} matrices (as character).}
 \item{FAMILY}{full-sib family.}
-\item{Sire, Dam}{parents (F2 mice, genotyped in \link{lgsm_genotypes}).}
+\item{Sire, Dam}{parents (F2 mice, genotyped in \link{lgsm_genotypes}). Four
+sires are missing in the source and were inferred from the markers;
+see \code{sire_inferred}.}
 \item{NURSE}{the dam that reared the mouse (pups were cross-fostered,
 see \code{xfostpair}).}
 \item{SEX}{\code{"F"} or \code{"M"}.}
@@ -24,6 +26,13 @@ original QTL analyses (growth).}
 missing.}
 \item{area1, ..., area7}{mandible areas, \code{NA} for the 95 mice without
 them.}
+\item{sire_inferred}{\code{TRUE} for the four mice whose sire is missing in
+the source and was found by Mendelian exclusion: 1133, 1139 and 1140
+(family 199, dam 135) are sired by 165, and 1109 (dam 207) by 229.
+Each inferred sire is consistent with the offspring and dam at every
+marker; the next best candidate fails at 12 or more (on mice with a
+recorded sire, the recorded one always had none and the next best 12
+or more).}
 }
 Values are as in the source files, apart from the gains computed from
 them: no transformation, no correction for the rearing covariates.
