@@ -46,10 +46,12 @@
 * `examples/gwas.R` runs the whole pipeline on simulated sibs in seconds.
 * Data from an F3 intercross of the LG/J and SM/J mouse strains:
   `lgsm_f3` (1611 mice with pedigree, rearing, and four trait classes:
-  weekly weight gains, raw weekly weights, skull areas and necropsy
+  weekly weight gains, raw weekly weights, mandible areas and necropsy
   weights; `lgsm_traits` lists them), `lgsm_genotypes` (353 markers in the additive, dominance and
-  imprinting design, for the F3 mice and their F2 parents) and
-  `lgsm_markers` (the map). Provenance still to be documented.
+  imprinting design, for the F3 mice and their F2 parents), `lgsm_markers`
+  (the map), `lgsm_pedigree` and `lgsm_A` (the F3 relationship matrix, with
+  the F2 parents as unrelated founders: the P strains are inbred and the F1
+  all heterozygous). Provenance still to be documented.
 
 # indri 0.2.0
 

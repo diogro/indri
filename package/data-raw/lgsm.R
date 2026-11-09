@@ -3,8 +3,8 @@
 # root:
 #   Rscript package/data-raw/lgsm.R [path/to/mouseGrowthQTLs]
 #
-# Writes package/data/lgsm_f3.rda, lgsm_genotypes.rda, lgsm_markers.rda and
-# lgsm_traits.rda. Values are copied from the source files unchanged; only
+# Writes package/data/lgsm_f3.rda, lgsm_genotypes.rda, lgsm_markers.rda,
+# lgsm_traits.rda, lgsm_pedigree.rda and lgsm_A.rda. Values are copied from the source files unchanged; only
 # names are tidied (SexAN -> SEX) and rows put in ID order. The growth traits
 # are the weekly gains of the original analyses (read_mouse_data.R), computed
 # from the raw weekly weights, which are shipped too.
@@ -75,7 +75,37 @@ stopifnot(sapply(chroms, function(x) sum(grepl("^A[0-9]+$", names(x)))) ==
 lgsm_genotypes <- list(A = coding("A"), D = coding("D"), I = coding("I"))
 stopifnot(all(lgsm_genotypes$D == (lgsm_genotypes$A == 0L)))
 
+## Pedigree and relationship matrix ----------------------------------------
+
+# The cross: P are the inbred LG/J and SM/J strains, the F1 are all
+# heterozygous (so identical), and the F2 parents of the F3 are unrelated
+# and not inbred. The F2 are therefore the founders: F3 mice are related
+# only through shared F2 parents. Four F3 mice have no recorded sire (three
+# in family 199, and 1109); every dam mated once, so offspring of a dam are
+# taken to share its unknown mate.
+parents <- sort(unique(c(lgsm_f3$Sire, lgsm_f3$Dam)))
+stopifnot(!length(intersect(lgsm_f3$Sire, lgsm_f3$Dam)),
+          !any(lgsm_f3$ID %in% parents),
+          all(table(unique(lgsm_f3[c("Sire", "Dam")])$Dam) == 1L))
+lgsm_pedigree <- rbind(
+  data.frame(ID = parents, Sire = NA_integer_, Dam = NA_integer_,
+             generation = "F2", stringsAsFactors = FALSE),
+  data.frame(ID = lgsm_f3$ID, Sire = lgsm_f3$Sire, Dam = lgsm_f3$Dam,
+             generation = "F3", stringsAsFactors = FALSE))
+
+sire <- ifelse(is.na(lgsm_f3$Sire), paste0("mate_of_", lgsm_f3$Dam),
+               as.character(lgsm_f3$Sire))
+dam <- as.character(lgsm_f3$Dam)
+shared <- function(a, b) outer(a, b, "==")
+# a quarter of the parent pairs the two mice share (founders unrelated)
+lgsm_A <- (shared(sire, sire) + shared(dam, dam) + shared(sire, dam) +
+             shared(dam, sire)) / 4
+diag(lgsm_A) <- 1
+dimnames(lgsm_A) <- list(as.character(lgsm_f3$ID), as.character(lgsm_f3$ID))
+
 dir.create("package/data", showWarnings = FALSE)
+save(lgsm_pedigree, file = "package/data/lgsm_pedigree.rda", compress = "xz")
+save(lgsm_A, file = "package/data/lgsm_A.rda", compress = "xz")
 save(lgsm_f3, file = "package/data/lgsm_f3.rda", compress = "xz")
 save(lgsm_traits, file = "package/data/lgsm_traits.rda", compress = "xz")
 save(lgsm_markers, file = "package/data/lgsm_markers.rda", compress = "xz")

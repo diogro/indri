@@ -22,7 +22,7 @@ original QTL analyses (growth).}
 \item{WEEK1, ..., WEEK10}{raw body weight at weeks 1 to 10 (weight).}
 \item{FATPAD, HEART, KIDNEY, SPLEEN, LIVER}{necropsy weights; a few
 missing.}
-\item{area1, ..., area7}{skull areas, \code{NA} for the 95 mice without
+\item{area1, ..., area7}{mandible areas, \code{NA} for the 95 mice without
 them.}
 }
 Values are as in the source files, apart from the gains computed from
@@ -39,9 +39,15 @@ lgsm_f3
 Phenotypes of 1611 mice from the F3 generation of an intercross of the
 LG/J and SM/J inbred strains, with their pedigree and rearing. The traits
 fall in four classes, listed in \link{lgsm_traits}: growth (weekly weight
-gains), weight (the raw weekly body weights), area (skull areas) and
+gains), weight (the raw weekly body weights), area (mandible areas) and
 necropsy (organ and fat pad weights).
-Genotypes are in \link{lgsm_genotypes}, and the markers in \link{lgsm_markers}.
+Genotypes are in \link{lgsm_genotypes}, the markers in \link{lgsm_markers}, and the
+relationship matrix in \link{lgsm_A}.
+}
+\details{
+The cross: the parental (P) strains are fully inbred, the F1 are all
+heterozygous, and the F2 parents of these F3 mice are unrelated. The F2
+are the founders of the pedigree (\link{lgsm_pedigree}).
 }
 \seealso{
 \link{lgsm_traits}, \link{lgsm_genotypes}, \link{lgsm_markers}

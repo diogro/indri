@@ -173,9 +173,11 @@ genotypes plus `O(N P)` per SNP: thousands of SNPs take seconds.
 
 **Data.** The package ships an F3 intercross of the LG/J and SM/J mouse
 strains: `lgsm_f3` (1611 mice; growth (weekly gains), raw weekly weight,
-skull area and necropsy traits, listed in `lgsm_traits`), `lgsm_genotypes` (353 markers coded additive `A`,
+mandible area and necropsy traits, listed in `lgsm_traits`), `lgsm_genotypes` (353 markers coded additive `A`,
 dominance `D` and imprinting `I`; `A + 1` is the 0/1/2 dosage
-`indri_gwas()` takes) and `lgsm_markers` (the map).
+`indri_gwas()` takes), `lgsm_markers` (the map), and `lgsm_pedigree` and
+`lgsm_A` (the F3 relationship matrix; the F2 parents are unrelated founders,
+as the P strains are inbred and the F1 all heterozygous).
 
 [`examples/gwas.R`](examples/gwas.R) runs the whole pipeline on simulated
 sibs in under a minute, with four planted SNPs showing where each test is

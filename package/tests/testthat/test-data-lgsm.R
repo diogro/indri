@@ -42,6 +42,41 @@ test_that("the map describes the genotype columns", {
   expect_equal(lgsm_markers$snp[is.na(lgsm_markers$bp)], "rs3684333")
 })
 
+test_that("the pedigree has the F2 as unrelated founders", {
+  f2 <- lgsm_pedigree[lgsm_pedigree$generation == "F2", ]
+  f3 <- lgsm_pedigree[lgsm_pedigree$generation == "F3", ]
+  expect_equal(nrow(f2), 391L)
+  expect_true(all(is.na(f2$Sire) & is.na(f2$Dam)))
+  expect_equal(f3$ID, lgsm_f3$ID)
+  expect_true(all(c(f3$Sire, f3$Dam) %in% c(f2$ID, NA)))
+  expect_equal(sum(is.na(f3$Sire)), 4L)
+})
+
+test_that("A is the F3 relationship matrix from that pedigree", {
+  expect_equal(dim(lgsm_A), c(1611L, 1611L))
+  expect_equal(rownames(lgsm_A), as.character(lgsm_f3$ID))
+  expect_true(isSymmetric(lgsm_A))
+  expect_true(all(diag(lgsm_A) == 1))
+  expect_true(all(lgsm_A[upper.tri(lgsm_A)] %in% c(0, 0.25, 0.5)))
+  id <- function(i) as.character(lgsm_f3$ID[i])
+  # full sibs, half sibs through a sire with two mates, unrelated
+  sibs <- which(lgsm_f3$FAMILY == lgsm_f3$FAMILY[10] & !is.na(lgsm_f3$FAMILY))
+  expect_equal(lgsm_A[id(sibs[1]), id(sibs[2])], 0.5)
+  pairs <- unique(lgsm_f3[!is.na(lgsm_f3$Sire), c("Sire", "Dam")])
+  sire <- pairs$Sire[duplicated(pairs$Sire)][1]
+  dams <- pairs$Dam[pairs$Sire == sire]
+  a <- which(lgsm_f3$Dam == dams[1])[1]
+  b <- which(lgsm_f3$Dam == dams[2])[1]
+  expect_equal(lgsm_A[id(a), id(b)], 0.25)
+  other <- which(lgsm_f3$Sire != lgsm_f3$Sire[a] & lgsm_f3$Dam != lgsm_f3$Dam[a])[1]
+  expect_equal(lgsm_A[id(a), id(other)], 0)
+  # the three mice of family 199 (sire unrecorded) are full sibs
+  f199 <- id(which(lgsm_f3$FAMILY == 199))
+  expect_true(all(lgsm_A[f199, f199][upper.tri(diag(3))] == 0.5))
+  expect_gt(min(eigen(lgsm_A, symmetric = TRUE, only.values = TRUE)$values),
+            0.49)
+})
+
 test_that("the data drive indri_gwas(), with dominance", {
   keep <- stats::complete.cases(lgsm_f3[lgsm_traits$necropsy]) &
     lgsm_f3$ID %in% rownames(lgsm_genotypes$A)
@@ -54,6 +89,9 @@ test_that("the data drive indri_gwas(), with dominance", {
   info <- transform(lgsm_markers[chr1, ], pos = cM)
   scan <- indri_gwas(Y, lgsm_genotypes$A[, chr1] + 1, X = X, model = "lm",
                      snp_info = info, dominance = TRUE)
+  lmm <- indri_gwas(Y, lgsm_genotypes$A[, chr1] + 1, A = lgsm_A, X = X,
+                    mode = "single_trait", snp_info = info)
+  expect_false(anyNA(lmm$pvalues))
   expect_equal(length(scan$pvalues), sum(chr1))
   expect_true(all(scan$dominance_estimable))
   expect_false(anyNA(scan$pvalues))

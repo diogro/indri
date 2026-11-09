@@ -3,9 +3,14 @@
 #' Phenotypes of 1611 mice from the F3 generation of an intercross of the
 #' LG/J and SM/J inbred strains, with their pedigree and rearing. The traits
 #' fall in four classes, listed in [lgsm_traits]: growth (weekly weight
-#' gains), weight (the raw weekly body weights), area (skull areas) and
+#' gains), weight (the raw weekly body weights), area (mandible areas) and
 #' necropsy (organ and fat pad weights).
-#' Genotypes are in [lgsm_genotypes], and the markers in [lgsm_markers].
+#' Genotypes are in [lgsm_genotypes], the markers in [lgsm_markers], and the
+#' relationship matrix in [lgsm_A].
+#'
+#' The cross: the parental (P) strains are fully inbred, the F1 are all
+#' heterozygous, and the F2 parents of these F3 mice are unrelated. The F2
+#' are the founders of the pedigree ([lgsm_pedigree]).
 #'
 #' @format A data frame with one row per mouse:
 #' \describe{
@@ -25,7 +30,7 @@
 #'   \item{WEEK1, ..., WEEK10}{raw body weight at weeks 1 to 10 (weight).}
 #'   \item{FATPAD, HEART, KIDNEY, SPLEEN, LIVER}{necropsy weights; a few
 #'     missing.}
-#'   \item{area1, ..., area7}{skull areas, `NA` for the 95 mice without
+#'   \item{area1, ..., area7}{mandible areas, `NA` for the 95 mice without
 #'     them.}
 #' }
 #' Values are as in the source files, apart from the gains computed from
@@ -84,3 +89,34 @@
 #'   a Manhattan plot.
 #' @source Provenance to be documented. Built by `data-raw/lgsm.R`.
 "lgsm_markers"
+
+#' LG/SM F3 intercross: pedigree
+#'
+#' The F3 mice of [lgsm_f3] and their F2 parents. The P strains are fully
+#' inbred and the F1 all heterozygous, so the F2 are unrelated founders and
+#' have no recorded parents.
+#'
+#' @format A data frame: `ID`, `Sire`, `Dam` (`NA` for the 391 F2 founders,
+#'   and the sire of four F3 mice, unrecorded in the source) and
+#'   `generation` (`"F2"` or `"F3"`).
+#' @source Built by `data-raw/lgsm.R` from [lgsm_f3].
+#' @seealso [lgsm_A]
+"lgsm_pedigree"
+
+#' LG/SM F3 intercross: relationship matrix
+#'
+#' The additive relationship matrix of the 1611 F3 mice of [lgsm_f3], from
+#' [lgsm_pedigree] with the F2 parents as unrelated, non-inbred founders:
+#' 1 on the diagonal, 1/2 between full sibs, 1/4 between half sibs (nine
+#' sires mated twice) and 0 otherwise. Four F3 mice have no recorded sire;
+#' every dam mated once, so offspring of a dam share its unknown mate (the
+#' three mice of family 199 are full sibs).
+#'
+#' @format A 1611 x 1611 numeric matrix with the F3 IDs (as character) as
+#'   row and column names, in the order of `lgsm_f3$ID`. It is positive
+#'   definite (smallest eigenvalue 1/2). Take the rows and columns of the
+#'   mice in an analysis, as [fit_G()] and [indri_gwas()] match by name.
+#' @source Built by `data-raw/lgsm.R` from [lgsm_pedigree].
+#' @examples
+#' table(lgsm_A[upper.tri(lgsm_A)])
+"lgsm_A"
