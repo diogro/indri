@@ -5,3 +5,4 @@
 ^vignettes/setup\.R$
 ^vignettes/precompute\.log$
 ^vignettes/precompute\.done$
+^vignettes/render_site\.R$

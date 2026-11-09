@@ -2,7 +2,7 @@
 title: "Genotype-by-environment scans: loci acting differently in each sex"
 output: rmarkdown::html_vignette
 vignette: >
-  %\VignetteIndexEntry{Genotype-by-environment scans}
+  %\VignetteIndexEntry{Genotype-by-environment scans: loci acting differently in each sex}
   %\VignetteEngine{knitr::rmarkdown}
   %\VignetteEncoding{UTF-8}
 ---

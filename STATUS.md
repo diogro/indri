@@ -7,7 +7,7 @@ where the work stands, what has been measured, and what to do next.
 
 | repo | branch | remote | state |
 |---|---|---|---|
-| `indri` | `main` | `diogro/indri` (**private**) | **0.3.0**: three engines, uncertainty for all of them, `G` and `E` in the units of `Y`; `indri_gwas()` (multi- and single-trait, dominance, permutations, plots); the LG/SM F3 data |
+| `indri` | `main` | `diogro/indri` (public; vignettes at <https://diogro.github.io/indri/>) | **0.3.0**: three engines, uncertainty for all of them, `G` and `E` in the units of `Y`; `indri_gwas()` (multi- and single-trait, dominance, permutations, plots); the LG/SM F3 data |
 | `stanimal` | `master` | `diogro/stanimal` | **0.8.1** (`eigen_A`, CmdStan output fix); Laplace labels on `master` as development, unreleased |
 | `limmbo` | `indri-session-fixes` | `diogro/limmbo` (fork of `meyer-lab-cshl/limmbo`) | pipeline fixes and a pixi environment; reference only |
 
