@@ -38,6 +38,23 @@
 #' column mean in each coding. The variance ratio is fitted without any SNP,
 #' as without dominance.
 #'
+#' @section Genotype-by-environment:
+#' With `gxe`, each SNP's dosage `g` also enters multiplied by each named
+#' column `e` of `X` (`g * e`), next to the environments' main effects, which
+#' are in `X` already. `pvalues` is then the joint test of the SNP's main
+#' effect and its interactions (and dominance), with
+#' `P * (1 + n_gxe [+ 1])` degrees of freedom for `P` traits, and
+#' `pvalues_gxe` tests the interactions with the main effect (and dominance)
+#' in the null. `a` is the main effect (the SNP's effect where every named
+#' environment is 0) and `gxe` holds the interaction effects (SNPs by traits
+#' by environments). With `dominance = TRUE` the dominance term is a main
+#' effect only and `pvalues_dominance` tests it given the rest. A SNP whose
+#' interactions cannot be estimated (for instance every carrier in one
+#' environment) keeps the test without them, gets `NA` interaction results,
+#' and is `FALSE` in `gxe_estimable`. The covariance is the same as without
+#' `gxe`: GxE in the background (a polygenic G x E, or a residual variance
+#' that differs between environments) is not modelled.
+#'
 #' @section Permutations:
 #' With `n_permutations > 0` the genotype rows are permuted across
 #' individuals and the scan rerun, keeping the null variance ratio of the
@@ -95,6 +112,10 @@
 #'   the single-trait test.
 #' @param dominance If `TRUE`, also fit a dominance (heterozygote) effect for
 #'   each SNP; see the Dominance section. Needs genotypes coded 0, 1 and 2.
+#' @param gxe Names of columns of `X` (environments, such as sex, diet or a
+#'   covariate) whose interaction with each SNP's additive effect is also
+#'   fitted; see the Genotype-by-environment section. A factor enters as the
+#'   indicator columns `X` has for it.
 #' @param adjust Single-trait p-value adjustment for the number of traits:
 #'   `"bonferroni"` multiplies by `P`, `"effective"` by
 #'   [indri_effective_tests()] of the residuals after `X`; both cap at 1.
@@ -117,6 +138,9 @@
 #'   `dominance = TRUE` also `pvalues_dominance`, `d` (the dominance effects: the
 #'   heterozygote's deviation from the homozygotes' midpoint) and
 #'   `dominance_estimable`; `pvalues_adjust` then adjusts the joint test.
+#'   With `gxe`, also `pvalues_gxe`, `gxe` (SNPs by traits by environments),
+#'   `gxe_estimable` and `gxe_terms`; `pvalues_adjust` then adjusts the joint
+#'   test.
 #'   With permutations, `pvalues_empirical`, `qvalues_empirical` and
 #'   `n_permutations`, and with `fdr`, `fdr` and `fdr_threshold`.
 #' @seealso [fit_G()], [indri_effective_tests()]
@@ -131,7 +155,7 @@ indri_gwas <- function(Y, genotypes, fit = NULL, G = NULL, E = NULL, A = NULL,
                        mode = c("multi_trait", "single_trait"),
                        model = c("lmm", "lm"),
                        single_trait_variance = c("reml", "fit"),
-                       delta = NULL, dominance = FALSE,
+                       delta = NULL, dominance = FALSE, gxe = NULL,
                        adjust = c("none", "bonferroni", "effective"),
                        n_permutations = 0L, fdr = NULL, seed = NULL,
                        cores = 1L, chunk_size = 1000L) {
@@ -238,6 +262,26 @@ indri_gwas <- function(Y, genotypes, fit = NULL, G = NULL, E = NULL, A = NULL,
     dom <- .indri_gwas_impute((genotypes == 1) * 1)
   }
 
+  env <- NULL
+  if (!is.null(gxe)) {
+    if (!is.character(gxe) || !length(gxe) || anyNA(gxe))
+      stop("`gxe` must be the names of columns of `X`.", call. = FALSE)
+    if (is.null(colnames(X)))
+      stop("`gxe` names columns of `X`, but `X` has no column names.",
+           call. = FALSE)
+    unknown <- setdiff(gxe, colnames(X))
+    if (length(unknown))
+      stop("`gxe` names columns that `X` does not have: ",
+           paste(unknown, collapse = ", "), ". The environments must be in ",
+           "`X`, so that their main effects are in the model.", call. = FALSE)
+    env <- X[, gxe, drop = FALSE]
+    constant <- apply(env, 2L, function(e) max(e) - min(e) < 1e-12)
+    if (any(constant))
+      stop("`gxe` names a constant column of `X` (",
+           paste(gxe[constant], collapse = ", "), "): an interaction with it ",
+           "is the SNP's main effect.", call. = FALSE)
+  }
+
   genotypes <- .indri_gwas_impute(genotypes)
   monomorphic <- apply(genotypes, 2L, function(g) max(g) - min(g) < 1e-12)
   if (any(monomorphic))
@@ -249,11 +293,11 @@ indri_gwas <- function(Y, genotypes, fit = NULL, G = NULL, E = NULL, A = NULL,
   run_scan <- function(genotypes, dom, delta) {
     if (mode == "multi_trait") {
       .indri_gwas_multi(Y, X, genotypes, G, E, A, model, delta, chunk_size,
-                        monomorphic, dom, estimable)
+                        monomorphic, dom, estimable, env)
     } else {
       .indri_gwas_single(Y, X, genotypes, G, E, A, model, delta,
                          single_trait_variance, chunk_size, monomorphic, dom,
-                         estimable)
+                         estimable, env)
     }
   }
   scan <- run_scan(genotypes, dom, delta)
@@ -263,7 +307,12 @@ indri_gwas <- function(Y, genotypes, fit = NULL, G = NULL, E = NULL, A = NULL,
               dominance = dominance,
               pvalues_dominance = scan$pvalues_dominance,
               d = scan$betas_dominance,
-              dominance_estimable = estimable,
+              dominance_estimable = if (is.null(scan$dominance_estimable))
+                estimable else scan$dominance_estimable,
+              gxe_terms = gxe,
+              pvalues_gxe = scan$pvalues_gxe,
+              gxe = scan$betas_gxe,
+              gxe_estimable = scan$gxe_estimable,
               mode = mode, model = model, n_individuals = N, traits = traits,
               call = call)
   if (adjust != "none") {
@@ -348,7 +397,7 @@ indri_effective_tests <- function(Y, X = NULL) {
 
 .indri_gwas_multi <- function(Y, X, genotypes, G, E, A, model, delta,
                               chunk_size, monomorphic, dom = NULL,
-                              estimable = NULL) {
+                              estimable = NULL, env = NULL) {
   N <- nrow(Y); P <- ncol(Y)
   if (model == "lm" && is.null(E)) {
     resid <- stats::lm.fit(X, Y)$residuals
@@ -375,10 +424,18 @@ indri_effective_tests <- function(Y, X = NULL) {
   V <- V_of(if (model == "lmm") delta else 1)
 
   M <- ncol(genotypes)
+  null <- .indri_gwas_null(Ys, Xs, V)
+  if (!is.null(env)) {
+    out <- .indri_gwas_gxe(null, Xs, V, rot, genotypes, dom, env, estimable,
+                           monomorphic, chunk_size, multi = TRUE, N = N,
+                           Ti = solve(Tm), snps = colnames(genotypes),
+                           traits = colnames(Y))
+    out$delta <- if (model == "lmm") unname(delta) else NULL
+    return(out)
+  }
   stat <- stat_dom <- rep(NA_real_, M)
   df <- rep(P, M)
   beta_tilde <- beta_tilde_dom <- matrix(NA_real_, M, P)
-  null <- .indri_gwas_null(Ys, Xs, V)
   for (idx in .indri_gwas_chunks(M, chunk_size)) {
     Gs <- .indri_gwas_rotate(rot$Q, genotypes[, idx, drop = FALSE])
     Ds <- if (!is.null(dom)) .indri_gwas_rotate(rot$Q, dom[, idx, drop = FALSE])
@@ -425,7 +482,8 @@ indri_effective_tests <- function(Y, X = NULL) {
 
 .indri_gwas_single <- function(Y, X, genotypes, G, E, A, model, delta,
                                single_trait_variance, chunk_size,
-                               monomorphic, dom = NULL, estimable = NULL) {
+                               monomorphic, dom = NULL, estimable = NULL,
+                               env = NULL) {
   N <- nrow(Y); P <- ncol(Y)
   rot <- if (model == "lmm") .indri_gwas_rotation(A)
          else list(Q = NULL, lambda = rep(0, N))
@@ -455,6 +513,14 @@ indri_effective_tests <- function(Y, X = NULL) {
                   dimnames = list(colnames(genotypes), colnames(Y)))
   pvalues <- betas <- p_dom <- b_dom <- empty
   null <- .indri_gwas_null(Ys, Xs, V)
+  if (!is.null(env)) {
+    out <- .indri_gwas_gxe(null, Xs, V, rot, genotypes, dom, env, estimable,
+                           monomorphic, chunk_size, multi = FALSE, N = N,
+                           Ti = NULL, snps = colnames(genotypes),
+                           traits = colnames(Y))
+    out$delta <- if (model == "lmm") delta else NULL
+    return(out)
+  }
   for (idx in .indri_gwas_chunks(M, chunk_size)) {
     Gs <- .indri_gwas_rotate(rot$Q, genotypes[, idx, drop = FALSE])
     Ds <- if (!is.null(dom)) .indri_gwas_rotate(rot$Q, dom[, idx, drop = FALSE])
@@ -576,6 +642,165 @@ indri_effective_tests <- function(Y, X = NULL) {
     threshold <- if (length(passing)) max(passing) else NA_real_
   }
   list(q = q, threshold = threshold)
+}
+
+# Scans with genotype-by-environment terms. Each SNP brings the terms a
+# (dosage), d (heterozygote indicator, with dominance) and one g * e per
+# environment; the nested models a, a + d, a + gxe and a + d + gxe are
+# fitted per rotated column, and each SNP uses the largest one whose terms
+# are estimable in every column (dominance needs three genotype classes).
+# Multi-trait scans sum the columns; single-trait scans keep them apart.
+.indri_gwas_gxe <- function(null, Xs, V, rot, genotypes, dom, env, estimable,
+                            monomorphic, chunk_size, multi, N, Ti, snps,
+                            traits) {
+  M <- ncol(genotypes)
+  C <- ncol(null$r0)
+  m_env <- ncol(env)
+  has_d <- !is.null(dom)
+  i_g <- (2L + has_d):(1L + has_d + m_env)
+  subsets <- list(a = 1L, ag = c(1L, i_g))
+  if (has_d) subsets <- c(subsets, list(ad = 1:2, adg = c(1:2, i_g)))
+  store <- lapply(subsets, function(s)
+    list(q = matrix(NA_real_, C, M), ok = matrix(FALSE, C, M),
+         beta = array(NA_real_, c(C, M, length(s)))))
+  for (idx in .indri_gwas_chunks(M, chunk_size)) {
+    g <- genotypes[, idx, drop = FALSE]
+    terms <- c(list(.indri_gwas_rotate(rot$Q, g)),
+               if (has_d) list(.indri_gwas_rotate(rot$Q, dom[, idx, drop = FALSE])),
+               lapply(seq_len(m_env), function(k)
+                 .indri_gwas_rotate(rot$Q, g * env[, k])))
+    fits <- .indri_gwas_nested(null, Xs, terms, V, subsets)
+    for (s in names(subsets)) {
+      store[[s]]$q[, idx] <- fits[[s]]$q
+      store[[s]]$ok[, idx] <- fits[[s]]$ok
+      store[[s]]$beta[, idx, ] <- fits[[s]]$beta
+    }
+  }
+  # one model per SNP, for every column
+  all_ok <- function(s) colSums(!store[[s]]$ok) == 0L
+  d_ok <- if (has_d) estimable & all_ok("ad") else rep(FALSE, M)
+  g_ok <- ifelse(d_ok, if (has_d) all_ok("adg") else FALSE, all_ok("ag"))
+  fit_of <- ifelse(d_ok, ifelse(g_ok, "adg", "ad"), ifelse(g_ok, "ag", "a"))
+  no_g_of <- ifelse(d_ok, "ad", "a")
+  no_d_of <- ifelse(g_ok, "ag", "a")
+  pick <- function(which, field = "q") {
+    vapply(seq_len(M), function(j) store[[which[j]]][[field]][, j],
+           numeric(C))
+  }
+  q_fit <- matrix(pick(fit_of), C)
+  q_no_g <- matrix(pick(no_g_of), C)
+  q_no_d <- matrix(pick(no_d_of), C)
+  coef <- function(j, pos) store[[fit_of[j]]]$beta[, j, pos]
+  pos_d <- 2L
+  pos_g <- function(j) if (d_ok[j]) 2L + seq_len(m_env) else 1L + seq_len(m_env)
+  b_a <- vapply(seq_len(M), function(j) coef(j, 1L), numeric(C))
+  b_d <- vapply(seq_len(M), function(j)
+    if (d_ok[j]) coef(j, pos_d) else rep(NA_real_, C), numeric(C))
+  b_g <- array(NA_real_, c(C, M, m_env))
+  for (j in which(g_ok)) b_g[, j, ] <- store[[fit_of[j]]]$beta[, j, pos_g(j)]
+  b_a <- matrix(b_a, C); b_d <- matrix(b_d, C)
+  na <- monomorphic
+
+  n_terms <- 1 + d_ok + m_env * g_ok
+  if (multi) {
+    P <- C
+    stat <- N * P * log(sum(null$q0) / colSums(q_fit))
+    stat_g <- ifelse(g_ok, N * P * log(colSums(q_no_g) / colSums(q_fit)), NA)
+    stat_d <- ifelse(d_ok, N * P * log(colSums(q_no_d) / colSums(q_fit)), NA)
+    p <- stats::pchisq(stat, P * n_terms, lower.tail = FALSE)
+    p_g <- stats::pchisq(stat_g, P * m_env, lower.tail = FALSE)
+    p_d <- stats::pchisq(stat_d, P, lower.tail = FALSE)
+    p[na] <- p_g[na] <- p_d[na] <- NA_real_
+    back <- function(b) {
+      out <- t(b) %*% Ti
+      out[na, ] <- NA_real_
+      dimnames(out) <- list(snps, traits)
+      out
+    }
+    gxe <- array(NA_real_, c(M, P, m_env),
+                 dimnames = list(snps, traits, colnames(env)))
+    for (k in seq_len(m_env)) gxe[, , k] <- back(b_g[, , k])
+    out <- list(pvalues = stats::setNames(p, snps), betas = back(b_a),
+                pvalues_gxe = stats::setNames(p_g, snps), betas_gxe = gxe,
+                gxe_estimable = stats::setNames(g_ok, snps))
+    if (has_d) {
+      out$pvalues_dominance <- stats::setNames(p_d, snps)
+      out$betas_dominance <- back(b_d)
+      out$dominance_estimable <- stats::setNames(d_ok, snps)
+    }
+    return(out)
+  }
+  per <- function(x) {
+    x <- t(x)
+    x[na, ] <- NA_real_
+    dimnames(x) <- list(snps, traits)
+    x
+  }
+  rep_cols <- function(v) matrix(v, C, M, byrow = TRUE)
+  stat <- N * log(null$q0 / q_fit)
+  stat_g <- ifelse(rep_cols(g_ok), N * log(q_no_g / q_fit), NA)
+  stat_d <- ifelse(rep_cols(d_ok), N * log(q_no_d / q_fit), NA)
+  p <- stats::pchisq(stat, rep_cols(n_terms), lower.tail = FALSE)
+  gxe <- array(NA_real_, c(M, C, m_env),
+               dimnames = list(snps, traits, colnames(env)))
+  for (k in seq_len(m_env)) gxe[, , k] <- per(b_g[, , k])
+  out <- list(pvalues = per(p), betas = per(b_a),
+              pvalues_gxe = per(stats::pchisq(stat_g, m_env,
+                                              lower.tail = FALSE)),
+              betas_gxe = gxe, gxe_estimable = stats::setNames(g_ok, snps))
+  if (has_d) {
+    out$pvalues_dominance <- per(stats::pchisq(stat_d, 1, lower.tail = FALSE))
+    out$betas_dominance <- per(b_d)
+    out$dominance_estimable <- stats::setNames(d_ok, snps)
+  }
+  out
+}
+
+# Nested weighted regressions with several SNP terms: for each rotated
+# column c and each subset s of the terms, the reduction in the weighted
+# residual sum of squares when the terms of s join Xs (Frisch-Waugh), their
+# coefficients, and `ok`, FALSE where the terms are (numerically) collinear.
+.indri_gwas_nested <- function(null, Xs, terms, V, subsets) {
+  C <- ncol(null$r0)
+  m <- ncol(terms[[1L]])
+  K <- length(terms)
+  res <- lapply(subsets, function(s)
+    list(q = matrix(NA_real_, C, m), ok = matrix(FALSE, C, m),
+         beta = array(NA_real_, c(C, m, length(s)))))
+  for (c in seq_len(C)) {
+    w <- null$W[, c]
+    wr <- w * null$r0[, c]
+    Tt <- lapply(terms, function(T)
+      T - Xs %*% (null$XtWX_inv[[c]] %*% crossprod(Xs, T * w)))
+    S <- array(0, c(K, K, m))
+    r <- matrix(0, K, m)
+    for (k in seq_len(K)) {
+      r[k, ] <- colSums(Tt[[k]] * wr)
+      for (l in k:K) {
+        v <- colSums(Tt[[k]] * Tt[[l]] * w)
+        S[k, l, ] <- v
+        S[l, k, ] <- v
+      }
+    }
+    for (si in seq_along(subsets)) {
+      s <- subsets[[si]]
+      for (j in seq_len(m)) {
+        Ss <- matrix(S[s, s, j], length(s))
+        ds <- diag(Ss)
+        if (any(!(ds > 0))) next
+        scale <- 1 / sqrt(ds)
+        ev <- eigen(Ss * outer(scale, scale), symmetric = TRUE,
+                    only.values = TRUE)$values
+        if (min(ev) < 1e-10 * max(ev)) next
+        b <- solve(Ss, r[s, j])
+        res[[si]]$q[c, j] <- null$q0[c] - sum(b * r[s, j])
+        res[[si]]$ok[c, j] <- TRUE
+        res[[si]]$beta[c, j, ] <- b
+      }
+    }
+  }
+  names(res) <- names(subsets)
+  res
 }
 
 # REML for the variance ratio, sigma^2 profiled: V_of(delta) gives the
@@ -708,7 +933,10 @@ indri_effective_tests <- function(Y, X = NULL) {
 print.indri_gwas <- function(x, ...) {
   what <- if (x$mode == "multi_trait") "multi-trait" else "single-trait"
   cat("indri association scan:", what, toupper(x$model),
-      if (isTRUE(x$dominance)) "with additive and dominance effects", "\n")
+      if (isTRUE(x$dominance)) "with additive and dominance effects",
+      if (!is.null(x$gxe_terms))
+        paste0("with interactions with ", paste(x$gxe_terms, collapse = ", ")),
+      "\n")
   M <- NROW(x$pvalues)
   cat(sprintf("  %d SNPs, %d traits, %d individuals\n", M, length(x$traits),
               x$n_individuals))
@@ -746,6 +974,12 @@ as.data.frame.indri_gwas <- function(x, row.names = NULL, optional = FALSE,
       out$pvalue_empirical <- unname(x$pvalues_empirical)
       out$qvalue_empirical <- unname(x$qvalues_empirical)
     }
+    if (!is.null(x$gxe_terms)) {
+      out$pvalue_gxe <- unname(x$pvalues_gxe)
+      for (e in x$gxe_terms) for (k in colnames(x$a))
+        out[[paste0("gxe_", e, "_", k)]] <- unname(x$gxe[, k, e])
+      out$gxe_estimable <- unname(x$gxe_estimable)
+    }
     if (isTRUE(x$dominance)) {
       dom <- as.data.frame(x$d)
       names(dom) <- paste0("d_", colnames(x$d))
@@ -761,6 +995,11 @@ as.data.frame.indri_gwas <- function(x, row.names = NULL, optional = FALSE,
       if (!is.null(x$pvalues_empirical)) {
         part$pvalue_empirical <- unname(x$pvalues_empirical[, k])
         part$qvalue_empirical <- unname(x$qvalues_empirical)
+      }
+      if (!is.null(x$gxe_terms)) {
+        part$pvalue_gxe <- unname(x$pvalues_gxe[, k])
+        for (e in x$gxe_terms) part[[paste0("gxe_", e)]] <- unname(x$gxe[, k, e])
+        part$gxe_estimable <- unname(x$gxe_estimable)
       }
       if (isTRUE(x$dominance)) {
         part$pvalue_dominance <- unname(x$pvalues_dominance[, k])

@@ -7,8 +7,8 @@
 #' @param x An `indri_gwas` scan.
 #' @param type `"manhattan"` or `"qq"`.
 #' @param which The p-values to draw: `"joint"` (`pvalues`, the default),
-#'   `"dominance"` (`pvalues_dominance`) or `"empirical"`
-#'   (`pvalues_empirical`).
+#'   `"dominance"` (`pvalues_dominance`), `"gxe"` (`pvalues_gxe`) or
+#'   `"empirical"` (`pvalues_empirical`).
 #' @param trait For single-trait scans, the trait to draw; `NULL` (the
 #'   default) draws each SNP's smallest p-value over traits, adjusted when
 #'   the scan was (`pvalues_adjust`). The QQ plot of a single-trait scan
@@ -25,7 +25,8 @@
 #' @seealso [indri_gwas()]
 #' @export
 plot.indri_gwas <- function(x, type = c("manhattan", "qq"),
-                            which = c("joint", "dominance", "empirical"),
+                            which = c("joint", "dominance", "gxe",
+                                      "empirical"),
                             trait = NULL, threshold = NULL, highlight = NULL,
                             ...) {
   if (!requireNamespace("ggplot2", quietly = TRUE))
@@ -102,7 +103,8 @@ summary.indri_gwas <- function(object, n = 10L, ...) {
   top <- utils::head(df[order(df$pvalue), , drop = FALSE], n)
   rownames(top) <- NULL
   df_test <- if (object$mode == "multi_trait") length(object$traits) else 1L
-  if (isTRUE(object$dominance)) df_test <- 2L * df_test
+  df_test <- df_test * (1L + isTRUE(object$dominance) +
+                          length(object$gxe_terms))
   lambda <- function(p) {
     p <- p[!is.na(p)]
     stats::qchisq(stats::median(p), df_test, lower.tail = FALSE) /
@@ -151,6 +153,12 @@ print.summary.indri_gwas <- function(x, ...) {
              "`dominance = TRUE`.", call. = FALSE)
       x$pvalues_dominance
     },
+    gxe = {
+      if (is.null(x$gxe_terms))
+        stop("This scan has no genotype-by-environment tests; rerun ",
+             "indri_gwas() with `gxe`.", call. = FALSE)
+      x$pvalues_gxe
+    },
     empirical = {
       if (is.null(x$pvalues_empirical))
         stop("This scan has no empirical p-values; rerun indri_gwas() with ",
@@ -170,9 +178,11 @@ print.summary.indri_gwas <- function(x, ...) {
 }
 
 .indri_gwas_plot_label <- function(x, which, trait) {
-  test <- switch(which, joint = if (isTRUE(x$dominance))
-                   "additive + dominance" else "association",
+  test <- switch(which, joint = if (isTRUE(x$dominance) || !is.null(x$gxe_terms))
+                   "joint test" else "association",
                  dominance = "dominance given additive",
+                 gxe = paste0("interaction with ",
+                              paste(x$gxe_terms, collapse = ", ")),
                  empirical = "empirical p-values")
   scope <- if (x$mode == "multi_trait") {
     sprintf("multi-trait %s, %d traits", toupper(x$model), length(x$traits))

@@ -1,5 +1,16 @@
 # indri (development version)
 
+* `indri_gwas(gxe = )` fits genotype-by-environment interactions: each SNP's
+  dosage also enters multiplied by the named columns of `X` (sex, diet, a
+  covariate), whose main effects are in the model already. `pvalues` is the
+  joint test of the SNP's main effect and interactions, `pvalues_gxe` the
+  interactions given the main effect, with the interaction effects in
+  `gxe` (SNPs by traits by environments). Works for multi- and single-trait
+  scans, LMM or LM, with dominance (as a main effect) and permutations;
+  SNPs whose interactions cannot be estimated keep the main-effect test
+  (`gxe_estimable`). `plot(scan, which = "gxe")` draws the interaction
+  tests. GxE in the background covariance is not modelled.
+
 * `indri_locus_G()` builds the additive (`G`) and dominance (`D`) covariance
   matrices implied by per-locus additive
   and dominance effects, allele frequencies and linkage disequilibrium

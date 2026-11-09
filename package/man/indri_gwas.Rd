@@ -18,6 +18,7 @@ indri_gwas(
   single_trait_variance = c("reml", "fit"),
   delta = NULL,
   dominance = FALSE,
+  gxe = NULL,
   adjust = c("none", "bonferroni", "effective"),
   n_permutations = 0L,
   fdr = NULL,
@@ -65,6 +66,11 @@ the single-trait test.}
 \item{dominance}{If \code{TRUE}, also fit a dominance (heterozygote) effect for
 each SNP; see the Dominance section. Needs genotypes coded 0, 1 and 2.}
 
+\item{gxe}{Names of columns of \code{X} (environments, such as sex, diet or a
+covariate) whose interaction with each SNP's additive effect is also
+fitted; see the Genotype-by-environment section. A factor enters as the
+indicator columns \code{X} has for it.}
+
 \item{adjust}{Single-trait p-value adjustment for the number of traits:
 \code{"bonferroni"} multiplies by \code{P}, \code{"effective"} by
 \code{\link[=indri_effective_tests]{indri_effective_tests()}} of the residuals after \code{X}; both cap at 1.}
@@ -93,6 +99,9 @@ adjusted, \code{snp_info}, \code{mode}, \code{model} and \code{call}. With
 \code{dominance = TRUE} also \code{pvalues_dominance}, \code{d} (the dominance effects: the
 heterozygote's deviation from the homozygotes' midpoint) and
 \code{dominance_estimable}; \code{pvalues_adjust} then adjusts the joint test.
+With \code{gxe}, also \code{pvalues_gxe}, \code{gxe} (SNPs by traits by environments),
+\code{gxe_estimable} and \code{gxe_terms}; \code{pvalues_adjust} then adjusts the joint
+test.
 With permutations, \code{pvalues_empirical}, \code{qvalues_empirical} and
 \code{n_permutations}, and with \code{fdr}, \code{fdr} and \code{fdr_threshold}.
 }
@@ -138,6 +147,25 @@ additive-only test in \code{pvalues}, gets \code{NA} dominance results, and is
 \code{FALSE} in \code{dominance_estimable}. Missing genotypes are imputed by the
 column mean in each coding. The variance ratio is fitted without any SNP,
 as without dominance.
+}
+
+\section{Genotype-by-environment}{
+
+With \code{gxe}, each SNP's dosage \code{g} also enters multiplied by each named
+column \code{e} of \code{X} (\code{g * e}), next to the environments' main effects, which
+are in \code{X} already. \code{pvalues} is then the joint test of the SNP's main
+effect and its interactions (and dominance), with
+\code{P * (1 + n_gxe [+ 1])} degrees of freedom for \code{P} traits, and
+\code{pvalues_gxe} tests the interactions with the main effect (and dominance)
+in the null. \code{a} is the main effect (the SNP's effect where every named
+environment is 0) and \code{gxe} holds the interaction effects (SNPs by traits
+by environments). With \code{dominance = TRUE} the dominance term is a main
+effect only and \code{pvalues_dominance} tests it given the rest. A SNP whose
+interactions cannot be estimated (for instance every carrier in one
+environment) keeps the test without them, gets \code{NA} interaction results,
+and is \code{FALSE} in \code{gxe_estimable}. The covariance is the same as without
+\code{gxe}: GxE in the background (a polygenic G x E, or a residual variance
+that differs between environments) is not modelled.
 }
 
 \section{Permutations}{

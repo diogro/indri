@@ -7,7 +7,7 @@
 \method{plot}{indri_gwas}(
   x,
   type = c("manhattan", "qq"),
-  which = c("joint", "dominance", "empirical"),
+  which = c("joint", "dominance", "gxe", "empirical"),
   trait = NULL,
   threshold = NULL,
   highlight = NULL,
@@ -20,8 +20,8 @@
 \item{type}{\code{"manhattan"} or \code{"qq"}.}
 
 \item{which}{The p-values to draw: \code{"joint"} (\code{pvalues}, the default),
-\code{"dominance"} (\code{pvalues_dominance}) or \code{"empirical"}
-(\code{pvalues_empirical}).}
+\code{"dominance"} (\code{pvalues_dominance}), \code{"gxe"} (\code{pvalues_gxe}) or
+\code{"empirical"} (\code{pvalues_empirical}).}
 
 \item{trait}{For single-trait scans, the trait to draw; \code{NULL} (the
 default) draws each SNP's smallest p-value over traits, adjusted when

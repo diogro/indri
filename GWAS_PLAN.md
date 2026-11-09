@@ -258,4 +258,12 @@ No new hard dependencies. A PLINK reader (`BEDMatrix` or `genio`) can be a
    nominal rate at 1e-4; the residual `E` was calibrated on all 20
    replicates at 10 and 30 traits.
 
+12. **Genotype by environment (2026-11-09):** `gxe` names columns of `X`;
+   each SNP's additive dosage interacts with them (dominance stays a main
+   effect). `pvalues` is the joint test, `pvalues_gxe` the interactions
+   given the main effect, as for dominance. The background covariance is
+   unchanged; `gwas_gxe_calibration.R` measures what unmodelled background
+   GxE does to the interaction test. `test-gwas-gxe.R` checks every mode
+   and model against dense nested GLS.
+
 Work happens on the `gwas` branch, tests first.

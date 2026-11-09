@@ -148,6 +148,12 @@ genotypes plus `O(N P)` per SNP: thousands of SNPs take seconds.
   genotypes coded 0/1/2 and all three genotypes in numbers: a SNP seen in
   only two genotype classes keeps the additive test and gets `NA` dominance
   results (`dominance_estimable`).
+- **Genotype by environment.** `gxe = "sex"` (any columns of `X`) adds each
+  SNP's interaction with those environments: `pvalues` becomes the joint
+  test of the SNP and its interactions, `pvalues_gxe` tests the
+  interactions given the main effect, and `gxe` holds their effects. GxE in
+  the background (a polygenic G x E, or residual variance differing between
+  environments) is not modelled.
 - **Permutations.** `n_permutations` reruns the scan with the genotypes
   permuted across individuals: `pvalues_empirical` per SNP, and
   `qvalues_empirical`, the permutation estimate of the false discovery rate.
@@ -168,6 +174,7 @@ genotypes plus `O(N P)` per SNP: thousands of SNPs take seconds.
 | `a` | additive effects, SNP × trait, in the units of `Y` per allele |
 | `delta` | the null variance ratio (one, or one per trait) |
 | `pvalues_dominance`, `d`, `dominance_estimable` | with `dominance = TRUE` |
+| `pvalues_gxe`, `gxe`, `gxe_estimable` | with `gxe` |
 | `pvalues_adjust`, `n_tests` | with `adjust` |
 | `pvalues_empirical`, `qvalues_empirical`, `fdr_threshold` | with `n_permutations` (and `fdr`) |
 | `snp_info` | the SNP information, or the SNP names |
