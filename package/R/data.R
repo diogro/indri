@@ -12,35 +12,48 @@
 #' heterozygous, and the F2 parents of these F3 mice are unrelated. The F2
 #' are the founders of the pedigree ([lgsm_pedigree]).
 #'
-#' @format A data frame with one row per mouse:
+#' @format A data frame with one row per mouse, in this column order:
 #' \describe{
-#'   \item{ID}{mouse identifier; matches the row names of the
-#'     [lgsm_genotypes] matrices (as character).}
+#'   \item{ID}{mouse identifier; matches the row names of the [lgsm_genotypes] matrices and of [lgsm_A] (as character).}
 #'   \item{FAMILY}{full-sib family.}
-#'   \item{Sire, Dam}{parents (F2 mice, genotyped in [lgsm_genotypes]). Four
-#'     sires are missing in the source and were inferred from the markers;
-#'     see `sire_inferred`.}
-#'   \item{NURSE}{the dam that reared the mouse (pups were cross-fostered,
-#'     see `xfostpair`).}
+#'   \item{Sire}{father (an F2 mouse, genotyped in [lgsm_genotypes]); four missing in the source were inferred from the markers, see `sire_inferred`.}
+#'   \item{Dam}{mother (an F2 mouse).}
+#'   \item{NURSE}{the dam that reared the mouse (pups were cross-fostered, see `xfostpair`).}
 #'   \item{SEX}{`"F"` or `"M"`.}
-#'   \item{LSB, LSW}{litter size at birth and at weaning.}
+#'   \item{LSB}{litter size at birth.}
+#'   \item{LSW}{litter size at weaning.}
 #'   \item{COHORT}{rearing cohort.}
 #'   \item{xfostpair}{cross-fostering indicator, as in the source.}
-#'   \item{growth12, ..., growth78}{weekly weight gains, `growth12 = WEEK2 -
-#'     WEEK1` to `growth78 = WEEK8 - WEEK7`: the growth traits of the
-#'     original QTL analyses (growth).}
-#'   \item{WEEK1, ..., WEEK10}{raw body weight at weeks 1 to 10 (weight).}
-#'   \item{FATPAD, HEART, KIDNEY, SPLEEN, LIVER}{necropsy weights; a few
-#'     missing.}
-#'   \item{area1, ..., area7}{mandible areas, `NA` for the 95 mice without
-#'     them.}
-#'   \item{sire_inferred}{`TRUE` for the four mice whose sire is missing in
-#'     the source and was found by Mendelian exclusion: 1133, 1139 and 1140
-#'     (family 199, dam 135) are sired by 165, and 1109 (dam 207) by 229.
-#'     Each inferred sire is consistent with the offspring and dam at every
-#'     marker; the next best candidate fails at 12 or more (on mice with a
-#'     recorded sire, the recorded one always had none and the next best 12
-#'     or more).}
+#'   \item{growth12}{weight gain from week 1 to week 2, `WEEK2 - WEEK1` (growth).}
+#'   \item{growth23}{weight gain from week 2 to week 3, `WEEK3 - WEEK2` (growth).}
+#'   \item{growth34}{weight gain from week 3 to week 4, `WEEK4 - WEEK3` (growth).}
+#'   \item{growth45}{weight gain from week 4 to week 5, `WEEK5 - WEEK4` (growth).}
+#'   \item{growth56}{weight gain from week 5 to week 6, `WEEK6 - WEEK5` (growth).}
+#'   \item{growth67}{weight gain from week 6 to week 7, `WEEK7 - WEEK6` (growth).}
+#'   \item{growth78}{weight gain from week 7 to week 8, `WEEK8 - WEEK7` (growth).}
+#'   \item{WEEK1}{body weight at week 1 (weight).}
+#'   \item{WEEK2}{body weight at week 2 (weight).}
+#'   \item{WEEK3}{body weight at week 3 (weight).}
+#'   \item{WEEK4}{body weight at week 4 (weight).}
+#'   \item{WEEK5}{body weight at week 5 (weight).}
+#'   \item{WEEK6}{body weight at week 6 (weight).}
+#'   \item{WEEK7}{body weight at week 7 (weight).}
+#'   \item{WEEK8}{body weight at week 8 (weight).}
+#'   \item{WEEK9}{body weight at week 9 (weight).}
+#'   \item{WEEK10}{body weight at week 10 (weight).}
+#'   \item{FATPAD}{fat pad weight at necropsy (necropsy); a few missing.}
+#'   \item{HEART}{heart weight at necropsy (necropsy); a few missing.}
+#'   \item{KIDNEY}{kidney weight at necropsy (necropsy); a few missing.}
+#'   \item{SPLEEN}{spleen weight at necropsy (necropsy); a few missing.}
+#'   \item{LIVER}{liver weight at necropsy (necropsy); a few missing.}
+#'   \item{area1}{mandible area 1 (area); `NA` for the 95 mice without areas.}
+#'   \item{area2}{mandible area 2 (area); `NA` for the 95 mice without areas.}
+#'   \item{area3}{mandible area 3 (area); `NA` for the 95 mice without areas.}
+#'   \item{area4}{mandible area 4 (area); `NA` for the 95 mice without areas.}
+#'   \item{area5}{mandible area 5 (area); `NA` for the 95 mice without areas.}
+#'   \item{area6}{mandible area 6 (area); `NA` for the 95 mice without areas.}
+#'   \item{area7}{mandible area 7 (area); `NA` for the 95 mice without areas.}
+#'   \item{sire_inferred}{`TRUE` for the four mice whose sire is missing in the source and was found by Mendelian exclusion: 1133, 1139 and 1140 (family 199, dam 135) are sired by 165, and 1109 (dam 207) by 229. Each inferred sire is consistent with the offspring and dam at every marker; the next best candidate fails at 12 or more (on mice with a recorded sire, the recorded one always had none and the next best 12 or more).}
 #' }
 #' Values are as in the source files, apart from the gains computed from
 #' them: no transformation, no correction for the rearing covariates.

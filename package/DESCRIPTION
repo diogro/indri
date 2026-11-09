@@ -1,6 +1,6 @@
 Package: indri
 Title: Scalable Additive Genetic Covariance Estimation
-Version: 0.2.0
+Version: 0.3.0
 Authors@R:
     person(given = "Diogo",
            family = "Melo",
@@ -11,7 +11,10 @@ Description: Estimates the additive genetic covariance matrix of
     high-dimensional trait sets by fitting a multivariate animal model on many
     small trait subsets and reassembling the subset estimates into a single
     positive semi-definite matrix. The per-subset fit is a plugin, so the same
-    estimator can run on a Bayesian sampler or on a REML engine.
+    estimator can run on a Bayesian sampler or on a REML engine. The
+    assembled covariances then drive multi- and single-trait genome-wide
+    association scans in a linear mixed model, with optional dominance
+    effects and permutation p-values.
 License: GPL (>= 3)
 URL: https://github.com/diogro/indri
 BugReports: https://github.com/diogro/indri/issues

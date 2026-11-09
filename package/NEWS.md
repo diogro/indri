@@ -1,4 +1,7 @@
-# indri (development version)
+# indri 0.3.0
+
+Association scans, the residual covariance, and data from an LG/SM
+intercross. `fit$E` is new; see below for how it is computed.
 
 ## New features
 

@@ -7,8 +7,8 @@ trait subsets and reassembles the estimates into one positive semi-definite
 matrix (LiMMBo's idea). The per-subset fit is a **pluggable engine**:
 `stanimal` (Bayesian), `sommer` (REML) or `asreml` (REML, licensed).
 The assembled `G`, with a residual covariance `E`, also drives genome-wide
-association scans (`indri_gwas()`, on the `gwas` branch; design and
-decisions in [`GWAS_PLAN.md`](GWAS_PLAN.md)).
+association scans (`indri_gwas()`, since 0.3.0; design and decisions in
+[`GWAS_PLAN.md`](GWAS_PLAN.md)).
 
 ## Read first
 

@@ -1,7 +1,7 @@
 # Plan: association mapping in indri
 
-Status: done on the `gwas` branch (A0-A5), not merged. Written and
-completed 2026-11-08; open questions are in [STATUS.md](STATUS.md), "Next".
+Status: done (A0-A5), released in indri 0.3.0. Written 2026-11-08; open
+questions are in [STATUS.md](STATUS.md), "Next".
 
 Goal: port LiMMBo's association-testing layer (`limmbo/core/gwas.py` and the
 `runAssociation` pipeline) to indri, so that the `G` indri estimates can drive a
