@@ -40,9 +40,19 @@ one_replicate <- function(seed) {
   fit <- fit_G(Y, X = sim$X, A = sim$A, engine = "sommer", cores = 1L,
                seed = seed, progress = FALSE)
   fit_secs <- as.numeric(difftime(Sys.time(), started, units = "secs"))
+  # Candidate E: the residual covariance of Y after X minus the fitted G,
+  # eigenvalues floored at 1e-3 of the largest (the assembled E can be
+  # nearly singular at many traits; see STATUS.md).
+  resid <- stats::lm.fit(sim$X, Y)$residuals
+  E_res <- crossprod(resid) / (nrow(Y) - ncol(sim$X)) - fit$G
+  e <- eigen((E_res + t(E_res)) / 2, symmetric = TRUE)
+  E_res <- e$vectors %*% (pmax(e$values, 1e-3 * e$values[1]) * t(e$vectors))
+  dimnames(E_res) <- dimnames(fit$G)
   scans <- list(
     multi_lmm_fit = function()
       indri_gwas(Y, sim$genotypes, fit = fit, A = sim$A, X = sim$X),
+    multi_lmm_fit_residual_E = function()
+      indri_gwas(Y, sim$genotypes, G = fit$G, E = E_res, A = sim$A, X = sim$X),
     multi_lmm_truth = function()
       indri_gwas(Y, sim$genotypes, G = sim$G, E = sim$E, A = sim$A, X = sim$X),
     multi_lm = function()
