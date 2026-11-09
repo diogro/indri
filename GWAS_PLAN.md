@@ -156,12 +156,12 @@ Each milestone ends with tests passing (`devtools::test("package")`).
 
 | | work | done when |
 |---|---|---|
-| **A0** | `E` and `E_bar` assembled in `fit_G()`, in the units of `Y`, eigenvalues floored; NOTES.md §2 updated | **done** (NOTES.md pending): `test-fit-E.R`, `E` matches the full-model REML `E` to 1e-3 |
+| **A0** | `E` and `E_bar` assembled in `fit_G()`, in the units of `Y`, eigenvalues floored; NOTES.md §2 updated | **done**: `test-fit-E.R`, `E` matches the full-model REML `E` to 1e-3 |
 | **A1** | rotation core: multi- and single-trait LMM and LM | **done**: `test-gwas-dense.R` matches dense GLS (`helper-gwas.R`) to 1e-8, and the REML `delta` to 1e-5 |
 | **A2** | limmbo reference fixtures (§7) | **done**: `test-gwas-limmbo.R` matches limmbo given its `delta` |
-| **A3** | adjustment, empirical p, empirical FDR | adjustments in `test-gwas-limmbo.R` and `test-gwas-interface.R`; permutation tests still to write |
-| **A4** | `indri_gwas()` interface, `fit =` path, sample matching, `as.data.frame()`, `print`/`summary`, Manhattan and QQ plots | `test-gwas-interface.R`; plots and `examples/gwas.R` still to write |
-| **A5** | calibration and power studies (§8), STATUS.md entry | null p-values uniform (λ_GC near 1); power of multi-trait against single-trait with the effective adjustment |
+| **A3** | adjustment, empirical p, empirical FDR | **partly**: Bonferroni and effective adjustment done and tested; empirical p and empirical FDR not started |
+| **A4** | `indri_gwas()` interface, `fit =` path, sample matching, `as.data.frame()`, `print`/`summary`, Manhattan and QQ plots | **mostly**: interface, `fit =`, matching, `print`, `as.data.frame` and `examples/gwas.R` done; no `summary()` or `plot()` method yet (the example draws its own Manhattan and QQ) |
+| **A5** | calibration and power studies (§8), STATUS.md entry | **not started**; `examples/gwas.R` gives a first look (λ_GC 0.98-1.05 on 3 seeds) |
 
 ## 7. Validation against LiMMBo
 
