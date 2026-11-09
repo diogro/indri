@@ -185,7 +185,7 @@ pair in three blocks (33 here, against
 Its correlations are a little closer to zero, the pull of the prior,
 which the next section examines.
 
-**Why use stanimal, given the time?** It brings five things the REML
+**Why use stanimal, given the time?** It brings four things the REML
 engines do not:
 
 - **A posterior, not a normal approximation.** The REML engines' intervals
@@ -202,14 +202,12 @@ engines do not:
   identified blocks in range, where REML can stop at a boundary or at an
   optimum it cannot certify. With few individuals per trait that matters
   more than it does here.
-- **Missing values handled in the model**, imputed jointly with the
-  parameters.
 - **Diagnostics that say when a block is not identified** (split-Rhat,
   divergent transitions), as in the next section.
 
 With many individuals, as here, the REML engines are the quick choice and
-agree with stanimal; stanimal pays off for smaller samples, many gaps, or
-when the uncertainty of `G` is the point.
+agree with stanimal; stanimal pays off for smaller samples, or when the
+uncertainty of `G` is the point.
 
 ## Reading a fit
 
