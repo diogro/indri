@@ -11,7 +11,7 @@ indri_locus_G(
   p = NULL,
   lambda = NULL,
   ld = TRUE,
-  orientation = c("loci_in_rows", "traits_in_rows")
+  traits_in = c("columns", "rows")
 )
 }
 \arguments{
@@ -34,8 +34,8 @@ diagonal is ignored), instead of the estimate from \code{genotypes}.}
 \item{ld}{If \code{FALSE}, ignore linkage disequilibrium (only the per-locus
 sums).}
 
-\item{orientation}{\code{"loci_in_rows"} (the default: one row per locus, one
-column per trait) or \code{"traits_in_rows"} for the layout of \code{a} and \code{d}.}
+\item{traits_in}{Where the traits are in \code{a} and \code{d}: \code{"columns"} (the
+default: one row per locus, one column per trait) or \code{"rows"}.}
 }
 \value{
 A list with \code{G} and \code{D} (traits by traits), \code{alpha} (the average
@@ -89,7 +89,7 @@ leave \code{d = NULL}.
 units squared. Standardised betas give matrices on the standardised
 scale.
 \item \strong{Shape.} Effects are loci by traits (one row per locus); a
-matrix with one row per trait needs \code{orientation = "traits_in_rows"}. A data
+matrix with one row per trait needs \code{traits_in = "rows"}. A data
 frame may carry one non-numeric column of locus names.
 }
 

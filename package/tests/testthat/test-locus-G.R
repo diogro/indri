@@ -145,9 +145,9 @@ test_that("effects must be numeric, loci by traits", {
   sq <- x$a[1:3, ]
   expect_error(indri_locus_G(t(sq), genotypes = x$geno[, 1:3]),
                "loci by traits")
-  # orientation turns it round
+  # traits_in turns it round
   flipped <- indri_locus_G(t(x$a), t(x$d), genotypes = x$geno,
-                           orientation = "traits_in_rows")
+                           traits_in = "rows")
   expect_equal(flipped$G, x$ref$G)
   expect_equal(flipped$D, x$ref$D)
 })

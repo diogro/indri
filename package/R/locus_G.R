@@ -45,7 +45,7 @@
 #'   units squared. Standardised betas give matrices on the standardised
 #'   scale.
 #' * **Shape.** Effects are loci by traits (one row per locus); a
-#'   matrix with one row per trait needs `orientation = "traits_in_rows"`. A data
+#'   matrix with one row per trait needs `traits_in = "rows"`. A data
 #'   frame may carry one non-numeric column of locus names.
 #'
 #' Loci are matched to the columns of `genotypes`, and to `d`, `p` and
@@ -66,8 +66,8 @@
 #'   diagonal is ignored), instead of the estimate from `genotypes`.
 #' @param ld If `FALSE`, ignore linkage disequilibrium (only the per-locus
 #'   sums).
-#' @param orientation `"loci_in_rows"` (the default: one row per locus, one
-#'   column per trait) or `"traits_in_rows"` for the layout of `a` and `d`.
+#' @param traits_in Where the traits are in `a` and `d`: `"columns"` (the
+#'   default: one row per locus, one column per trait) or `"rows"`.
 #' @return A list with `G` and `D` (traits by traits), `alpha` (the average
 #'   effects, loci by traits), `p` and `loci` (the loci used).
 #' @references Melo, D., Marroig, G. and Wolf, J. B. (2019). Genomic
@@ -81,15 +81,15 @@
 #' @export
 indri_locus_G <- function(a, d = NULL, genotypes = NULL, p = NULL,
                           lambda = NULL, ld = TRUE,
-                          orientation = c("loci_in_rows", "traits_in_rows")) {
-  orientation <- match.arg(orientation)
+                          traits_in = c("columns", "rows")) {
+  traits_in <- match.arg(traits_in)
   if (inherits(a, "indri_gwas")) {
     scan <- a
     a <- scan$a
     d <- if (isTRUE(scan$dominance)) scan$d else NULL
   }
-  a <- .indri_effects(a, "a", orientation)
-  d <- if (is.null(d)) NULL else .indri_effects(d, "d", orientation)
+  a <- .indri_effects(a, "a", traits_in)
+  d <- if (is.null(d)) NULL else .indri_effects(d, "d", traits_in)
   a_named <- !is.null(rownames(a))
   M <- nrow(a)
 
@@ -173,7 +173,7 @@ indri_locus_G <- function(a, d = NULL, genotypes = NULL, p = NULL,
 
 # Effects as a numeric matrix, loci by traits. A data frame may carry one
 # non-numeric column, taken as the locus names.
-.indri_effects <- function(x, name, orientation) {
+.indri_effects <- function(x, name, traits_in) {
   ids <- NULL
   if (is.data.frame(x)) {
     id <- !vapply(x, is.numeric, logical(1))
@@ -191,7 +191,7 @@ indri_locus_G <- function(a, d = NULL, genotypes = NULL, p = NULL,
   if (!is.numeric(x))
     stop("`", name, "` must hold numeric effects, loci by traits.",
          call. = FALSE)
-  if (orientation == "traits_in_rows") x <- t(x)
+  if (traits_in == "rows") x <- t(x)
   storage.mode(x) <- "double"
   x
 }
@@ -219,7 +219,7 @@ indri_locus_G <- function(a, d = NULL, genotypes = NULL, p = NULL,
     nrow(a) != ncol(genotypes)
   if (by_name || by_size)
     stop("The effects look transposed: they must be loci by traits (one row ",
-         "per locus). Use t(), or `orientation = \"traits_in_rows\"`.",
+         "per locus). Use t(), or `traits_in = \"rows\"`.",
          call. = FALSE)
 }
 
