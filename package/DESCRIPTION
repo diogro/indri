@@ -31,6 +31,7 @@ Imports:
     utils
 Suggests:
     cmdstanr,
+    evolqg,
     ggplot2,
     rstan,
     sommer,

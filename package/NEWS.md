@@ -1,5 +1,8 @@
 # indri (development version)
 
+* `lgsm_f3` has all nine weekly gains (`growth12` to `growth910`, the
+  `growth` class of `lgsm_traits`); the original analyses used the first
+  seven.
 * `fit_G_env()` (experimental) estimates the genetic covariance of traits
   within and between the groups of a discrete environment (sex, diet,
   site), fitting each trait in each environment as its own "character

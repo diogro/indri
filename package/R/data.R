@@ -31,6 +31,8 @@
 #'   \item{growth56}{weight gain from week 5 to week 6, `WEEK6 - WEEK5` (growth).}
 #'   \item{growth67}{weight gain from week 6 to week 7, `WEEK7 - WEEK6` (growth).}
 #'   \item{growth78}{weight gain from week 7 to week 8, `WEEK8 - WEEK7` (growth).}
+#'   \item{growth89}{weight gain from week 8 to week 9, `WEEK9 - WEEK8` (growth).}
+#'   \item{growth910}{weight gain from week 9 to week 10, `WEEK10 - WEEK9` (growth).}
 #'   \item{WEEK1}{body weight at week 1 (weight).}
 #'   \item{WEEK2}{body weight at week 2 (weight).}
 #'   \item{WEEK3}{body weight at week 3 (weight).}
@@ -68,7 +70,8 @@
 #' The columns of [lgsm_f3] in each trait class.
 #'
 #' @format A named list of character vectors: `growth` (`growth12` to
-#'   `growth78`, weekly gains), `weight` (`WEEK1` to `WEEK10`, raw weekly
+#'   `growth910`, the nine weekly gains; the original QTL analyses used the
+#'   first seven), `weight` (`WEEK1` to `WEEK10`, raw weekly
 #'   weights), `area` (`area1` to `area7`) and `necropsy` (`FATPAD`,
 #'   `HEART`, `KIDNEY`, `SPLEEN`, `LIVER`).
 #' @source Built by `data-raw/lgsm.R`.

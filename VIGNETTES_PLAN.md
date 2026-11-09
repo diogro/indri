@@ -1,6 +1,7 @@
 # Plan: four vignettes on the LG/SM growth data
 
-Status: proposal; decision 3 (precomputed) made. Written 2026-11-09.
+Status: decisions made (2026-11-09); data extended, writing next. Written
+2026-11-09.
 
 Four vignettes, each a worked analysis of the growth traits of the LG/SM F3
 intercross shipped with indri (`lgsm_f3`, `lgsm_genotypes`, `lgsm_A`):
@@ -20,7 +21,8 @@ and 2 to environment-specific covariances.
 1. **Which growth traits.** `lgsm_traits$growth` holds the 7 weekly gains
    of the original analyses (weeks 1-8); `lgsm_traits$weight` holds the 10
    raw weekly weights. The data reach week 10, so the gains could run to 9
-   (`growth12` to `growth910`). **Recommendation: 9 weekly gains.** Gains
+   (`growth12` to `growth910`). **Decided: 9 weekly gains** (now
+   `lgsm_traits$growth`). Gains
    are less correlated with each other than cumulative weights (|r| up to
    0.28 among the 7), so the G matrix has more to show, and 9 traits give
    36 pairs: a real test of the subset assembly without long fits. This
@@ -32,7 +34,7 @@ and 2 to environment-specific covariances.
    weaning depends on her. indri's models have one random effect (`A`), so
    a common-litter effect inflates `G` (the paper used a dam random
    effect). 632 mice were cross-fostered (nurse other than dam), which
-   separates prenatal from nursing environment in part. **Recommendation:**
+   separates prenatal from nursing environment in part. **Decided:**
    fixed effects for sex, cohort, litter size at birth and at weaning in
    `X` (the original analyses' fixed effects); say plainly in vignettes 1
    and 4 that `G` here includes shared-litter variance; and list a second
@@ -47,9 +49,8 @@ and 2 to environment-specific covariances.
    from there like study results.
 4. **Matrix comparison tools.** Vignettes 1 and 3 compare matrices (random
    skewers, Krzanowski subspace similarity, Mantel). evolqg has them, but is
-   not a dependency. **Recommendation:** short helpers written in the
-   vignettes (random skewers is ten lines), or evolqg in `Suggests:` with a
-   fallback. No new hard dependency either way.
+   not a dependency. **Decided: evolqg in `Suggests:`** (added); the
+   vignettes are precomputed, so the build does not need it.
 
 ## 2. Shared setup (all four vignettes)
 
@@ -210,7 +211,7 @@ minutes; precomputed.
 
 ## 8. Order of work
 
-1. Decisions 1-4 above; extend the data if 9 gains (with a test).
+1. ~~Decisions 1-4; extend the data to 9 gains (with a test).~~ Done.
 2. Infrastructure and the shared setup chunk.
 3. Vignette 1 (sommer and asreml first, then stanimal and the LKJ runs on
    meyer, with BLAS capped).
@@ -222,8 +223,4 @@ minutes; precomputed.
 
 ## 9. Open questions
 
-- 9 weekly gains, the paper's 7, or the 10 raw weights?
-- Fixed effects as in the original analyses (sex, cohort, litter sizes),
-  and accept shared-litter variance in `G`, or wait for a litter random
-  effect?
-- evolqg in `Suggests:`, or helpers in the vignettes?
+None: all four decisions are made (section 1).

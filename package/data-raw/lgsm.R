@@ -22,14 +22,16 @@ raw <- utils::read.csv(file.path(data_dir, "growth traits",
 areas <- utils::read.csv(file.path(data_dir, "area traits", "areasF2F3.csv"))
 
 weight <- paste0("WEEK", 1:10)
-growth <- paste0("growth", 1:7, 2:8)          # growth12, ..., growth78
+# every weekly gain the ten weights give (the original analyses used the
+# first seven, growth12 to growth78)
+growth <- paste0("growth", 1:9, 2:10)         # growth12, ..., growth910
 necropsy <- c("FATPAD", "HEART", "KIDNEY", "SPLEEN", "LIVER")
 area <- paste0("area", 1:7)
 design <- c("ID", "FAMILY", "Sire", "Dam", "NURSE", "SexAN", "LSB", "LSW",
             "COHORT", "xfostpair")
 
 lgsm_f3 <- raw[, c(design, weight, necropsy)]
-for (k in 1:7)
+for (k in 1:9)
   lgsm_f3[[growth[k]]] <- lgsm_f3[[weight[k + 1]]] - lgsm_f3[[weight[k]]]
 lgsm_f3 <- lgsm_f3[, c(design, growth, weight, necropsy)]
 names(lgsm_f3)[names(lgsm_f3) == "SexAN"] <- "SEX"

@@ -6,7 +6,8 @@
 \title{LG/SM F3 intercross: trait classes}
 \format{
 A named list of character vectors: \code{growth} (\code{growth12} to
-\code{growth78}, weekly gains), \code{weight} (\code{WEEK1} to \code{WEEK10}, raw weekly
+\code{growth910}, the nine weekly gains; the original QTL analyses used the
+first seven), \code{weight} (\code{WEEK1} to \code{WEEK10}, raw weekly
 weights), \code{area} (\code{area1} to \code{area7}) and \code{necropsy} (\code{FATPAD},
 \code{HEART}, \code{KIDNEY}, \code{SPLEEN}, \code{LIVER}).
 }
