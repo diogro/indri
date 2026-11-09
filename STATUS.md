@@ -32,6 +32,7 @@ About 3,300 test assertions pass (asreml tests skip without a licence).
 | **M4** uncertainty, weights, diagnostics | done: mixture draws for every engine, REML from each block's `vcov`, coverage measured; weights measured; convergence reported |
 | **M5** performance | partly: parallel blocks, core budget, analytic projection gradient, progress bar; no caching |
 | **GWAS** association scans (0.3.0) | done: the LiMMBo port (GWAS_PLAN.md A0-A5), checked against dense GLS and limmbo; calibration and power measured; `E` redefined after the first calibration run |
+| **Vignettes** | done: four precomputed vignettes on the LG/SM growth data (G and engines, scans, locus G, GxE) |
 
 ## Current defaults
 
@@ -418,6 +419,16 @@ Single-trait env-specific scans: lambda 0.93-0.99 everywhere.
    (fix the cross-environment residual covariance at zero inside the
    blocks; larger blocks; compare with a full character-state REML fit)
    before vignette 4 relies on it.
+
+8. **stanimal blocks that do not mix on the LG/SM growth data.** In the G
+   vignette, six of 33 four-trait blocks (1548 mice, nine gains) have
+   split-Rhat 1.06-1.15 at LKJ 1, and six still do at LKJ 2 and 4: not a
+   prior problem. Check
+   longer chains on those blocks, and whether the litter variance the model
+   lacks makes them hard to identify.
+9. **A litter (or nurse) random effect.** Full sibs share a litter, and
+   indri's models put that variance into `G` (vignettes 1 and 4). The
+   LG/SM data have cross-fostering to separate dam from nurse.
 
 ## Running the studies
 

@@ -1,5 +1,10 @@
 # indri (development version)
 
+* Four vignettes on the growth traits of the LG/SM F3 mice: G estimation with
+  the three engines and the choice of LKJ prior, genome scans for additive
+  and dominance effects, G from locus effects, and genotype-by-sex scans.
+  They are precomputed (`vignettes/*.Rmd.orig`, `vignettes/precompute.R`).
+
 * `lgsm_f3` has all nine weekly gains (`growth12` to `growth910`, the
   `growth` class of `lgsm_traits`); the original analyses used the first
   seven.

@@ -234,15 +234,16 @@ ggplot(lkj_pairs, aes(sommer, stanimal)) +
 A slope below 1 against the REML estimates is the prior's shrinkage. With
 `r nrow(Y)` mice the data dominate: from LKJ(1) to LKJ(4) the slope drops
 only from `r round(slope(lkj_fits[["1"]]), 2)` to
-`r round(slope(lkj_fits[["4"]]), 2)` and the intervals barely narrow. The
-blocks that did not mix are the same under every prior:
+`r round(slope(lkj_fits[["4"]]), 2)` and the intervals barely narrow. As
+many blocks fail to mix under every prior (`r fit_stanimal$diagnostics$n_unconverged` of `r nrow(fit_stanimal$subsets)`); under LKJ(1) they
+are:
 
 ```{r not-mixing}
 fit_stanimal$diagnostics$unconverged
 ```
 
-So here the prior is not what keeps them from mixing, and a stronger one
-does not help: those blocks need longer chains, or the REML estimates,
+A stronger prior does not reduce their number, so here the prior is not what
+keeps them from mixing: those blocks need longer chains, or the REML estimates,
 which agree with the mixed blocks. With a few hundred individuals, as in
 the 35-trait data above, the prior matters much more. The rule of thumb:
 

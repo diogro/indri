@@ -3,3 +3,5 @@
 ^vignettes/precompute\.R$
 ^vignettes/cache$
 ^vignettes/setup\.R$
+^vignettes/precompute\.log$
+^vignettes/precompute\.done$

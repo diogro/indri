@@ -19,3 +19,6 @@ results/*
 *.rds
 # test fixtures are data the suite needs
 !package/tests/testthat/fixtures/**/*.rds
+package/vignettes/precompute.log
+package/vignettes/precompute.done
+package/vignettes/cache/

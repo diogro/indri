@@ -1,7 +1,6 @@
 # Plan: four vignettes on the LG/SM growth data
 
-Status: decisions made (2026-11-09); data extended, writing next. Written
-2026-11-09.
+Status: done (2026-11-09): all four written, precomputed and checked.
 
 Four vignettes, each a worked analysis of the growth traits of the LG/SM F3
 intercross shipped with indri (`lgsm_f3`, `lgsm_genotypes`, `lgsm_A`):
@@ -214,14 +213,12 @@ minutes; precomputed.
 ## 8. Order of work
 
 1. ~~Decisions 1-4; extend the data to 9 gains (with a test).~~ Done.
-2. Infrastructure and the shared setup chunk.
-3. Vignette 1 (sommer and asreml first, then stanimal and the LKJ runs on
-   meyer, with BLAS capped).
-4. Vignette 2, from vignette 1's saved fit.
-5. Vignette 3.
-6. Vignette 4, with the measured caveat (conservative interaction tests;
-   cross-environment correlations biased low) stated up front.
-7. README: a "Vignettes" section; pkgdown later, if wanted.
+2. ~~Infrastructure and the shared setup chunk.~~ Done.
+3. ~~Vignettes 1-4, precomputed on the study machine.~~ Done; the prose
+   was revised against the first run's results (the LKJ prior changes
+   little at 1548 mice; the same six stanimal blocks fail to mix under
+   every prior).
+4. ~~README "Vignettes" section.~~ Done; pkgdown later, if wanted.
 
 ## 9. Open questions
 

@@ -224,6 +224,25 @@ strongest, permutations, and the plots.
   need refitting to drive the multi-trait test. Genotypes are read as
   matrices only (no PLINK reader).
 
+## Vignettes
+
+Four worked analyses of the nine weekly weight gains of the LG/SM F3 mice
+(`lgsm_f3`), precomputed (the fits take up to half an hour):
+
+- **Estimating G for many traits: engines and priors** (`indri-G`): sommer,
+  asreml and stanimal on the same data, reading a fit, choosing the LKJ
+  prior, and `G` against `P`.
+- **Genome scans for many traits** (`indri-gwas`): multi- and single-trait
+  scans, thresholds and permutations, dominance, effects across the growth
+  curve.
+- **G from locus effects** (`indri-locus-G`): `indri_locus_G()` on the
+  mapped loci, compared with the polygenic `G`.
+- **Genotype-by-environment scans** (`indri-gxe`): genetic covariance
+  within and between the sexes, and interaction scans with two backgrounds.
+
+`browseVignettes("indri")` lists them once the package is installed with
+its vignettes.
+
 ## Repository map
 
 - [`NOTES.md`](NOTES.md): design, engine contract and the reasons for the
