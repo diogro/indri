@@ -291,6 +291,33 @@ covariance has no background GxE. Interaction test (`pvalues_gxe`):
   1.06-1.08). The polygenic GxE is in the residual of the interaction: SNPs
   that track relatedness pick it up, the classic GxE-GWAS problem.
 
+**With the environment-specific background** (`fit_G_env()` on each
+scenario's phenotypes, then `indri_gwas(fit = fit_env, gxe = "sex")`; same
+replicates):
+
+| background | P | multi-trait, usual / env-specific: lambda | type-I 1e-4 | mean cross-sex r_G estimated (truth) |
+|---|---|---|---|---|
+| none | 10 | 1.008 / 0.928 | 0.00005 / 0 | 0.77 (1) |
+| none | 30 | 0.996 / 0.884 | 0.00005 / 0 | 0.67 (1) |
+| residual 2x in males | 10 | 1.001 / 0.925 | 0.00007 / 0.00002 | 0.73 (1) |
+| residual 2x in males | 30 | 0.998 / 0.894 | 0.00007 / 0 | 0.61 (1) |
+| polygenic, r_G 0.5 | 10 | 1.152 / **0.976** | 0.00035 / **0.00003** | 0.45 (0.5) |
+| polygenic, r_G 0.5 | 30 | 1.138 / **0.942** | 0.00062 / **0** | 0.36 (0.5) |
+
+Single-trait env-specific scans: lambda 0.93-0.99 everywhere.
+
+- **The environment-specific background removes the inflation** that
+  polygenic G x sex causes.
+- **It is conservative everywhere**, most for the multi-trait test at 30
+  traits (type-I 0.0013 at 1e-2), because `fit_G_env()` **underestimates
+  the cross-environment genetic correlation**: 0.67-0.77 where the truth is
+  1, 0.36-0.45 where it is 0.5, worse with more traits. The background then
+  claims GxE the data do not have, and the interaction test loses power
+  (but never runs above its nominal rate). Suspects: the unidentified
+  cross-environment residual covariance inside the character-state blocks
+  (the engines estimate it freely), and the assembly and projection of a
+  2P-dimensional G shrinking its strongest correlations.
+
 ## Changes and fixes
 
 - **indri 0.3.0:** `fit_G()` returns `E` (the residual covariance after `X`
@@ -385,7 +412,12 @@ covariance has no background GxE. Interaction test (`pvalues_gxe`):
    0.45 overall, individual traits 0.18-0.79, about 1 s per fit. Next:
    measure recovery against design (N, family size, how many relatives of
    the other sex), then scan with the environment-specific covariance and
-   rerun the polygenic GxE calibration.
+   rerun the polygenic GxE calibration. **Done:** the scan removes the
+   inflation but is conservative, because `fit_G_env()` underestimates
+   cross-environment genetic correlations (above). Next: find the bias
+   (fix the cross-environment residual covariance at zero inside the
+   blocks; larger blocks; compare with a full character-state REML fit)
+   before vignette 4 relies on it.
 
 ## Running the studies
 
