@@ -9,6 +9,11 @@ single positive semi-definite matrix. The per-subset fit is pluggable, so the
 same estimator runs on a Bayesian sampler or on a REML engine, and every engine
 comes with per-entry uncertainty. See the [LiMMBo paper](#reference).
 
+The assembled `G`, with the residual covariance `E` assembled the same way,
+then drives **genome-wide association scans**: one multi-trait test per SNP
+across all the traits, or trait-by-trait tests, in a linear mixed model, with
+optional dominance effects (`indri_gwas()`, [below](#association-scans)).
+
 > **Status (0.2.0):** working and validated on simulations of up to 35 traits.
 > The assembled `G` is as accurate as the full model where the full model can
 > be fitted; the 95% bands cover the true correlations about 95-97% of the
@@ -80,6 +85,7 @@ fit <- fit_G(d$Y, X = d$X, A = d$A)
 | `G`, `corrG`, `sigma_G` | the assembled estimate (`G` and `sigma_G` in the units of `Y`) |
 | `G_draws`, `corrG_draws` | assembled draws (traits × traits × draws), for per-entry intervals |
 | `G_bar` | the average of the blocks before the PSD projection |
+| `E`, `E_bar` | the residual covariance, assembled the same way (units of `Y`, kept positive definite), and its average before projection |
 | `subsets`, `coverage` | the trait subsets fitted, and how many covered each pair |
 | `diagnostics` | per-block convergence; uncertified blocks listed by trait |
 | `blocks` | the raw block fits, on the internal standardised scale |
@@ -87,6 +93,76 @@ fit <- fit_G(d$Y, X = d$X, A = d$A)
 
 `print()`, `summary()` and `plot()` are provided. A progress bar of the block
 fits shows in interactive sessions (`progress = TRUE` forces it).
+
+## Association scans
+
+`indri_gwas()` tests SNPs against the traits. The multi-trait test is the
+reason to estimate `G` and `E` for many traits at once: it tests each SNP
+against all of them jointly, in a mixed model whose covariance is `G` and `E`
+with the relationship matrix `A`.
+
+```r
+fit <- fit_G(Y, X = X, A = A)                  # G and E, once
+scan <- indri_gwas(Y, genotypes, fit = fit, A = A, X = X,
+                   snp_info = snp_info)        # one test per SNP, all traits
+scan                                           # summary print
+head(as.data.frame(scan))                      # one row per SNP, for write.csv()
+
+# trait by trait, adjusted for the effective number of traits
+single <- indri_gwas(Y, genotypes, A = A, X = X, mode = "single_trait",
+                     adjust = "effective")
+
+# additive and dominance effects
+dom <- indri_gwas(Y, genotypes, fit = fit, A = A, X = X, dominance = TRUE)
+```
+
+`genotypes` is an individuals × SNPs matrix (typically 0/1/2); samples are
+matched to `Y`, `A` and `X` by row name. `snp_info` is an optional data frame
+(for example `snp`, `chrom`, `pos`) carried into the results.
+
+| `mode`, `model` | test per SNP | covariance |
+|---|---|---|
+| `"multi_trait"`, `"lmm"` (default) | joint, `P` degrees of freedom | `G ⊗ A + δ E ⊗ I` |
+| `"multi_trait"`, `"lm"` | joint, `P` degrees of freedom | `E ⊗ I`, `E` the residual covariance after `X` |
+| `"single_trait"`, `"lmm"` | one per trait | `A + δ I` per trait, `δ` by REML or from the fit |
+| `"single_trait"`, `"lm"` | one per trait | ordinary least squares |
+
+Every test is a likelihood ratio with the overall scale profiled. The
+covariance is diagonalised once, so a scan costs one `N × N` rotation of the
+genotypes plus `O(N P)` per SNP: thousands of SNPs take seconds.
+
+- **`delta`.** `G` and `E` set the shape of the covariance; the ratio `δ`
+  between them is re-fitted once under the null (no SNP) and held fixed for
+  every SNP. With a `G` and `E` from the same data it comes out near 1, and
+  it is returned (`scan$delta`) so that you can check. A value far from 1
+  says the covariances do not describe the data being scanned; the test stays
+  calibrated either way. Pass `delta =` to fix it instead.
+- **Dominance.** `dominance = TRUE` adds a heterozygote indicator next to
+  each SNP's dosage: `pvalues` becomes the joint additive + dominance test,
+  `pvalues_dominance` tests dominance given the additive effect, and `a` and
+  `d` are the additive and dominance effects (Falconer's symbols). It needs
+  genotypes coded 0/1/2 and all three genotypes in numbers: a SNP seen in
+  only two genotype classes keeps the additive test and gets `NA` dominance
+  results (`dominance_estimable`).
+- **Adjusting single-trait p-values** for the number of traits:
+  `adjust = "bonferroni"` multiplies by the number of traits, `"effective"`
+  by the effective number of independent traits (Galwey 2009,
+  `indri_effective_tests()`), counted on the residuals after `X`.
+- **Inputs.** `Y` must be complete. Missing genotypes are replaced by the
+  SNP's mean; monomorphic SNPs get `NA` with a warning. The mixed models need
+  `A`; the multi-trait one needs `G` and `E`, from `fit` or given directly.
+
+| slot | what it is |
+|---|---|
+| `pvalues` | one per SNP (multi-trait) or SNP × trait (single-trait) |
+| `a` | additive effects, SNP × trait, in the units of `Y` per allele |
+| `delta` | the null variance ratio (one, or one per trait) |
+| `pvalues_dominance`, `d`, `dominance_estimable` | with `dominance = TRUE` |
+| `pvalues_adjust`, `n_tests` | with `adjust` |
+| `snp_info` | the SNP information, or the SNP names |
+
+[`examples/gwas.R`](examples/gwas.R) runs the whole pipeline on simulated
+sibs in seconds, with four planted SNPs showing where each test is strongest.
 
 ## Caveats worth knowing
 
@@ -106,6 +182,11 @@ fits shows in interactive sessions (`progress = TRUE` forces it).
   `cores = 1` with a single seat.
 - **Units.** `G` is in the units of `Y` since 0.2.0; fits saved by 0.1.0 hold a
   standardised `G`.
+- **Association scans** condition on the point estimates of `G` and `E`;
+  their uncertainty is not propagated. Fits made before `E` was assembled
+  need refitting to drive the multi-trait test. There are no permutation
+  p-values or plotting methods yet, and genotypes are read as matrices only
+  (no PLINK reader).
 
 ## Repository map
 
@@ -113,13 +194,17 @@ fits shows in interactive sessions (`progress = TRUE` forces it).
   defaults.
 - [`STATUS.md`](STATUS.md): what has been measured and what comes next.
 - [`AGENTS.md`](AGENTS.md): guidance for coding agents working on the package.
-- [`examples/`](examples/README.md): worked examples and the validation studies.
+- [`examples/`](examples/README.md): worked examples, including the genome
+  scan in `gwas.R`.
+- [`GWAS_PLAN.md`](GWAS_PLAN.md): the association-testing port from LiMMBo,
+  its decisions and what remains.
 
 ## Scope
 
-In scope: `G` from a phenotype matrix `Y`, a design `X` and a known
-relationship matrix `A`. Out of scope for now: `E`/`P` reporting, association
-testing, breeding values, imputation, model comparison.
+In scope: `G` and `E` from a phenotype matrix `Y`, a design `X` and a known
+relationship matrix `A`, and association scans that use them. Out of scope
+for now: `P` and `h2` reporting, breeding values, imputation, model
+comparison.
 
 ## Reference
 

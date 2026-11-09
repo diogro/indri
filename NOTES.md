@@ -44,9 +44,14 @@ In scope:
 - Assembly options: least-squares PSD projection or plain average, equal or
   inverse-variance weights.
 
-Out of scope for now: reporting `E`, `P` or `h2` (E is a nuisance inside each
-block), association testing, breeding values, imputation, model comparison,
-and any CLI parity with `limmbo`.
+- `E`, assembled from the blocks like `G` (point estimate only, kept
+  positive definite), because the association scans need it.
+- Association scans with the assembled `G` and `E` (`indri_gwas()`):
+  multi- and single-trait, mixed or linear model, optional dominance. The
+  design and its decisions are in [GWAS_PLAN.md](GWAS_PLAN.md).
+
+Out of scope for now: reporting `P` or `h2`, uncertainty on `E`, breeding
+values, imputation, model comparison, and any CLI parity with `limmbo`.
 
 ## 3. Why the estimator must be two-stage
 
