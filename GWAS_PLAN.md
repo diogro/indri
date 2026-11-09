@@ -36,7 +36,8 @@ comes over:
   the same average-and-project path as `G`, without draws. `fit_G()` gains `E`
   and `E_bar` in the units of `Y`. `E` must be positive definite for the
   whitening, so the projection floors its eigenvalues. LiMMBo added `1e-4 I`
-  to both matrices.
+  to both matrices. (Superseded by decision 11: the block average failed at
+  30 traits, and `E` is now the residual covariance minus `G`.)
 - **No genotype handling.** The scan takes an `N x M` numeric matrix with
   sample row names, plus an optional data frame of SNP information
   (`chr`, `pos`, `id`). Missing genotypes are mean-imputed per SNP, as in
