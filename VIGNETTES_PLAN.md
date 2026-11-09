@@ -1,6 +1,6 @@
 # Plan: four vignettes on the LG/SM growth data
 
-Status: proposal. Written 2026-11-09.
+Status: proposal; decision 3 (precomputed) made. Written 2026-11-09.
 
 Four vignettes, each a worked analysis of the growth traits of the LG/SM F3
 intercross shipped with indri (`lgsm_f3`, `lgsm_genotypes`, `lgsm_A`):
@@ -37,14 +37,14 @@ and 2 to environment-specific covariances.
    `X` (the original analyses' fixed effects); say plainly in vignettes 1
    and 4 that `G` here includes shared-litter variance; and list a second
    random effect (litter or nurse) as a feature request in STATUS.md.
-3. **Precomputed or live.** Fitting nine traits on 1552 mice with stanimal
-   takes far longer than a vignette build should (sommer and asreml take
-   seconds to minutes). **Recommendation:** knitr's "precomputed vignette"
-   pattern: each vignette has a source `vignettes/<name>.Rmd.orig` run on
-   meyer (or locally) to produce `vignettes/<name>.Rmd` with outputs and
-   figures in place; `R CMD build` then only renders Markdown. A
-   `vignettes/precompute.R` script rebuilds all four. Alternative: ship
-   saved fits in `inst/extdata` and run the light code live.
+3. **Precomputed. Decided (2026-11-09).** Fitting nine traits on 1552 mice
+   with stanimal takes far longer than a vignette build should. Each
+   vignette has a source `vignettes/<name>.Rmd.orig`, run on the study
+   machine (synced through git, BLAS capped at one thread, as for the
+   studies) to produce `vignettes/<name>.Rmd` with outputs and figures in
+   place; `R CMD build` then only renders Markdown. `vignettes/precompute.R`
+   rebuilds all four, and the generated `.Rmd` and figures are committed
+   from there like study results.
 4. **Matrix comparison tools.** Vignettes 1 and 3 compare matrices (random
    skewers, Krzanowski subspace similarity, Mantel). evolqg has them, but is
    not a dependency. **Recommendation:** short helpers written in the
@@ -226,5 +226,4 @@ minutes; precomputed.
 - Fixed effects as in the original analyses (sex, cohort, litter sizes),
   and accept shared-litter variance in `G`, or wait for a litter random
   effect?
-- Precomputed `.Rmd.orig` vignettes, or saved fits with live code?
 - evolqg in `Suggests:`, or helpers in the vignettes?
