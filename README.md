@@ -9,12 +9,13 @@ single positive semi-definite matrix. The per-subset fit is pluggable, so the
 same estimator runs on a Bayesian sampler or on a REML engine, and every engine
 comes with per-entry uncertainty. See the [LiMMBo paper](#reference).
 
-The assembled `G`, with the residual covariance `E` assembled the same way,
-then drives **genome-wide association scans**: one multi-trait test per SNP
+The assembled `G`, with the residual covariance `E` (the residual
+covariance of `Y` after `X` minus `G`), then drives **genome-wide association scans**: one multi-trait test per SNP
 across all the traits, or trait-by-trait tests, in a linear mixed model, with
 optional dominance effects (`indri_gwas()`, [below](#association-scans)).
 
-> **Status (0.2.0):** working and validated on simulations of up to 35 traits.
+> **Status (0.2.0; association scans on the `gwas` branch):** working and
+> validated on simulations of up to 35 traits.
 > The assembled `G` is as accurate as the full model where the full model can
 > be fitted; the 95% bands cover the true correlations about 95-97% of the
 > time. See [STATUS.md](STATUS.md) for the numbers.

@@ -8,6 +8,7 @@ where the work stands, what has been measured, and what to do next.
 | repo | branch | remote | state |
 |---|---|---|---|
 | `indri` | `main` | `diogro/indri` (**private**) | **0.2.0**: three engines, uncertainty for all of them, `G` in the units of `Y` |
+| `indri` | `gwas` | `diogro/indri` | development: `indri_gwas()` (multi- and single-trait, dominance, permutations, plots), `E` in `fit_G()`, the LG/SM F3 data; not merged |
 | `stanimal` | `master` | `diogro/stanimal` | **0.8.1** (`eigen_A`, CmdStan output fix); Laplace labels on `master` as development, unreleased |
 | `limmbo` | `indri-session-fixes` | `diogro/limmbo` (fork of `meyer-lab-cshl/limmbo`) | pipeline fixes and a pixi environment; reference only |
 
@@ -21,7 +22,8 @@ Rscript -e 'cmdstanr::install_cmdstan()'  # once, if CmdStan is absent
 cd indri && Rscript -e 'devtools::test("package")'
 ```
 
-About 2,850 test assertions pass (asreml tests skip without a licence).
+About 3,300 test assertions pass on `gwas` (asreml tests skip without a
+licence).
 
 | milestone | state |
 |---|---|
@@ -31,6 +33,7 @@ About 2,850 test assertions pass (asreml tests skip without a licence).
 | **M3** shared eigendecomposition of `A` for stanimal blocks | done (stanimal 0.8.0) |
 | **M4** uncertainty, weights, diagnostics | done: mixture draws for every engine, REML from each block's `vcov`, coverage measured; weights measured; convergence reported |
 | **M5** performance | partly: parallel blocks, core budget, analytic projection gradient, progress bar; no caching |
+| **GWAS** association scans (`gwas` branch) | done: the LiMMBo port (GWAS_PLAN.md A0-A5), checked against dense GLS and limmbo; calibration and power measured; `E` redefined after the first calibration run |
 
 ## Current defaults
 

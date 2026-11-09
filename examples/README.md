@@ -9,8 +9,11 @@ R CMD INSTALL package
 Rscript examples/six_traits.R
 ```
 
-Scripts with settings document them in their header as `INDRI_*` environment
-variables; the main ones are below. `*_CORES` is a process budget for
+Scripts that fork or run in parallel need BLAS and OpenMP limited to one
+thread before R starts (`OPENBLAS_NUM_THREADS=1 OMP_NUM_THREADS=1
+MKL_NUM_THREADS=1 Rscript ...`); a multithreaded BLAS otherwise starts
+hundreds of threads per worker. Scripts with settings document them in their
+header as `INDRI_*` environment variables; the main ones are below. `*_CORES` is a process budget for
 `fit_G()`, not a worker count.
 
 | script | what it does | settings |

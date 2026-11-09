@@ -1,6 +1,7 @@
 # Plan: association mapping in indri
 
-Status: in progress on the `gwas` branch. Written 2026-11-08.
+Status: done on the `gwas` branch (A0-A5), not merged. Written and
+completed 2026-11-08; open questions are in [STATUS.md](STATUS.md), "Next".
 
 Goal: port LiMMBo's association-testing layer (`limmbo/core/gwas.py` and the
 `runAssociation` pipeline) to indri, so that the `G` indri estimates can drive a
@@ -161,7 +162,7 @@ Each milestone ends with tests passing (`devtools::test("package")`).
 | **A2** | limmbo reference fixtures (§7) | **done**: `test-gwas-limmbo.R` matches limmbo given its `delta` |
 | **A3** | adjustment, empirical p, empirical FDR | **done**: adjustments; empirical p-values; permutation q-values and FDR threshold (decision 10); `test-gwas-permutation.R` |
 | **A4** | `indri_gwas()` interface, `fit =` path, sample matching, `as.data.frame()`, `print`/`summary`, Manhattan and QQ plots | **done**: interface, `fit =`, matching, `print`, `summary`, `as.data.frame`, ggplot2 `plot()` (Manhattan, QQ), `examples/gwas.R`; `test-gwas-methods.R` |
-| **A5** | calibration and power studies (§8), STATUS.md entry | **not started**; `examples/gwas.R` gives a first look (λ_GC 0.98-1.05 on 3 seeds) |
+| **A5** | calibration and power studies (§8), STATUS.md entry | **done**: two rounds (STATUS.md, "Association scans"): calibrated at 10 and 30 traits after `E` was redefined; conservative at 100 traits and N = 300; power by effect pattern, with partial and LKJ `G` |
 
 ## 7. Validation against LiMMBo
 

@@ -6,6 +6,9 @@ relationship matrix `A`. It fits a multivariate animal model on many small
 trait subsets and reassembles the estimates into one positive semi-definite
 matrix (LiMMBo's idea). The per-subset fit is a **pluggable engine**:
 `stanimal` (Bayesian), `sommer` (REML) or `asreml` (REML, licensed).
+The assembled `G`, with a residual covariance `E`, also drives genome-wide
+association scans (`indri_gwas()`, on the `gwas` branch; design and
+decisions in [`GWAS_PLAN.md`](GWAS_PLAN.md)).
 
 ## Read first
 
@@ -22,9 +25,9 @@ Rscript -e 'devtools::document("package")'   # regenerate man/ after roxygen edi
 Rscript -e 'devtools::test("package")'       # the suite (asreml tests skip w/o licence)
 ```
 
-Run from the repository root. The suite is the spec (~2,850 assertions):
+Run from the repository root. The suite is the spec (~3,300 assertions):
 subsets, assembly, projection, the three engines, parallelism, scale and units,
-uncertainty, diagnostics, progress. **Reinstall before running tests that use
+uncertainty, diagnostics, progress, association scans and the shipped data. **Reinstall before running tests that use
 parallel blocks**: PSOCK workers load the installed package.
 
 ## Layout
@@ -38,7 +41,11 @@ parallel blocks**: PSOCK workers load the installed package.
 | `package/R/a_forms.R` | forms of `A`: dense, inverse, sparse inverse, eigen |
 | `package/R/engines.R` | registry, `init` checks, normal draws from `vcov` |
 | `package/R/engine-stanimal.R`, `engine-sommer.R`, `engine-asreml.R` | the engines |
-| `package/R/methods.R` | `print`, `summary`, `plot` |
+| `package/R/methods.R` | `print`, `summary`, `plot` for fits |
+| `package/R/gwas.R` | `indri_gwas()`: rotation, REML `delta`, dominance, permutations and q-values; `indri_effective_tests()` |
+| `package/R/gwas-methods.R` | `plot()` (ggplot2 Manhattan/QQ) and `summary()` for scans |
+| `package/R/data.R`, `package/data-raw/lgsm.R` | the LG/SM F3 data sets and the script that builds them from `../mouseGrowthQTLs` |
+| `package/tests/testthat/fixtures/limmbo/` | limmbo's association results on its test data, with the script that made them |
 | `examples/` | studies and worked examples; see `examples/README.md` |
 
 ## The engine contract
@@ -93,6 +100,21 @@ Each of these cost real debugging time; several are invisible in the code.
    random state collide.
 8. **Decide capabilities in the main process**, not in `fit()`: workers load the
    installed package and may not have new helpers.
+9. **`E` is not assembled from the blocks.** Their average is strongly
+   indefinite at many traits (smallest eigenvalue -2.9 at 30), its projection
+   has eigenvalues near zero, and the multi-trait scan ran at 66x its nominal
+   rate at 1e-4. `fit_G()`'s `E` is the residual covariance after `X` minus
+   `c G` (`c = tr(M A) / (n - J)`), floored at 1e-3 of the largest
+   eigenvalue; `E_bar` keeps the block average for reference.
+10. **The limmbo parity tests pass LIMIX's fitted `delta`** (`log_delta.csv`):
+    LIMIX grid-searches it (refined for the multi-trait test, not for the
+    single-trait one), indri fits it by REML. They check the scan, not the
+    optimiser; `test-gwas-dense.R` checks indri's `delta` against dense REML.
+    LIMIX stays out of user documentation.
+11. **Cap BLAS threads before R starts** for anything forked or parallel:
+    `OPENBLAS_NUM_THREADS=1 OMP_NUM_THREADS=1 MKL_NUM_THREADS=1`. Setting them
+    inside R is too late for BLAS; 80 forked study workers once ran 28,000
+    threads. Count cores as processes x threads (`nlwp` in `ps`).
 
 ## `fit_G()` behaviour to preserve
 
@@ -143,6 +165,9 @@ done
 
 Traps:
 
+- **Thread caps** (rule 11): launch with
+  `OPENBLAS_NUM_THREADS=1 OMP_NUM_THREADS=1 MKL_NUM_THREADS=1`; the GWAS and
+  shrinkage studies warn when the BLAS cap is missing.
 - **Never wait on, or kill by, a process-name pattern from inside
   `ssh '...'`.** `pgrep -f`, `ps | grep "[x]yz"` and `pkill -f` match the remote
   shell running the command, whose command line contains the pattern: wait
@@ -156,8 +181,9 @@ Traps:
 - **Write stdout and data streams separately**: anything a remote command prints
   corrupts a `ssh host 'tar cf - ...' | tar xf -` transfer. Batch transfers into
   one connection; many connections can trip SSH rate limits.
-- **Results**: `results/validation_12_traits_*.csv` and
-  `results/uncertainty_coverage_*.csv` are tracked. On a remote checkout, copy
+- **Results**: `results/validation_12_traits_*.csv`,
+  `results/uncertainty_coverage_*.csv`, `results/gwas_calibration_*.csv`,
+  `results/gwas_power_*.csv` and `results/shrinkage_G_*.csv` are tracked. On a remote checkout, copy
   them back and commit locally, then discard the remote copies before the next
   fast-forward. A rename step must check its source exists, or a failed run
   passes off an old file as new.
