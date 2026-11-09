@@ -268,6 +268,29 @@ N = 300; Ledoit-Wolf intensity from the per-entry variance of
   that is not overconservative for strong structure, and a check of what it
   does to the association tests at K close to N.
 
+### Genotype-by-environment tests (`gwas_gxe_calibration.R`, 2026-11-09)
+
+Null SNPs, sex as the environment (`gxe = "sex"`), LKJ `G`, N = 500, 20
+replicates, `fit_G()` with sommer on each scenario's phenotypes; the scan's
+covariance has no background GxE. Interaction test (`pvalues_gxe`):
+
+| background | P | multi-trait lambda / type-I 1e-4 | single-trait lambda / type-I 1e-4 |
+|---|---|---|---|
+| none | 10 | 1.008 / 0.00005 | 1.016 / 0.00011 |
+| none | 30 | 0.996 / 0.00005 | 1.015 / 0.00010 |
+| residual variance 2x in males | 10 | 1.001 / 0.00007 | 1.003 / 0.00009 |
+| residual variance 2x in males | 30 | 0.998 / 0.00007 | 1.009 / 0.00011 |
+| polygenic G x sex (cross-sex r_G = 0.5) | 10 | **1.152 / 0.00035** | **1.137 / 0.00026** |
+| polygenic G x sex (cross-sex r_G = 0.5) | 30 | **1.138 / 0.00062** | **1.147 / 0.00029** |
+
+- Without background GxE the interaction tests are calibrated, and a
+  residual variance that differs between the sexes does no harm here
+  (balanced sexes, genotypes independent of sex).
+- **Unmodelled polygenic GxE inflates the interaction test** (lambda ~1.15,
+  3-6x the nominal rate at 1e-4), and the joint test less (lambda
+  1.06-1.08). The polygenic GxE is in the residual of the interaction: SNPs
+  that track relatedness pick it up, the classic GxE-GWAS problem.
+
 ## Changes and fixes
 
 - **indri 0.3.0:** `fit_G()` returns `E` (the residual covariance after `X`
@@ -348,6 +371,14 @@ N = 300; Ledoit-Wolf intensity from the per-entry variance of
    overshrinks a strong `G`; a cross-validated or bootstrap intensity, or
    stanimal's posterior draws, may do better. Bending (Hayes and Hill 1981;
    Meyer and Kirkpatrick 2010) remains the quantitative-genetics framing.
+
+7. **Polygenic GxE in the scan's covariance.** Interaction tests are
+   inflated when the background has polygenic GxE (above). Options: a
+   G x E random effect (an extra kernel `A * (z z')` per environment term,
+   which breaks the single rotation and needs a second variance component),
+   environment-specific `G` for a discrete environment, or the
+   genomic-control-style correction of the interaction test by its own
+   lambda. Measure against the polygenic scenario before choosing.
 
 ## Running the studies
 
