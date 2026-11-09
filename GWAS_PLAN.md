@@ -234,11 +234,6 @@ No new hard dependencies. A PLINK reader (`BEDMatrix` or `genio`) can be a
    `X`, not limmbo's `cov(Y)`.
 8. **Effective number of tests:** from the residuals after `X`
    (`indri_effective_tests(Y, X)`), not limmbo's raw phenotypes.
-10. **FDR:** LiMMBo's "empirical FDR" was the `fdr`-quantile of the
-   permuted p-values (about `fdr` itself, so uncorrected). indri estimates
-   the FDR from the permutations instead: q-values per SNP and the largest
-   p-value with estimated FDR <= `fdr`. Empirical p-values are
-   `(count + 1) / (n + 1)`, not LiMMBo's `count / n`, which can be 0.
 9. **Dominance (added 2026-11-08):** `dominance = TRUE` adds a heterozygote
    indicator per SNP next to its 0/1/2 dosage. `pvalues` becomes the joint
    additive + dominance test (2 df per trait), `pvalues_dominance` tests
@@ -246,5 +241,10 @@ No new hard dependencies. A PLINK reader (`BEDMatrix` or `genio`) can be a
    model's additive and dominance effects (Falconer's symbols). SNPs seen in only two genotype classes keep
    the additive-only test and are `FALSE` in `dominance_estimable`.
    `test-gwas-dominance.R` checks it against dense nested GLS.
+10. **FDR:** LiMMBo's "empirical FDR" was the `fdr`-quantile of the
+   permuted p-values (about `fdr` itself, so uncorrected). indri estimates
+   the FDR from the permutations instead: q-values per SNP and the largest
+   p-value with estimated FDR <= `fdr`. Empirical p-values are
+   `(count + 1) / (n + 1)`, not LiMMBo's `count / n`, which can be 0.
 
 Work happens on the `gwas` branch, tests first.
