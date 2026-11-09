@@ -4,9 +4,15 @@
 test_that("the phenotypes hold every trait class", {
   expect_equal(nrow(lgsm_f3), 1611L)
   expect_false(anyDuplicated(lgsm_f3$ID) > 0)
-  expect_named(lgsm_traits, c("growth", "area", "necropsy"))
+  expect_named(lgsm_traits, c("growth", "weight", "area", "necropsy"))
   expect_true(all(unlist(lgsm_traits) %in% names(lgsm_f3)))
-  expect_false(anyNA(lgsm_f3[lgsm_traits$growth]))
+  expect_false(anyNA(lgsm_f3[lgsm_traits$weight]))
+  # growth is the weekly gain in weight
+  expect_length(lgsm_traits$growth, 7L)
+  expect_equal(lgsm_f3$growth34, lgsm_f3$WEEK4 - lgsm_f3$WEEK3)
+  expect_equal(unname(as.matrix(lgsm_f3[lgsm_traits$growth])),
+               unname(as.matrix(lgsm_f3[paste0("WEEK", 2:8)]) -
+                        as.matrix(lgsm_f3[paste0("WEEK", 1:7)])))
   expect_equal(sum(!stats::complete.cases(lgsm_f3[lgsm_traits$area])), 95L)
   expect_true(all(lgsm_f3$SEX %in% c("F", "M")))
   expect_equal(length(unique(lgsm_f3$FAMILY)), 201L)

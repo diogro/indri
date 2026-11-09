@@ -2,8 +2,9 @@
 #'
 #' Phenotypes of 1611 mice from the F3 generation of an intercross of the
 #' LG/J and SM/J inbred strains, with their pedigree and rearing. The traits
-#' fall in three classes, listed in [lgsm_traits]: growth (weekly body
-#' weights), area (skull areas) and necropsy (organ and fat pad weights).
+#' fall in four classes, listed in [lgsm_traits]: growth (weekly weight
+#' gains), weight (the raw weekly body weights), area (skull areas) and
+#' necropsy (organ and fat pad weights).
 #' Genotypes are in [lgsm_genotypes], and the markers in [lgsm_markers].
 #'
 #' @format A data frame with one row per mouse:
@@ -18,15 +19,17 @@
 #'   \item{LSB, LSW}{litter size at birth and at weaning.}
 #'   \item{COHORT}{rearing cohort.}
 #'   \item{xfostpair}{cross-fostering indicator, as in the source.}
-#'   \item{WEEK1, ..., WEEK10}{body weight at weeks 1 to 10 (growth).}
+#'   \item{growth12, ..., growth78}{weekly weight gains, `growth12 = WEEK2 -
+#'     WEEK1` to `growth78 = WEEK8 - WEEK7`: the growth traits of the
+#'     original QTL analyses (growth).}
+#'   \item{WEEK1, ..., WEEK10}{raw body weight at weeks 1 to 10 (weight).}
 #'   \item{FATPAD, HEART, KIDNEY, SPLEEN, LIVER}{necropsy weights; a few
 #'     missing.}
 #'   \item{area1, ..., area7}{skull areas, `NA` for the 95 mice without
 #'     them.}
 #' }
-#' Values are as in the source files: no transformation, no correction for
-#' the rearing covariates. Weekly gains (`WEEK2 - WEEK1`, ...) are the
-#' growth traits of the original QTL analyses.
+#' Values are as in the source files, apart from the gains computed from
+#' them: no transformation, no correction for the rearing covariates.
 #'
 #' @source Provenance to be documented. Built by `data-raw/lgsm.R` from the
 #'   mouseGrowthQTLs analysis repository.
@@ -37,8 +40,9 @@
 #'
 #' The columns of [lgsm_f3] in each trait class.
 #'
-#' @format A named list of character vectors: `growth` (`WEEK1` to
-#'   `WEEK10`), `area` (`area1` to `area7`) and `necropsy` (`FATPAD`,
+#' @format A named list of character vectors: `growth` (`growth12` to
+#'   `growth78`, weekly gains), `weight` (`WEEK1` to `WEEK10`, raw weekly
+#'   weights), `area` (`area1` to `area7`) and `necropsy` (`FATPAD`,
 #'   `HEART`, `KIDNEY`, `SPLEEN`, `LIVER`).
 #' @source Built by `data-raw/lgsm.R`.
 "lgsm_traits"

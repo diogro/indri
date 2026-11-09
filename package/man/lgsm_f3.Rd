@@ -17,15 +17,16 @@ see \code{xfostpair}).}
 \item{LSB, LSW}{litter size at birth and at weaning.}
 \item{COHORT}{rearing cohort.}
 \item{xfostpair}{cross-fostering indicator, as in the source.}
-\item{WEEK1, ..., WEEK10}{body weight at weeks 1 to 10 (growth).}
+\item{growth12, ..., growth78}{weekly weight gains, \code{growth12 = WEEK2 - WEEK1} to \code{growth78 = WEEK8 - WEEK7}: the growth traits of the
+original QTL analyses (growth).}
+\item{WEEK1, ..., WEEK10}{raw body weight at weeks 1 to 10 (weight).}
 \item{FATPAD, HEART, KIDNEY, SPLEEN, LIVER}{necropsy weights; a few
 missing.}
 \item{area1, ..., area7}{skull areas, \code{NA} for the 95 mice without
 them.}
 }
-Values are as in the source files: no transformation, no correction for
-the rearing covariates. Weekly gains (\code{WEEK2 - WEEK1}, ...) are the
-growth traits of the original QTL analyses.
+Values are as in the source files, apart from the gains computed from
+them: no transformation, no correction for the rearing covariates.
 }
 \source{
 Provenance to be documented. Built by \code{data-raw/lgsm.R} from the
@@ -37,8 +38,9 @@ lgsm_f3
 \description{
 Phenotypes of 1611 mice from the F3 generation of an intercross of the
 LG/J and SM/J inbred strains, with their pedigree and rearing. The traits
-fall in three classes, listed in \link{lgsm_traits}: growth (weekly body
-weights), area (skull areas) and necropsy (organ and fat pad weights).
+fall in four classes, listed in \link{lgsm_traits}: growth (weekly weight
+gains), weight (the raw weekly body weights), area (skull areas) and
+necropsy (organ and fat pad weights).
 Genotypes are in \link{lgsm_genotypes}, and the markers in \link{lgsm_markers}.
 }
 \seealso{

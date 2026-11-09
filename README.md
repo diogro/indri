@@ -172,8 +172,8 @@ genotypes plus `O(N P)` per SNP: thousands of SNPs take seconds.
 | `snp_info` | the SNP information, or the SNP names |
 
 **Data.** The package ships an F3 intercross of the LG/J and SM/J mouse
-strains: `lgsm_f3` (1611 mice; growth, skull area and necropsy traits,
-listed in `lgsm_traits`), `lgsm_genotypes` (353 markers coded additive `A`,
+strains: `lgsm_f3` (1611 mice; growth (weekly gains), raw weekly weight,
+skull area and necropsy traits, listed in `lgsm_traits`), `lgsm_genotypes` (353 markers coded additive `A`,
 dominance `D` and imprinting `I`; `A + 1` is the 0/1/2 dosage
 `indri_gwas()` takes) and `lgsm_markers` (the map).
 

@@ -5,7 +5,9 @@
 #
 # Writes package/data/lgsm_f3.rda, lgsm_genotypes.rda, lgsm_markers.rda and
 # lgsm_traits.rda. Values are copied from the source files unchanged; only
-# names are tidied (SexAN -> SEX) and rows put in ID order.
+# names are tidied (SexAN -> SEX) and rows put in ID order. The growth traits
+# are the weekly gains of the original analyses (read_mouse_data.R), computed
+# from the raw weekly weights, which are shipped too.
 
 args <- commandArgs(trailingOnly = TRUE)
 src <- if (length(args)) args[1] else "../mouseGrowthQTLs"
@@ -19,20 +21,25 @@ raw <- utils::read.csv(file.path(data_dir, "growth traits",
   check.names = FALSE, stringsAsFactors = FALSE)
 areas <- utils::read.csv(file.path(data_dir, "area traits", "areasF2F3.csv"))
 
-growth <- paste0("WEEK", 1:10)
+weight <- paste0("WEEK", 1:10)
+growth <- paste0("growth", 1:7, 2:8)          # growth12, ..., growth78
 necropsy <- c("FATPAD", "HEART", "KIDNEY", "SPLEEN", "LIVER")
 area <- paste0("area", 1:7)
 design <- c("ID", "FAMILY", "Sire", "Dam", "NURSE", "SexAN", "LSB", "LSW",
             "COHORT", "xfostpair")
 
-lgsm_f3 <- raw[, c(design, growth, necropsy)]
+lgsm_f3 <- raw[, c(design, weight, necropsy)]
+for (k in 1:7)
+  lgsm_f3[[growth[k]]] <- lgsm_f3[[weight[k + 1]]] - lgsm_f3[[weight[k]]]
+lgsm_f3 <- lgsm_f3[, c(design, growth, weight, necropsy)]
 names(lgsm_f3)[names(lgsm_f3) == "SexAN"] <- "SEX"
 lgsm_f3 <- merge(lgsm_f3, areas[, c("ID", area)], by = "ID", all.x = TRUE)
 lgsm_f3 <- lgsm_f3[order(lgsm_f3$ID), ]
 rownames(lgsm_f3) <- NULL
 stopifnot(!anyDuplicated(lgsm_f3$ID), nrow(lgsm_f3) == nrow(raw))
 
-lgsm_traits <- list(growth = growth, area = area, necropsy = necropsy)
+lgsm_traits <- list(growth = growth, weight = weight, area = area,
+                    necropsy = necropsy)
 
 ## Markers -----------------------------------------------------------------
 

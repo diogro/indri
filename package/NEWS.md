@@ -45,9 +45,9 @@
   multi-trait scan.
 * `examples/gwas.R` runs the whole pipeline on simulated sibs in seconds.
 * Data from an F3 intercross of the LG/J and SM/J mouse strains:
-  `lgsm_f3` (1611 mice with pedigree, rearing, and three trait classes:
-  weekly weights, skull areas and necropsy weights; `lgsm_traits` lists
-  them), `lgsm_genotypes` (353 markers in the additive, dominance and
+  `lgsm_f3` (1611 mice with pedigree, rearing, and four trait classes:
+  weekly weight gains, raw weekly weights, skull areas and necropsy
+  weights; `lgsm_traits` lists them), `lgsm_genotypes` (353 markers in the additive, dominance and
   imprinting design, for the F3 mice and their F2 parents) and
   `lgsm_markers` (the map). Provenance still to be documented.
 
