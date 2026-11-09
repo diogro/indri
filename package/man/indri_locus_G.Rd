@@ -10,19 +10,21 @@ indri_locus_G(
   genotypes = NULL,
   p = NULL,
   lambda = NULL,
-  ld = TRUE
+  ld = TRUE,
+  orientation = c("loci_by_traits", "traits_by_loci")
 )
 }
 \arguments{
-\item{a}{Additive effects, loci by traits, or an \code{indri_gwas} scan (whose
-\code{a}, and \code{d} with \code{dominance = TRUE}, are used; loci without an
-additive or dominance estimate are dropped).}
+\item{a}{Additive effects, loci by traits (a matrix, a numeric data
+frame, or a data frame with one column of locus names; a vector for one
+trait), or an \code{indri_gwas} scan (whose \code{a}, and \code{d} with
+\code{dominance = TRUE}, are used). Loci without an estimate are dropped.}
 
-\item{d}{Dominance effects, loci by traits; \code{NULL} for none.}
+\item{d}{Dominance effects, in the same layout as \code{a}; \code{NULL} for none.}
 
-\item{genotypes}{Individuals by loci, coded 0/1/2, for the allele
-frequencies and the linkage disequilibrium; matched to the loci of \code{a}
-by column name when both are named.}
+\item{genotypes}{Individuals by loci, 0/1/2 dosages of the allele the
+effects refer to, for the allele frequencies and the linkage
+disequilibrium. May have more loci than \code{a}.}
 
 \item{p}{Allele frequencies, one per locus, instead of \code{genotypes}.}
 
@@ -31,10 +33,13 @@ diagonal is ignored), instead of the estimate from \code{genotypes}.}
 
 \item{ld}{If \code{FALSE}, ignore linkage disequilibrium (only the per-locus
 sums).}
+
+\item{orientation}{\code{"loci_by_traits"} (the default) or \code{"traits_by_loci"}
+for the layout of \code{a} and \code{d}.}
 }
 \value{
-A list with \code{G} and \code{D} (traits by traits), \code{alpha}
-(the average effects, loci by traits), \code{p} and \code{loci} (the loci used).
+A list with \code{G} and \code{D} (traits by traits), \code{alpha} (the average
+effects, loci by traits), \code{p} and \code{loci} (the loci used).
 }
 \description{
 The additive (\code{G}) and dominance (\code{D}) covariance matrices of a set of
@@ -42,7 +47,8 @@ traits implied by the additive and dominance effects of individual loci,
 their allele frequencies and the linkage disequilibrium between them
 (Melo, Marroig and Wolf 2019, Eqs. 7-14). Each locus contributes through
 its vector of pleiotropic effects, so \code{G} and \code{D} show how the loci found
-by \code{\link[=indri_gwas]{indri_gwas()}} build up the genetic covariance between the traits.
+by \code{\link[=indri_gwas]{indri_gwas()}}, or by any other mapping method, build up the genetic
+covariance between the traits.
 }
 \details{
 For locus \code{j} with allele frequency \code{p_j} (of the allele the
@@ -58,12 +64,41 @@ dominance effects \code{d_j} (vectors over the traits), the average effect is
 where \code{lambda_jx} is the linkage disequilibrium between loci \code{j} and \code{x}.
 From an unphased genotype matrix it is the composite estimate
 \code{lambda_jx = Cov(g_j, g_x) / 2} of the dosages.
-
-The effects are on the scale of \code{\link[=indri_gwas]{indri_gwas()}}'s \code{a} and \code{d}: \code{a} is the
-effect of one copy of the counted allele (half the difference between the
-homozygotes) and \code{d} the deviation of the heterozygote from their
-midpoint, as in the LL = +1, LS = 0, SS = -1 coding of \link{lgsm_genotypes}.
 }
+\section{Conventions for effects from other software}{
+
+The formulas assume one convention for the effects; estimates from other
+packages have to be put on it, or \code{G} and \code{D} are wrong without any error.
+\itemize{
+\item \strong{Effect allele.} \code{a} is the effect of one copy of the allele that the
+0/1/2 genotypes count (half the difference between the two
+homozygotes), and \code{p} is that allele's frequency. GWAS software reports
+each beta for a named allele (for example \code{A1} in PLINK 2's \code{--glm}
+output, \code{ALLELE1} in regenie, \code{allele1} in GEMMA): the genotypes must
+count that allele, or that locus's \code{a} must be negated. Check this per
+locus; tools differ in which allele they report.
+\item \strong{Dominance coding.} \code{d} is the deviation of the heterozygote from the
+midpoint of the homozygotes, which is what a regression on the dosage
+plus a heterozygote indicator (1 for genotype 1, 0 otherwise) estimates
+(as \code{\link[=indri_gwas]{indri_gwas()}} does, and as the LL = +1, LS = 0, SS = -1 coding of
+\link{lgsm_genotypes} with its \code{D} column). Orthogonal or frequency-centred
+dominance codings (Cockerham's, for instance) estimate other quantities
+and must be converted first. Most GWAS software estimates no dominance:
+leave \code{d = NULL}.
+\item \strong{Units.} Effects in the units of the traits give \code{G} and \code{D} in those
+units squared. Standardised betas give matrices on the standardised
+scale.
+\item \strong{Shape.} Effects are loci by traits (one row per locus); a
+traits-by-loci matrix needs \code{orientation = "traits_by_loci"}. A data
+frame may carry one non-numeric column of locus names.
+}
+
+Loci are matched to the columns of \code{genotypes}, and to \code{d}, \code{p} and
+\code{lambda}, by name whenever both sides are named. Matching to \code{genotypes}
+by position warns, as does matching \code{d} by position when only one side
+is named.
+}
+
 \examples{
 # one locus with effects on three traits
 indri_locus_G(matrix(c(0.5, -0.2, 0.1), 1), d = matrix(c(0.3, 0, 0), 1),

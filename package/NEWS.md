@@ -4,7 +4,12 @@
   matrices implied by per-locus additive
   and dominance effects, allele frequencies and linkage disequilibrium
   (Melo, Marroig and Wolf 2019, Eqs. 7-14). It takes `indri_gwas()`'s `a`
-  and `d` directly, with frequencies and composite LD from the genotypes.
+  and `d` directly, with frequencies and composite LD from the genotypes,
+  or effects from other software: a data frame with a column of locus
+  names, either orientation (`orientation`), loci matched to the genotypes
+  (and to `d`, `p`, `lambda`) by name, and errors for 0/1/2 codings and
+  transposed effects. The help page sets out the effect-allele, dominance
+  and unit conventions the effects must follow.
 
 # indri 0.3.0
 

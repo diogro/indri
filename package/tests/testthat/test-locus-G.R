@@ -3,11 +3,11 @@
 
 test_that("one locus gives 2pq alpha alpha' and (2pq)^2 d d'", {
   a <- matrix(c(0.5, -0.2, 0.1), 1, dimnames = list("rs1", c("x", "y", "z")))
-  d <- matrix(c(0.3, 0.1, -0.4), 1)
+  d <- matrix(c(0.3, 0.1, -0.4), 1, dimnames = dimnames(a))
   out <- indri_locus_G(a, d, p = 0.3)
   alpha <- a + (0.7 - 0.3) * d
   expect_equal(unname(out$G), unname(2 * 0.3 * 0.7 * crossprod(alpha)))
-  expect_equal(unname(out$D), (2 * 0.3 * 0.7)^2 * crossprod(d))
+  expect_equal(unname(out$D), unname((2 * 0.3 * 0.7)^2 * crossprod(d)))
   expect_equal(dimnames(out$G), list(c("x", "y", "z"), c("x", "y", "z")))
   expect_equal(unname(out$alpha), unname(alpha))
 })
@@ -107,4 +107,102 @@ test_that("loci without effects are dropped, and inputs are checked", {
   expect_error(indri_locus_G(matrix(1, 2, 2), p = c(0.3, 1.2)), "p")
   expect_error(indri_locus_G(matrix(1, 2, 2), d = matrix(1, 3, 2),
                              p = c(0.3, 0.4)), "d")
+})
+
+# Inputs from other packages ----------------------------------------------
+
+locus_inputs <- function(seed = 11) {
+  set.seed(seed)
+  geno <- matrix(stats::rbinom(300 * 5, 2L, 0.4), 300, 5,
+                 dimnames = list(NULL, paste0("rs", 1:5)))
+  a <- matrix(stats::rnorm(15), 5, 3,
+              dimnames = list(paste0("rs", 1:5), c("t1", "t2", "t3")))
+  d <- matrix(stats::rnorm(15), 5, 3, dimnames = dimnames(a))
+  list(geno = geno, a = a, d = d,
+       ref = indri_locus_G(a, d, genotypes = geno))
+}
+
+test_that("a data frame with one SNP-id column names the loci", {
+  x <- locus_inputs()
+  df <- data.frame(snp = rownames(x$a), x$a, stringsAsFactors = FALSE)
+  rownames(df) <- NULL
+  dd <- data.frame(id = factor(rownames(x$d)), x$d)
+  out <- indri_locus_G(df, dd, genotypes = x$geno)
+  expect_equal(out$G, x$ref$G)
+  expect_equal(out$D, x$ref$D)
+  expect_equal(out$loci, rownames(x$a))
+  two <- data.frame(snp = rownames(x$a), chrom = "1", x$a)
+  expect_error(indri_locus_G(two, genotypes = x$geno), "non-numeric")
+})
+
+test_that("effects must be numeric, loci by traits", {
+  x <- locus_inputs()
+  expect_error(indri_locus_G(matrix(letters[1:6], 3), p = c(.2, .3, .4)),
+               "numeric")
+  # traits x loci with genotypes: the dimensions give it away
+  expect_error(indri_locus_G(t(x$a), genotypes = x$geno), "loci by traits")
+  # and so do names, even when square
+  sq <- x$a[1:3, ]
+  expect_error(indri_locus_G(t(sq), genotypes = x$geno[, 1:3]),
+               "loci by traits")
+  # orientation turns it round
+  flipped <- indri_locus_G(t(x$a), t(x$d), genotypes = x$geno,
+                           orientation = "traits_by_loci")
+  expect_equal(flipped$G, x$ref$G)
+  expect_equal(flipped$D, x$ref$D)
+})
+
+test_that("genotypes must be 0/1/2 dosages", {
+  x <- locus_inputs()
+  expect_error(indri_locus_G(x$a, genotypes = x$geno - 1), "0/1/2")
+  expect_error(indri_locus_G(x$a, genotypes = x$geno + 1), "0/1/2")
+  # imputed dosages in [0, 2] are fine
+  expect_silent(indri_locus_G(x$a, genotypes = x$geno * 0.98))
+})
+
+test_that("loci are matched to genotypes by name, and mismatches are errors", {
+  x <- locus_inputs()
+  shuffled <- x$geno[, c(4, 2, 5, 1, 3)]
+  expect_equal(indri_locus_G(x$a, x$d, genotypes = shuffled)$G, x$ref$G)
+  # extra genotype columns are fine
+  extra <- cbind(x$geno, rs99 = 0L)
+  expect_equal(indri_locus_G(x$a, x$d, genotypes = extra)$G, x$ref$G)
+  renamed <- x$geno
+  colnames(renamed) <- paste0("snp", 1:5)
+  expect_error(indri_locus_G(x$a, genotypes = renamed), "rs1")
+  partial <- x$geno
+  colnames(partial)[2] <- "other"
+  expect_error(indri_locus_G(x$a, genotypes = partial), "rs2")
+})
+
+test_that("matching by position warns", {
+  x <- locus_inputs()
+  unnamed_a <- unname(x$a)
+  expect_warning(out <- indri_locus_G(unnamed_a, genotypes = x$geno),
+                 "position")
+  expect_equal(unname(out$G), unname(indri_locus_G(x$a, genotypes = x$geno)$G))
+  unnamed_g <- unname(x$geno)
+  expect_warning(indri_locus_G(x$a, genotypes = unnamed_g), "position")
+  expect_warning(indri_locus_G(unnamed_a, genotypes = unnamed_g), "position")
+})
+
+test_that("d, p and lambda are matched to the loci by name", {
+  x <- locus_inputs()
+  d_moved <- x$d[c(5, 1, 2, 3, 4), ]
+  expect_equal(indri_locus_G(x$a, d_moved, genotypes = x$geno)$D, x$ref$D)
+  d_wrong <- x$d
+  rownames(d_wrong)[1] <- "nope"
+  expect_error(indri_locus_G(x$a, d_wrong, genotypes = x$geno), "`d`")
+
+  p <- stats::setNames(colMeans(x$geno) / 2, colnames(x$geno))
+  lambda <- stats::cov(x$geno) / 2
+  ref <- indri_locus_G(x$a, x$d, p = p, lambda = lambda)
+  o <- c(3, 1, 5, 2, 4)
+  moved <- indri_locus_G(x$a, x$d, p = p[o], lambda = lambda[o, o])
+  expect_equal(moved$G, ref$G)
+  expect_equal(moved$D, ref$D)
+  expect_equal(ref$G, x$ref$G)
+  p_wrong <- p
+  names(p_wrong)[1] <- "nope"
+  expect_error(indri_locus_G(x$a, p = p_wrong), "`p`")
 })
