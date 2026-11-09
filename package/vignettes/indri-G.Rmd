@@ -185,6 +185,32 @@ pair in three blocks (33 here, against
 Its correlations are a little closer to zero, the pull of the prior,
 which the next section examines.
 
+**Why use stanimal, given the time?** It brings five things the REML
+engines do not:
+
+- **A posterior, not a normal approximation.** The REML engines' intervals
+  come from a normal approximation to each block's sampling distribution,
+  which fits poorly near the boundaries (a variance near zero, a correlation
+  near ±1); stanimal's draws respect them, so every draw of a correlation is
+  a correlation.
+- **Tighter intervals at the same coverage.** In simulations of 35 traits on
+  300 individuals (STATUS.md), stanimal's 95% intervals for the genetic
+  correlations covered the truth 96% of the time, as sommer's did, but were
+  about 20% narrower (mean width 0.57 against 0.72), with a slightly smaller
+  median error (0.096 against 0.102).
+- **Regularisation where the data are thin.** The prior keeps poorly
+  identified blocks in range, where REML can stop at a boundary or at an
+  optimum it cannot certify. With few individuals per trait that matters
+  more than it does here.
+- **Missing values handled in the model**, imputed jointly with the
+  parameters.
+- **Diagnostics that say when a block is not identified** (split-Rhat,
+  divergent transitions), as in the next section.
+
+With many individuals, as here, the REML engines are the quick choice and
+agree with stanimal; stanimal pays off for smaller samples, many gaps, or
+when the uncertainty of `G` is the point.
+
 ## Reading a fit
 
 
