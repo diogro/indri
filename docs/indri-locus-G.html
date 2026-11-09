@@ -1,0 +1,537 @@
+<!DOCTYPE html>
+
+<html>
+
+<head>
+
+<meta charset="utf-8" />
+<meta name="generator" content="pandoc" />
+<meta http-equiv="X-UA-Compatible" content="IE=EDGE" />
+
+<meta name="viewport" content="width=device-width, initial-scale=1" />
+
+
+
+<title>G from locus effects</title>
+
+<script>// Pandoc 2.9 adds attributes on both header and div. We remove the former (to
+// be compatible with the behavior of Pandoc < 2.8).
+document.addEventListener('DOMContentLoaded', function(e) {
+  var hs = document.querySelectorAll("div.section[class*='level'] > :first-child");
+  var i, h, a;
+  for (i = 0; i < hs.length; i++) {
+    h = hs[i];
+    if (!/^h[1-6]$/i.test(h.tagName)) continue;  // it should be a header h1-h6
+    a = h.attributes;
+    while (a.length > 0) h.removeAttribute(a[0].name);
+  }
+});
+</script>
+
+<style type="text/css">
+code{white-space: pre-wrap;}
+span.smallcaps{font-variant: small-caps;}
+span.underline{text-decoration: underline;}
+div.column{display: inline-block; vertical-align: top; width: 50%;}
+div.hanging-indent{margin-left: 1.5em; text-indent: -1.5em;}
+ul.task-list{list-style: none;}
+</style>
+
+
+
+<style type="text/css">
+code {
+white-space: pre;
+}
+.sourceCode {
+overflow: visible;
+}
+</style>
+<style type="text/css" data-origin="pandoc">
+html { -webkit-text-size-adjust: 100%; }
+pre > code.sourceCode { white-space: pre; position: relative; }
+pre > code.sourceCode > span { display: inline-block; line-height: 1.25; }
+pre > code.sourceCode > span:empty { height: 1.2em; }
+.sourceCode { overflow: visible; }
+code.sourceCode > span { color: inherit; text-decoration: inherit; }
+div.sourceCode { margin: 1em 0; }
+pre.sourceCode { margin: 0; }
+@media screen {
+div.sourceCode { overflow: auto; }
+}
+@media print {
+pre > code.sourceCode { white-space: pre-wrap; }
+pre > code.sourceCode > span { text-indent: -5em; padding-left: 5em; }
+}
+pre.numberSource code
+{ counter-reset: source-line 0; }
+pre.numberSource code > span
+{ position: relative; left: -4em; counter-increment: source-line; }
+pre.numberSource code > span > a:first-child::before
+{ content: counter(source-line);
+position: relative; left: -1em; text-align: right; vertical-align: baseline;
+border: none; display: inline-block;
+-webkit-touch-callout: none; -webkit-user-select: none;
+-khtml-user-select: none; -moz-user-select: none;
+-ms-user-select: none; user-select: none;
+padding: 0 4px; width: 4em;
+color: #aaaaaa;
+}
+pre.numberSource { margin-left: 3em; border-left: 1px solid #aaaaaa; padding-left: 4px; }
+div.sourceCode
+{ }
+@media screen {
+pre > code.sourceCode > span > a:first-child::before { text-decoration: underline; }
+}
+code span.al { color: #ff0000; font-weight: bold; } 
+code span.an { color: #60a0b0; font-weight: bold; font-style: italic; } 
+code span.at { color: #7d9029; } 
+code span.bn { color: #40a070; } 
+code span.bu { color: #008000; } 
+code span.cf { color: #007020; font-weight: bold; } 
+code span.ch { color: #4070a0; } 
+code span.cn { color: #880000; } 
+code span.co { color: #60a0b0; font-style: italic; } 
+code span.cv { color: #60a0b0; font-weight: bold; font-style: italic; } 
+code span.do { color: #ba2121; font-style: italic; } 
+code span.dt { color: #902000; } 
+code span.dv { color: #40a070; } 
+code span.er { color: #ff0000; font-weight: bold; } 
+code span.ex { } 
+code span.fl { color: #40a070; } 
+code span.fu { color: #06287e; } 
+code span.im { color: #008000; font-weight: bold; } 
+code span.in { color: #60a0b0; font-weight: bold; font-style: italic; } 
+code span.kw { color: #007020; font-weight: bold; } 
+code span.op { color: #666666; } 
+code span.ot { color: #007020; } 
+code span.pp { color: #bc7a00; } 
+code span.sc { color: #4070a0; } 
+code span.ss { color: #bb6688; } 
+code span.st { color: #4070a0; } 
+code span.va { color: #19177c; } 
+code span.vs { color: #4070a0; } 
+code span.wa { color: #60a0b0; font-weight: bold; font-style: italic; } 
+</style>
+<script>
+// apply pandoc div.sourceCode style to pre.sourceCode instead
+(function() {
+  var sheets = document.styleSheets;
+  for (var i = 0; i < sheets.length; i++) {
+    if (sheets[i].ownerNode.dataset["origin"] !== "pandoc") continue;
+    try { var rules = sheets[i].cssRules; } catch (e) { continue; }
+    var j = 0;
+    while (j < rules.length) {
+      var rule = rules[j];
+      // check if there is a div.sourceCode rule
+      if (rule.type !== rule.STYLE_RULE || rule.selectorText !== "div.sourceCode") {
+        j++;
+        continue;
+      }
+      var style = rule.style.cssText;
+      // check if color or background-color is set
+      if (rule.style.color === '' && rule.style.backgroundColor === '') {
+        j++;
+        continue;
+      }
+      // replace div.sourceCode by a pre.sourceCode rule
+      sheets[i].deleteRule(j);
+      sheets[i].insertRule('pre.sourceCode{' + style + '}', j);
+    }
+  }
+})();
+</script>
+
+
+
+
+<style type="text/css">body {
+background-color: #fff;
+margin: 1em auto;
+max-width: 700px;
+overflow: visible;
+padding-left: 2em;
+padding-right: 2em;
+font-family: "Open Sans", "Helvetica Neue", Helvetica, Arial, sans-serif;
+font-size: 14px;
+line-height: 1.35;
+}
+#TOC {
+clear: both;
+margin: 0 0 10px 10px;
+padding: 4px;
+width: 400px;
+border: 1px solid #CCCCCC;
+border-radius: 5px;
+background-color: #f6f6f6;
+font-size: 13px;
+line-height: 1.3;
+}
+#TOC .toctitle {
+font-weight: bold;
+font-size: 15px;
+margin-left: 5px;
+}
+#TOC ul {
+padding-left: 40px;
+margin-left: -1.5em;
+margin-top: 5px;
+margin-bottom: 5px;
+}
+#TOC ul ul {
+margin-left: -2em;
+}
+#TOC li {
+line-height: 16px;
+}
+table {
+margin: 1em auto;
+border-width: 1px;
+border-color: #DDDDDD;
+border-style: outset;
+border-collapse: collapse;
+}
+table th {
+border-width: 2px;
+padding: 5px;
+border-style: inset;
+}
+table td {
+border-width: 1px;
+border-style: inset;
+line-height: 18px;
+padding: 5px 5px;
+}
+table, table th, table td {
+border-left-style: none;
+border-right-style: none;
+}
+table thead, table tr.even {
+background-color: #f7f7f7;
+}
+p {
+margin: 0.5em 0;
+}
+blockquote {
+background-color: #f6f6f6;
+padding: 0.25em 0.75em;
+}
+hr {
+border-style: solid;
+border: none;
+border-top: 1px solid #777;
+margin: 28px 0;
+}
+dl {
+margin-left: 0;
+}
+dl dd {
+margin-bottom: 13px;
+margin-left: 13px;
+}
+dl dt {
+font-weight: bold;
+}
+ul {
+margin-top: 0;
+}
+ul li {
+list-style: circle outside;
+}
+ul ul {
+margin-bottom: 0;
+}
+pre, code {
+background-color: #f7f7f7;
+border-radius: 3px;
+color: #333;
+white-space: pre-wrap; 
+}
+pre {
+border-radius: 3px;
+margin: 5px 0px 10px 0px;
+padding: 10px;
+}
+pre:not([class]) {
+background-color: #f7f7f7;
+}
+code {
+font-family: Consolas, Monaco, 'Courier New', monospace;
+font-size: 85%;
+}
+p > code, li > code {
+padding: 2px 0px;
+}
+div.figure {
+text-align: center;
+}
+img {
+background-color: #FFFFFF;
+padding: 2px;
+border: 1px solid #DDDDDD;
+border-radius: 3px;
+border: 1px solid #CCCCCC;
+margin: 0 5px;
+}
+h1 {
+margin-top: 0;
+font-size: 35px;
+line-height: 40px;
+}
+h2 {
+border-bottom: 4px solid #f7f7f7;
+padding-top: 10px;
+padding-bottom: 2px;
+font-size: 145%;
+}
+h3 {
+border-bottom: 2px solid #f7f7f7;
+padding-top: 10px;
+font-size: 120%;
+}
+h4 {
+border-bottom: 1px solid #f7f7f7;
+margin-left: 8px;
+font-size: 105%;
+}
+h5, h6 {
+border-bottom: 1px solid #ccc;
+font-size: 105%;
+}
+a {
+color: #0033dd;
+text-decoration: none;
+}
+a:hover {
+color: #6666ff; }
+a:visited {
+color: #800080; }
+a:visited:hover {
+color: #BB00BB; }
+a[href^="http:"] {
+text-decoration: underline; }
+a[href^="https:"] {
+text-decoration: underline; }
+
+code > span.kw { color: #555; font-weight: bold; } 
+code > span.dt { color: #902000; } 
+code > span.dv { color: #40a070; } 
+code > span.bn { color: #d14; } 
+code > span.fl { color: #d14; } 
+code > span.ch { color: #d14; } 
+code > span.st { color: #d14; } 
+code > span.co { color: #888888; font-style: italic; } 
+code > span.ot { color: #007020; } 
+code > span.al { color: #ff0000; font-weight: bold; } 
+code > span.fu { color: #900; font-weight: bold; } 
+code > span.er { color: #a61717; background-color: #e3d2d2; } 
+</style>
+
+
+
+
+</head>
+
+<body>
+
+
+
+
+<h1 class="title toc-ignore">G from locus effects</h1>
+
+
+
+<p>How much of the genetic covariance between traits do the mapped loci
+explain? <code>indri_locus_G()</code> turns the additive and dominance
+effects of loci into the covariance matrices they imply (Melo, Marroig
+and Wolf 2019). This vignette applies it to the loci found in the
+vignette <em>Genome scans for many traits</em> and compares the result
+with the polygenic <code>G</code> of <em>Estimating G for many
+traits</em>. It was precomputed.</p>
+<div id="the-idea" class="section level2">
+<h2>The idea</h2>
+<p>A locus with allele frequency <code>p</code> (and
+<code>q = 1 - p</code>), additive effects <code>a</code> and dominance
+effects <code>d</code> across the traits contributes
+<code>2pq α α&#39;</code> to the additive covariance matrix <code>G</code>,
+where <code>α = a + (q - p) d</code> is the average effect of an allele
+substitution, and <code>(2pq)² d d&#39;</code> to the dominance matrix
+<code>D</code>. Loci in linkage disequilibrium add cross terms. Summing
+over loci gives the <code>G</code> and <code>D</code> the loci
+imply.</p>
+</div>
+<div id="setup" class="section level2">
+<h2>Setup</h2>
+<div class="sourceCode" id="cb1"><pre class="sourceCode r"><code class="sourceCode r"><span id="cb1-1"><a href="#cb1-1" tabindex="-1"></a><span class="co"># The data every vignette uses: the nine weekly weight gains of the LG/SM F3</span></span>
+<span id="cb1-2"><a href="#cb1-2" tabindex="-1"></a><span class="co"># mice, with the fixed effects of the original analyses.</span></span>
+<span id="cb1-3"><a href="#cb1-3" tabindex="-1"></a><span class="fu">library</span>(indri)</span>
+<span id="cb1-4"><a href="#cb1-4" tabindex="-1"></a>traits <span class="ot">&lt;-</span> lgsm_traits<span class="sc">$</span>growth</span>
+<span id="cb1-5"><a href="#cb1-5" tabindex="-1"></a>d <span class="ot">&lt;-</span> lgsm_f3[lgsm_f3<span class="sc">$</span>ID <span class="sc">%in%</span> <span class="fu">rownames</span>(lgsm_genotypes<span class="sc">$</span>A), ]</span>
+<span id="cb1-6"><a href="#cb1-6" tabindex="-1"></a>d <span class="ot">&lt;-</span> d[stats<span class="sc">::</span><span class="fu">complete.cases</span>(d[<span class="fu">c</span>(traits, <span class="st">&quot;LSB&quot;</span>, <span class="st">&quot;LSW&quot;</span>)]), ]</span>
+<span id="cb1-7"><a href="#cb1-7" tabindex="-1"></a>Y <span class="ot">&lt;-</span> <span class="fu">as.matrix</span>(d[traits])</span>
+<span id="cb1-8"><a href="#cb1-8" tabindex="-1"></a><span class="fu">rownames</span>(Y) <span class="ot">&lt;-</span> d<span class="sc">$</span>ID</span>
+<span id="cb1-9"><a href="#cb1-9" tabindex="-1"></a>X <span class="ot">&lt;-</span> stats<span class="sc">::</span><span class="fu">model.matrix</span>(<span class="sc">~</span> SEX <span class="sc">+</span> <span class="fu">factor</span>(COHORT) <span class="sc">+</span> LSB <span class="sc">+</span> LSW, d)</span>
+<span id="cb1-10"><a href="#cb1-10" tabindex="-1"></a><span class="fu">rownames</span>(X) <span class="ot">&lt;-</span> d<span class="sc">$</span>ID</span>
+<span id="cb1-11"><a href="#cb1-11" tabindex="-1"></a>A <span class="ot">&lt;-</span> lgsm_A[<span class="fu">rownames</span>(Y), <span class="fu">rownames</span>(Y)]</span>
+<span id="cb1-12"><a href="#cb1-12" tabindex="-1"></a>dosage <span class="ot">&lt;-</span> lgsm_genotypes<span class="sc">$</span>A[<span class="fu">rownames</span>(Y), ] <span class="sc">+</span> <span class="dv">1</span></span>
+<span id="cb1-13"><a href="#cb1-13" tabindex="-1"></a>info <span class="ot">&lt;-</span> <span class="fu">transform</span>(lgsm_markers, <span class="at">pos =</span> cM)</span>
+<span id="cb1-14"><a href="#cb1-14" tabindex="-1"></a>cores <span class="ot">&lt;-</span> <span class="fu">as.integer</span>(<span class="fu">Sys.getenv</span>(<span class="st">&quot;INDRI_VIGNETTE_CORES&quot;</span>, <span class="st">&quot;2&quot;</span>))</span>
+<span id="cb1-15"><a href="#cb1-15" tabindex="-1"></a><span class="fu">dir.create</span>(<span class="st">&quot;cache&quot;</span>, <span class="at">showWarnings =</span> <span class="cn">FALSE</span>)</span></code></pre></div>
+<div class="sourceCode" id="cb2"><pre class="sourceCode r"><code class="sourceCode r"><span id="cb2-1"><a href="#cb2-1" tabindex="-1"></a>fit <span class="ot">&lt;-</span> <span class="cf">if</span> (<span class="fu">file.exists</span>(<span class="st">&quot;cache/fit_sommer.rds&quot;</span>)) <span class="fu">readRDS</span>(<span class="st">&quot;cache/fit_sommer.rds&quot;</span>) <span class="cf">else</span></span>
+<span id="cb2-2"><a href="#cb2-2" tabindex="-1"></a>  <span class="fu">fit_G</span>(Y, <span class="at">X =</span> X, <span class="at">A =</span> A, <span class="at">engine =</span> <span class="st">&quot;sommer&quot;</span>, <span class="at">cores =</span> cores, <span class="at">seed =</span> <span class="dv">1</span><span class="dt">L</span>,</span>
+<span id="cb2-3"><a href="#cb2-3" tabindex="-1"></a>        <span class="at">progress =</span> <span class="cn">FALSE</span>)</span>
+<span id="cb2-4"><a href="#cb2-4" tabindex="-1"></a>dom <span class="ot">&lt;-</span> <span class="cf">if</span> (<span class="fu">file.exists</span>(<span class="st">&quot;cache/scan_dominance.rds&quot;</span>)) <span class="fu">readRDS</span>(<span class="st">&quot;cache/scan_dominance.rds&quot;</span>) <span class="cf">else</span></span>
+<span id="cb2-5"><a href="#cb2-5" tabindex="-1"></a>  <span class="fu">indri_gwas</span>(Y, dosage, <span class="at">fit =</span> fit, <span class="at">A =</span> A, <span class="at">X =</span> X, <span class="at">snp_info =</span> info,</span>
+<span id="cb2-6"><a href="#cb2-6" tabindex="-1"></a>             <span class="at">dominance =</span> <span class="cn">TRUE</span>)</span></code></pre></div>
+</div>
+<div id="choosing-the-loci" class="section level2">
+<h2>Choosing the loci</h2>
+<p>Markers in an F3 are strongly linked, so the effects of neighbouring
+markers mostly measure the same QTL. Taking every significant marker
+would count each QTL many times; one marker per peak, the strongest of
+each chromosome with a signal, avoids that:</p>
+<div class="sourceCode" id="cb3"><pre class="sourceCode r"><code class="sourceCode r"><span id="cb3-1"><a href="#cb3-1" tabindex="-1"></a>threshold <span class="ot">&lt;-</span> <span class="fl">0.05</span> <span class="sc">/</span> <span class="fu">ncol</span>(dosage)</span>
+<span id="cb3-2"><a href="#cb3-2" tabindex="-1"></a>best <span class="ot">&lt;-</span> <span class="fu">tapply</span>(<span class="fu">seq_along</span>(dom<span class="sc">$</span>pvalues), info<span class="sc">$</span>chrom, <span class="cf">function</span>(i)</span>
+<span id="cb3-3"><a href="#cb3-3" tabindex="-1"></a>  i[<span class="fu">which.min</span>(dom<span class="sc">$</span>pvalues[i])])</span>
+<span id="cb3-4"><a href="#cb3-4" tabindex="-1"></a>loci <span class="ot">&lt;-</span> info<span class="sc">$</span>snp[best[dom<span class="sc">$</span>pvalues[best] <span class="sc">&lt;=</span> threshold]]</span>
+<span id="cb3-5"><a href="#cb3-5" tabindex="-1"></a>loci</span>
+<span id="cb3-6"><a href="#cb3-6" tabindex="-1"></a><span class="co">#&gt;  [1] &quot;rs3683945&quot;  &quot;rs8263587&quot;  &quot;rs13477831&quot; &quot;rs6377710&quot;  &quot;rs3722157&quot; </span></span>
+<span id="cb3-7"><a href="#cb3-7" tabindex="-1"></a><span class="co">#&gt;  [6] &quot;rs3683030&quot;  &quot;rs6410533&quot;  &quot;rs13480678&quot; &quot;rs3661657&quot;  &quot;rs3679276&quot; </span></span>
+<span id="cb3-8"><a href="#cb3-8" tabindex="-1"></a><span class="co">#&gt; [11] &quot;rs6352085&quot;</span></span></code></pre></div>
+</div>
+<div id="g-and-d-from-those-loci" class="section level2">
+<h2>G and D from those loci</h2>
+<div class="sourceCode" id="cb4"><pre class="sourceCode r"><code class="sourceCode r"><span id="cb4-1"><a href="#cb4-1" tabindex="-1"></a>locus <span class="ot">&lt;-</span> <span class="fu">indri_locus_G</span>(dom<span class="sc">$</span>a[loci, , <span class="at">drop =</span> <span class="cn">FALSE</span>], dom<span class="sc">$</span>d[loci, , <span class="at">drop =</span> <span class="cn">FALSE</span>], <span class="at">genotypes =</span> dosage)</span>
+<span id="cb4-2"><a href="#cb4-2" tabindex="-1"></a><span class="fu">round</span>(<span class="fu">sqrt</span>(<span class="fu">diag</span>(locus<span class="sc">$</span>G)), <span class="dv">3</span>)</span>
+<span id="cb4-3"><a href="#cb4-3" tabindex="-1"></a><span class="co">#&gt;  growth12  growth23  growth34  growth45  growth56  growth67  growth78  growth89 </span></span>
+<span id="cb4-4"><a href="#cb4-4" tabindex="-1"></a><span class="co">#&gt;     0.140     0.250     0.427     0.380     0.249     0.234     0.147     0.177 </span></span>
+<span id="cb4-5"><a href="#cb4-5" tabindex="-1"></a><span class="co">#&gt; growth910 </span></span>
+<span id="cb4-6"><a href="#cb4-6" tabindex="-1"></a><span class="co">#&gt;     0.180</span></span>
+<span id="cb4-7"><a href="#cb4-7" tabindex="-1"></a><span class="fu">round</span>(<span class="fu">cov2cor</span>(locus<span class="sc">$</span>G), <span class="dv">2</span>)</span>
+<span id="cb4-8"><a href="#cb4-8" tabindex="-1"></a><span class="co">#&gt;           growth12 growth23 growth34 growth45 growth56 growth67 growth78</span></span>
+<span id="cb4-9"><a href="#cb4-9" tabindex="-1"></a><span class="co">#&gt; growth12      1.00     0.23     0.43     0.03     0.10     0.03     0.01</span></span>
+<span id="cb4-10"><a href="#cb4-10" tabindex="-1"></a><span class="co">#&gt; growth23      0.23     1.00     0.75     0.11     0.50     0.37     0.27</span></span>
+<span id="cb4-11"><a href="#cb4-11" tabindex="-1"></a><span class="co">#&gt; growth34      0.43     0.75     1.00     0.51     0.72     0.57     0.47</span></span>
+<span id="cb4-12"><a href="#cb4-12" tabindex="-1"></a><span class="co">#&gt; growth45      0.03     0.11     0.51     1.00     0.86     0.62     0.53</span></span>
+<span id="cb4-13"><a href="#cb4-13" tabindex="-1"></a><span class="co">#&gt; growth56      0.10     0.50     0.72     0.86     1.00     0.79     0.70</span></span>
+<span id="cb4-14"><a href="#cb4-14" tabindex="-1"></a><span class="co">#&gt; growth67      0.03     0.37     0.57     0.62     0.79     1.00     0.96</span></span>
+<span id="cb4-15"><a href="#cb4-15" tabindex="-1"></a><span class="co">#&gt; growth78      0.01     0.27     0.47     0.53     0.70     0.96     1.00</span></span>
+<span id="cb4-16"><a href="#cb4-16" tabindex="-1"></a><span class="co">#&gt; growth89      0.20     0.42     0.48     0.33     0.59     0.88     0.84</span></span>
+<span id="cb4-17"><a href="#cb4-17" tabindex="-1"></a><span class="co">#&gt; growth910    -0.04     0.12     0.04    -0.03     0.27     0.68     0.69</span></span>
+<span id="cb4-18"><a href="#cb4-18" tabindex="-1"></a><span class="co">#&gt;           growth89 growth910</span></span>
+<span id="cb4-19"><a href="#cb4-19" tabindex="-1"></a><span class="co">#&gt; growth12      0.20     -0.04</span></span>
+<span id="cb4-20"><a href="#cb4-20" tabindex="-1"></a><span class="co">#&gt; growth23      0.42      0.12</span></span>
+<span id="cb4-21"><a href="#cb4-21" tabindex="-1"></a><span class="co">#&gt; growth34      0.48      0.04</span></span>
+<span id="cb4-22"><a href="#cb4-22" tabindex="-1"></a><span class="co">#&gt; growth45      0.33     -0.03</span></span>
+<span id="cb4-23"><a href="#cb4-23" tabindex="-1"></a><span class="co">#&gt; growth56      0.59      0.27</span></span>
+<span id="cb4-24"><a href="#cb4-24" tabindex="-1"></a><span class="co">#&gt; growth67      0.88      0.68</span></span>
+<span id="cb4-25"><a href="#cb4-25" tabindex="-1"></a><span class="co">#&gt; growth78      0.84      0.69</span></span>
+<span id="cb4-26"><a href="#cb4-26" tabindex="-1"></a><span class="co">#&gt; growth89      1.00      0.82</span></span>
+<span id="cb4-27"><a href="#cb4-27" tabindex="-1"></a><span class="co">#&gt; growth910     0.82      1.00</span></span></code></pre></div>
+<p>The allele frequencies and the linkage disequilibrium between the
+chosen loci come from the genotypes (<code>ld = TRUE</code>, the
+default), so loci on the same chromosome are not counted as
+independent.</p>
+<p>How much of the genetic variance of each trait do they account
+for?</p>
+<div class="sourceCode" id="cb5"><pre class="sourceCode r"><code class="sourceCode r"><span id="cb5-1"><a href="#cb5-1" tabindex="-1"></a>share <span class="ot">&lt;-</span> <span class="fu">diag</span>(locus<span class="sc">$</span>G) <span class="sc">/</span> <span class="fu">diag</span>(fit<span class="sc">$</span>G)</span>
+<span id="cb5-2"><a href="#cb5-2" tabindex="-1"></a><span class="fu">round</span>(share, <span class="dv">2</span>)</span>
+<span id="cb5-3"><a href="#cb5-3" tabindex="-1"></a><span class="co">#&gt;  growth12  growth23  growth34  growth45  growth56  growth67  growth78  growth89 </span></span>
+<span id="cb5-4"><a href="#cb5-4" tabindex="-1"></a><span class="co">#&gt;      0.07      0.08      0.28      0.14      0.15      0.15      0.08      0.10 </span></span>
+<span id="cb5-5"><a href="#cb5-5" tabindex="-1"></a><span class="co">#&gt; growth910 </span></span>
+<span id="cb5-6"><a href="#cb5-6" tabindex="-1"></a><span class="co">#&gt;      0.11</span></span></code></pre></div>
+<p>The 11 loci account for 7 to 28% of each trait’s genetic variance:
+the rest is spread over loci too small to map here. Their genetic
+correlations are much stronger than the polygenic ones: a few large
+loci, each affecting several weeks of growth, make a tightly integrated
+<code>G</code>.</p>
+</div>
+<div id="comparing-with-the-polygenic-g" class="section level2">
+<h2>Comparing with the polygenic G</h2>
+<div class="sourceCode" id="cb6"><pre class="sourceCode r"><code class="sourceCode r"><span id="cb6-1"><a href="#cb6-1" tabindex="-1"></a><span class="fu">options</span>(<span class="at">rgl.useNULL =</span> <span class="cn">TRUE</span>)</span>
+<span id="cb6-2"><a href="#cb6-2" tabindex="-1"></a><span class="fu">suppressPackageStartupMessages</span>(<span class="fu">library</span>(evolqg))</span>
+<span id="cb6-3"><a href="#cb6-3" tabindex="-1"></a>compare <span class="ot">&lt;-</span> <span class="cf">function</span>(x, y) <span class="fu">c</span>(</span>
+<span id="cb6-4"><a href="#cb6-4" tabindex="-1"></a>  <span class="at">random_skewers =</span> <span class="fu">RandomSkewers</span>(x, y)[[<span class="dv">1</span>]],</span>
+<span id="cb6-5"><a href="#cb6-5" tabindex="-1"></a>  <span class="at">krzanowski =</span> <span class="fu">unname</span>(<span class="fu">KrzCor</span>(x, y, <span class="at">ret.dim =</span> <span class="dv">4</span>)),</span>
+<span id="cb6-6"><a href="#cb6-6" tabindex="-1"></a>  <span class="at">correlation_of_entries =</span> <span class="fu">cor</span>(<span class="fu">cov2cor</span>(x)[<span class="fu">upper.tri</span>(x)], <span class="fu">cov2cor</span>(y)[<span class="fu">upper.tri</span>(y)]))</span>
+<span id="cb6-7"><a href="#cb6-7" tabindex="-1"></a><span class="fu">round</span>(<span class="fu">rbind</span>(<span class="st">`</span><span class="at">loci G vs polygenic G</span><span class="st">`</span> <span class="ot">=</span> <span class="fu">compare</span>(locus<span class="sc">$</span>G, fit<span class="sc">$</span>G),</span>
+<span id="cb6-8"><a href="#cb6-8" tabindex="-1"></a>            <span class="st">`</span><span class="at">loci D vs loci G</span><span class="st">`</span> <span class="ot">=</span> <span class="fu">compare</span>(locus<span class="sc">$</span>D <span class="sc">+</span> <span class="fu">diag</span>(<span class="fl">1e-8</span>, <span class="fu">nrow</span>(locus<span class="sc">$</span>D)), locus<span class="sc">$</span>G)), <span class="dv">2</span>)</span>
+<span id="cb6-9"><a href="#cb6-9" tabindex="-1"></a><span class="co">#&gt;                       random_skewers krzanowski correlation_of_entries</span></span>
+<span id="cb6-10"><a href="#cb6-10" tabindex="-1"></a><span class="co">#&gt; loci G vs polygenic G           0.79       0.75                   0.43</span></span>
+<span id="cb6-11"><a href="#cb6-11" tabindex="-1"></a><span class="co">#&gt; loci D vs loci G                0.55       0.63                   0.34</span></span></code></pre></div>
+<p>Random skewers compares the responses of the two matrices to the same
+random selection gradients; Krzanowski’s statistic the subspaces of
+their first four principal components. Despite the difference in
+strength, the loci’s <code>G</code> responds to selection much like the
+polygenic one (random skewers 0.79): the mapped loci reproduce the main
+directions of genetic covariance, if not its spread.</p>
+<div class="sourceCode" id="cb7"><pre class="sourceCode r"><code class="sourceCode r"><span id="cb7-1"><a href="#cb7-1" tabindex="-1"></a><span class="fu">library</span>(ggplot2)</span>
+<span id="cb7-2"><a href="#cb7-2" tabindex="-1"></a>entries <span class="ot">&lt;-</span> <span class="fu">data.frame</span>(<span class="at">polygenic =</span> <span class="fu">cov2cor</span>(fit<span class="sc">$</span>G)[<span class="fu">upper.tri</span>(fit<span class="sc">$</span>G)],</span>
+<span id="cb7-3"><a href="#cb7-3" tabindex="-1"></a>                      <span class="at">loci =</span> <span class="fu">cov2cor</span>(locus<span class="sc">$</span>G)[<span class="fu">upper.tri</span>(locus<span class="sc">$</span>G)])</span>
+<span id="cb7-4"><a href="#cb7-4" tabindex="-1"></a><span class="fu">ggplot</span>(entries, <span class="fu">aes</span>(polygenic, loci)) <span class="sc">+</span></span>
+<span id="cb7-5"><a href="#cb7-5" tabindex="-1"></a>  <span class="fu">geom_abline</span>(<span class="at">linetype =</span> <span class="st">&quot;dashed&quot;</span>, <span class="at">colour =</span> <span class="st">&quot;grey50&quot;</span>) <span class="sc">+</span></span>
+<span id="cb7-6"><a href="#cb7-6" tabindex="-1"></a>  <span class="fu">geom_point</span>() <span class="sc">+</span> <span class="fu">coord_equal</span>() <span class="sc">+</span></span>
+<span id="cb7-7"><a href="#cb7-7" tabindex="-1"></a>  <span class="fu">labs</span>(<span class="at">x =</span> <span class="st">&quot;genetic correlation, polygenic G (fit_G)&quot;</span>,</span>
+<span id="cb7-8"><a href="#cb7-8" tabindex="-1"></a>       <span class="at">y =</span> <span class="st">&quot;genetic correlation implied by the loci&quot;</span>) <span class="sc">+</span></span>
+<span id="cb7-9"><a href="#cb7-9" tabindex="-1"></a>  <span class="fu">theme_minimal</span>()</span></code></pre></div>
+<div class="float">
+<img role="img" aria-label="plot of chunk compare-figure" src="data:image/png;base64,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" alt="plot of chunk compare-figure" />
+<div class="figcaption">plot of chunk compare-figure</div>
+</div>
+</div>
+<div id="with-and-without-linkage-disequilibrium" class="section level2">
+<h2>With and without linkage disequilibrium</h2>
+<div class="sourceCode" id="cb8"><pre class="sourceCode r"><code class="sourceCode r"><span id="cb8-1"><a href="#cb8-1" tabindex="-1"></a>no_ld <span class="ot">&lt;-</span> <span class="fu">indri_locus_G</span>(dom<span class="sc">$</span>a[loci, , <span class="at">drop =</span> <span class="cn">FALSE</span>], dom<span class="sc">$</span>d[loci, , <span class="at">drop =</span> <span class="cn">FALSE</span>], <span class="at">genotypes =</span> dosage, <span class="at">ld =</span> <span class="cn">FALSE</span>)</span>
+<span id="cb8-2"><a href="#cb8-2" tabindex="-1"></a><span class="fu">round</span>(<span class="fu">c</span>(<span class="at">with_ld =</span> <span class="fu">sum</span>(<span class="fu">diag</span>(locus<span class="sc">$</span>G)), <span class="at">without_ld =</span> <span class="fu">sum</span>(<span class="fu">diag</span>(no_ld<span class="sc">$</span>G))), <span class="dv">4</span>)</span>
+<span id="cb8-3"><a href="#cb8-3" tabindex="-1"></a><span class="co">#&gt;    with_ld without_ld </span></span>
+<span id="cb8-4"><a href="#cb8-4" tabindex="-1"></a><span class="co">#&gt;     0.6101     0.5703</span></span></code></pre></div>
+</div>
+<div id="effects-from-other-software" class="section level2">
+<h2>Effects from other software</h2>
+<p><code>indri_locus_G()</code> accepts effects from any mapping method,
+as a matrix or a data frame with a column of marker names, with traits
+in columns or (<code>traits_in = &quot;rows&quot;</code>) in rows. Its help page
+lists the conventions those effects must follow: the effect allele must
+be the allele the genotypes count, <code>d</code> the heterozygote’s
+deviation from the homozygote midpoint, and the units those of the
+traits.</p>
+<div class="sourceCode" id="cb9"><pre class="sourceCode r"><code class="sourceCode r"><span id="cb9-1"><a href="#cb9-1" tabindex="-1"></a>effects <span class="ot">&lt;-</span> <span class="fu">data.frame</span>(<span class="at">marker =</span> loci, dom<span class="sc">$</span>a[loci, , <span class="at">drop =</span> <span class="cn">FALSE</span>])   <span class="co"># as another tool might give</span></span>
+<span id="cb9-2"><a href="#cb9-2" tabindex="-1"></a>other <span class="ot">&lt;-</span> <span class="fu">indri_locus_G</span>(effects, <span class="at">genotypes =</span> dosage)</span>
+<span id="cb9-3"><a href="#cb9-3" tabindex="-1"></a><span class="fu">all.equal</span>(other<span class="sc">$</span>G, <span class="fu">indri_locus_G</span>(dom<span class="sc">$</span>a[loci, , <span class="at">drop =</span> <span class="cn">FALSE</span>], <span class="at">genotypes =</span> dosage)<span class="sc">$</span>G)</span>
+<span id="cb9-4"><a href="#cb9-4" tabindex="-1"></a><span class="co">#&gt; [1] TRUE</span></span></code></pre></div>
+</div>
+<div id="caveats" class="section level2">
+<h2>Caveats</h2>
+<ul>
+<li>Effects from a single-marker scan are marginal and, at the markers
+chosen for being significant, biased upwards (the winner’s curse); a
+joint multi-locus model, as in the original analysis, gives better
+estimates.</li>
+<li>The loci found are those with large effects; many small ones make up
+the rest of <code>G</code>.</li>
+</ul>
+</div>
+<div id="reference" class="section level2">
+<h2>Reference</h2>
+<p>Melo, D., Marroig, G. and Wolf, J. B. (2019). Genomic perspective on
+multivariate variation, pleiotropy, and evolution. <em>Journal of
+Heredity</em> 110, 479-493. <a href="https://doi.org/10.1093/jhered/esz011" class="uri">https://doi.org/10.1093/jhered/esz011</a></p>
+</div>
+
+
+
+<!-- code folding -->
+
+
+<!-- dynamically load mathjax for compatibility with self-contained -->
+<script>
+  (function () {
+    var script = document.createElement("script");
+    script.type = "text/javascript";
+    script.src  = "https://mathjax.rstudio.com/latest/MathJax.js?config=TeX-AMS-MML_HTMLorMML";
+    document.getElementsByTagName("head")[0].appendChild(script);
+  })();
+</script>
+
+</body>
+</html>

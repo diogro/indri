@@ -1,0 +1,740 @@
+<!DOCTYPE html>
+
+<html>
+
+<head>
+
+<meta charset="utf-8" />
+<meta name="generator" content="pandoc" />
+<meta http-equiv="X-UA-Compatible" content="IE=EDGE" />
+
+<meta name="viewport" content="width=device-width, initial-scale=1" />
+
+
+
+<title>Estimating G for many traits: engines and priors</title>
+
+<script>// Pandoc 2.9 adds attributes on both header and div. We remove the former (to
+// be compatible with the behavior of Pandoc < 2.8).
+document.addEventListener('DOMContentLoaded', function(e) {
+  var hs = document.querySelectorAll("div.section[class*='level'] > :first-child");
+  var i, h, a;
+  for (i = 0; i < hs.length; i++) {
+    h = hs[i];
+    if (!/^h[1-6]$/i.test(h.tagName)) continue;  // it should be a header h1-h6
+    a = h.attributes;
+    while (a.length > 0) h.removeAttribute(a[0].name);
+  }
+});
+</script>
+
+<style type="text/css">
+code{white-space: pre-wrap;}
+span.smallcaps{font-variant: small-caps;}
+span.underline{text-decoration: underline;}
+div.column{display: inline-block; vertical-align: top; width: 50%;}
+div.hanging-indent{margin-left: 1.5em; text-indent: -1.5em;}
+ul.task-list{list-style: none;}
+</style>
+
+
+
+<style type="text/css">
+code {
+white-space: pre;
+}
+.sourceCode {
+overflow: visible;
+}
+</style>
+<style type="text/css" data-origin="pandoc">
+html { -webkit-text-size-adjust: 100%; }
+pre > code.sourceCode { white-space: pre; position: relative; }
+pre > code.sourceCode > span { display: inline-block; line-height: 1.25; }
+pre > code.sourceCode > span:empty { height: 1.2em; }
+.sourceCode { overflow: visible; }
+code.sourceCode > span { color: inherit; text-decoration: inherit; }
+div.sourceCode { margin: 1em 0; }
+pre.sourceCode { margin: 0; }
+@media screen {
+div.sourceCode { overflow: auto; }
+}
+@media print {
+pre > code.sourceCode { white-space: pre-wrap; }
+pre > code.sourceCode > span { text-indent: -5em; padding-left: 5em; }
+}
+pre.numberSource code
+{ counter-reset: source-line 0; }
+pre.numberSource code > span
+{ position: relative; left: -4em; counter-increment: source-line; }
+pre.numberSource code > span > a:first-child::before
+{ content: counter(source-line);
+position: relative; left: -1em; text-align: right; vertical-align: baseline;
+border: none; display: inline-block;
+-webkit-touch-callout: none; -webkit-user-select: none;
+-khtml-user-select: none; -moz-user-select: none;
+-ms-user-select: none; user-select: none;
+padding: 0 4px; width: 4em;
+color: #aaaaaa;
+}
+pre.numberSource { margin-left: 3em; border-left: 1px solid #aaaaaa; padding-left: 4px; }
+div.sourceCode
+{ }
+@media screen {
+pre > code.sourceCode > span > a:first-child::before { text-decoration: underline; }
+}
+code span.al { color: #ff0000; font-weight: bold; } 
+code span.an { color: #60a0b0; font-weight: bold; font-style: italic; } 
+code span.at { color: #7d9029; } 
+code span.bn { color: #40a070; } 
+code span.bu { color: #008000; } 
+code span.cf { color: #007020; font-weight: bold; } 
+code span.ch { color: #4070a0; } 
+code span.cn { color: #880000; } 
+code span.co { color: #60a0b0; font-style: italic; } 
+code span.cv { color: #60a0b0; font-weight: bold; font-style: italic; } 
+code span.do { color: #ba2121; font-style: italic; } 
+code span.dt { color: #902000; } 
+code span.dv { color: #40a070; } 
+code span.er { color: #ff0000; font-weight: bold; } 
+code span.ex { } 
+code span.fl { color: #40a070; } 
+code span.fu { color: #06287e; } 
+code span.im { color: #008000; font-weight: bold; } 
+code span.in { color: #60a0b0; font-weight: bold; font-style: italic; } 
+code span.kw { color: #007020; font-weight: bold; } 
+code span.op { color: #666666; } 
+code span.ot { color: #007020; } 
+code span.pp { color: #bc7a00; } 
+code span.sc { color: #4070a0; } 
+code span.ss { color: #bb6688; } 
+code span.st { color: #4070a0; } 
+code span.va { color: #19177c; } 
+code span.vs { color: #4070a0; } 
+code span.wa { color: #60a0b0; font-weight: bold; font-style: italic; } 
+</style>
+<script>
+// apply pandoc div.sourceCode style to pre.sourceCode instead
+(function() {
+  var sheets = document.styleSheets;
+  for (var i = 0; i < sheets.length; i++) {
+    if (sheets[i].ownerNode.dataset["origin"] !== "pandoc") continue;
+    try { var rules = sheets[i].cssRules; } catch (e) { continue; }
+    var j = 0;
+    while (j < rules.length) {
+      var rule = rules[j];
+      // check if there is a div.sourceCode rule
+      if (rule.type !== rule.STYLE_RULE || rule.selectorText !== "div.sourceCode") {
+        j++;
+        continue;
+      }
+      var style = rule.style.cssText;
+      // check if color or background-color is set
+      if (rule.style.color === '' && rule.style.backgroundColor === '') {
+        j++;
+        continue;
+      }
+      // replace div.sourceCode by a pre.sourceCode rule
+      sheets[i].deleteRule(j);
+      sheets[i].insertRule('pre.sourceCode{' + style + '}', j);
+    }
+  }
+})();
+</script>
+
+
+
+
+<style type="text/css">body {
+background-color: #fff;
+margin: 1em auto;
+max-width: 700px;
+overflow: visible;
+padding-left: 2em;
+padding-right: 2em;
+font-family: "Open Sans", "Helvetica Neue", Helvetica, Arial, sans-serif;
+font-size: 14px;
+line-height: 1.35;
+}
+#TOC {
+clear: both;
+margin: 0 0 10px 10px;
+padding: 4px;
+width: 400px;
+border: 1px solid #CCCCCC;
+border-radius: 5px;
+background-color: #f6f6f6;
+font-size: 13px;
+line-height: 1.3;
+}
+#TOC .toctitle {
+font-weight: bold;
+font-size: 15px;
+margin-left: 5px;
+}
+#TOC ul {
+padding-left: 40px;
+margin-left: -1.5em;
+margin-top: 5px;
+margin-bottom: 5px;
+}
+#TOC ul ul {
+margin-left: -2em;
+}
+#TOC li {
+line-height: 16px;
+}
+table {
+margin: 1em auto;
+border-width: 1px;
+border-color: #DDDDDD;
+border-style: outset;
+border-collapse: collapse;
+}
+table th {
+border-width: 2px;
+padding: 5px;
+border-style: inset;
+}
+table td {
+border-width: 1px;
+border-style: inset;
+line-height: 18px;
+padding: 5px 5px;
+}
+table, table th, table td {
+border-left-style: none;
+border-right-style: none;
+}
+table thead, table tr.even {
+background-color: #f7f7f7;
+}
+p {
+margin: 0.5em 0;
+}
+blockquote {
+background-color: #f6f6f6;
+padding: 0.25em 0.75em;
+}
+hr {
+border-style: solid;
+border: none;
+border-top: 1px solid #777;
+margin: 28px 0;
+}
+dl {
+margin-left: 0;
+}
+dl dd {
+margin-bottom: 13px;
+margin-left: 13px;
+}
+dl dt {
+font-weight: bold;
+}
+ul {
+margin-top: 0;
+}
+ul li {
+list-style: circle outside;
+}
+ul ul {
+margin-bottom: 0;
+}
+pre, code {
+background-color: #f7f7f7;
+border-radius: 3px;
+color: #333;
+white-space: pre-wrap; 
+}
+pre {
+border-radius: 3px;
+margin: 5px 0px 10px 0px;
+padding: 10px;
+}
+pre:not([class]) {
+background-color: #f7f7f7;
+}
+code {
+font-family: Consolas, Monaco, 'Courier New', monospace;
+font-size: 85%;
+}
+p > code, li > code {
+padding: 2px 0px;
+}
+div.figure {
+text-align: center;
+}
+img {
+background-color: #FFFFFF;
+padding: 2px;
+border: 1px solid #DDDDDD;
+border-radius: 3px;
+border: 1px solid #CCCCCC;
+margin: 0 5px;
+}
+h1 {
+margin-top: 0;
+font-size: 35px;
+line-height: 40px;
+}
+h2 {
+border-bottom: 4px solid #f7f7f7;
+padding-top: 10px;
+padding-bottom: 2px;
+font-size: 145%;
+}
+h3 {
+border-bottom: 2px solid #f7f7f7;
+padding-top: 10px;
+font-size: 120%;
+}
+h4 {
+border-bottom: 1px solid #f7f7f7;
+margin-left: 8px;
+font-size: 105%;
+}
+h5, h6 {
+border-bottom: 1px solid #ccc;
+font-size: 105%;
+}
+a {
+color: #0033dd;
+text-decoration: none;
+}
+a:hover {
+color: #6666ff; }
+a:visited {
+color: #800080; }
+a:visited:hover {
+color: #BB00BB; }
+a[href^="http:"] {
+text-decoration: underline; }
+a[href^="https:"] {
+text-decoration: underline; }
+
+code > span.kw { color: #555; font-weight: bold; } 
+code > span.dt { color: #902000; } 
+code > span.dv { color: #40a070; } 
+code > span.bn { color: #d14; } 
+code > span.fl { color: #d14; } 
+code > span.ch { color: #d14; } 
+code > span.st { color: #d14; } 
+code > span.co { color: #888888; font-style: italic; } 
+code > span.ot { color: #007020; } 
+code > span.al { color: #ff0000; font-weight: bold; } 
+code > span.fu { color: #900; font-weight: bold; } 
+code > span.er { color: #a61717; background-color: #e3d2d2; } 
+</style>
+
+
+
+
+</head>
+
+<body>
+
+
+
+
+<h1 class="title toc-ignore">Estimating G for many traits: engines and
+priors</h1>
+
+
+
+<p>This vignette estimates the additive genetic covariance matrix
+<strong>G</strong> of nine growth traits in mice with each of indri’s
+three engines, shows how to read a fit, and gives a rule for choosing
+the prior of the Bayesian engine. It was precomputed: the fits take from
+seconds (REML) to many minutes (stanimal).</p>
+<div id="how-indri-estimates-g" class="section level2">
+<h2>How indri estimates G</h2>
+<p>A multivariate animal model on many traits is expensive: the number
+of parameters grows with the square of the number of traits, and fitting
+all of them at once is slow and often unstable. indri, following LiMMBo
+(Meyer et al. 2018), fits many small animal models instead, each on a
+subset of the traits, so that every pair of traits is estimated in
+several subsets. It then averages the subset estimates of each
+covariance and projects the result onto the positive semi-definite
+matrices, so that the assembled <code>G</code> is a covariance matrix.
+The small fit is done by a pluggable <strong>engine</strong>:
+<code>&quot;sommer&quot;</code> and <code>&quot;asreml&quot;</code> (REML) or
+<code>&quot;stanimal&quot;</code> (a Bayesian sampler).</p>
+</div>
+<div id="the-data" class="section level2">
+<h2>The data</h2>
+<p>An F3 intercross of two inbred mouse strains selected for large
+(LG/J) and small (SM/J) body size ships with indri. The parental strains
+are fully inbred and the F1 all heterozygous, so the F2 parents of the
+F3 are unrelated founders, and the F3 mice are related only through
+them: full sibs (1/2) and, for nine sires with two mates, half sibs
+(1/4). <code>lgsm_A</code> is that relationship matrix. The traits are
+the nine weekly weight gains (<code>growth12</code>, the gain from week
+1 to week 2, to <code>growth910</code>), and the fixed effects those of
+the original analyses: sex, rearing cohort and litter size at birth and
+at weaning.</p>
+<div class="sourceCode" id="cb1"><pre class="sourceCode r"><code class="sourceCode r"><span id="cb1-1"><a href="#cb1-1" tabindex="-1"></a><span class="co"># The data every vignette uses: the nine weekly weight gains of the LG/SM F3</span></span>
+<span id="cb1-2"><a href="#cb1-2" tabindex="-1"></a><span class="co"># mice, with the fixed effects of the original analyses.</span></span>
+<span id="cb1-3"><a href="#cb1-3" tabindex="-1"></a><span class="fu">library</span>(indri)</span>
+<span id="cb1-4"><a href="#cb1-4" tabindex="-1"></a>traits <span class="ot">&lt;-</span> lgsm_traits<span class="sc">$</span>growth</span>
+<span id="cb1-5"><a href="#cb1-5" tabindex="-1"></a>d <span class="ot">&lt;-</span> lgsm_f3[lgsm_f3<span class="sc">$</span>ID <span class="sc">%in%</span> <span class="fu">rownames</span>(lgsm_genotypes<span class="sc">$</span>A), ]</span>
+<span id="cb1-6"><a href="#cb1-6" tabindex="-1"></a>d <span class="ot">&lt;-</span> d[stats<span class="sc">::</span><span class="fu">complete.cases</span>(d[<span class="fu">c</span>(traits, <span class="st">&quot;LSB&quot;</span>, <span class="st">&quot;LSW&quot;</span>)]), ]</span>
+<span id="cb1-7"><a href="#cb1-7" tabindex="-1"></a>Y <span class="ot">&lt;-</span> <span class="fu">as.matrix</span>(d[traits])</span>
+<span id="cb1-8"><a href="#cb1-8" tabindex="-1"></a><span class="fu">rownames</span>(Y) <span class="ot">&lt;-</span> d<span class="sc">$</span>ID</span>
+<span id="cb1-9"><a href="#cb1-9" tabindex="-1"></a>X <span class="ot">&lt;-</span> stats<span class="sc">::</span><span class="fu">model.matrix</span>(<span class="sc">~</span> SEX <span class="sc">+</span> <span class="fu">factor</span>(COHORT) <span class="sc">+</span> LSB <span class="sc">+</span> LSW, d)</span>
+<span id="cb1-10"><a href="#cb1-10" tabindex="-1"></a><span class="fu">rownames</span>(X) <span class="ot">&lt;-</span> d<span class="sc">$</span>ID</span>
+<span id="cb1-11"><a href="#cb1-11" tabindex="-1"></a>A <span class="ot">&lt;-</span> lgsm_A[<span class="fu">rownames</span>(Y), <span class="fu">rownames</span>(Y)]</span>
+<span id="cb1-12"><a href="#cb1-12" tabindex="-1"></a>dosage <span class="ot">&lt;-</span> lgsm_genotypes<span class="sc">$</span>A[<span class="fu">rownames</span>(Y), ] <span class="sc">+</span> <span class="dv">1</span></span>
+<span id="cb1-13"><a href="#cb1-13" tabindex="-1"></a>info <span class="ot">&lt;-</span> <span class="fu">transform</span>(lgsm_markers, <span class="at">pos =</span> cM)</span>
+<span id="cb1-14"><a href="#cb1-14" tabindex="-1"></a>cores <span class="ot">&lt;-</span> <span class="fu">as.integer</span>(<span class="fu">Sys.getenv</span>(<span class="st">&quot;INDRI_VIGNETTE_CORES&quot;</span>, <span class="st">&quot;2&quot;</span>))</span>
+<span id="cb1-15"><a href="#cb1-15" tabindex="-1"></a><span class="fu">dir.create</span>(<span class="st">&quot;cache&quot;</span>, <span class="at">showWarnings =</span> <span class="cn">FALSE</span>)</span></code></pre></div>
+<div class="sourceCode" id="cb2"><pre class="sourceCode r"><code class="sourceCode r"><span id="cb2-1"><a href="#cb2-1" tabindex="-1"></a><span class="fu">dim</span>(Y)</span>
+<span id="cb2-2"><a href="#cb2-2" tabindex="-1"></a><span class="co">#&gt; [1] 1548    9</span></span>
+<span id="cb2-3"><a href="#cb2-3" tabindex="-1"></a><span class="fu">round</span>(<span class="fu">colMeans</span>(Y), <span class="dv">2</span>)</span>
+<span id="cb2-4"><a href="#cb2-4" tabindex="-1"></a><span class="co">#&gt;  growth12  growth23  growth34  growth45  growth56  growth67  growth78  growth89 </span></span>
+<span id="cb2-5"><a href="#cb2-5" tabindex="-1"></a><span class="co">#&gt;      3.06      3.83      6.14      4.45      1.81      1.41      1.34      1.19 </span></span>
+<span id="cb2-6"><a href="#cb2-6" tabindex="-1"></a><span class="co">#&gt; growth910 </span></span>
+<span id="cb2-7"><a href="#cb2-7" tabindex="-1"></a><span class="co">#&gt;      1.02</span></span></code></pre></div>
+<p>One caveat before any fit: the full sibs also share a mother and a
+litter, and indri’s models have one random effect, the additive one.
+Variance shared by littermates (maternal effects, a common nest)
+therefore ends up partly in <code>G</code>. Some pups were
+cross-fostered, which separates the litter environment from the mother,
+but the model here does not use it. Read the <code>G</code> below as an
+additive-plus-litter covariance; the original analyses included a dam
+effect.</p>
+</div>
+<div id="three-engines-on-the-same-data" class="section level2">
+<h2>Three engines on the same data</h2>
+<p>All three engines take the same call; only <code>engine</code>
+changes. The REML engines run in seconds:</p>
+<div class="sourceCode" id="cb3"><pre class="sourceCode r"><code class="sourceCode r"><span id="cb3-1"><a href="#cb3-1" tabindex="-1"></a>time_sommer <span class="ot">&lt;-</span> <span class="fu">system.time</span>(</span>
+<span id="cb3-2"><a href="#cb3-2" tabindex="-1"></a>  fit_sommer <span class="ot">&lt;-</span> <span class="fu">fit_G</span>(Y, <span class="at">X =</span> X, <span class="at">A =</span> A, <span class="at">engine =</span> <span class="st">&quot;sommer&quot;</span>, <span class="at">cores =</span> cores,</span>
+<span id="cb3-3"><a href="#cb3-3" tabindex="-1"></a>                      <span class="at">seed =</span> <span class="dv">1</span><span class="dt">L</span>, <span class="at">progress =</span> <span class="cn">FALSE</span>))</span>
+<span id="cb3-4"><a href="#cb3-4" tabindex="-1"></a>fit_sommer</span>
+<span id="cb3-5"><a href="#cb3-5" tabindex="-1"></a><span class="co">#&gt; &lt;indri fit&gt;</span></span>
+<span id="cb3-6"><a href="#cb3-6" tabindex="-1"></a><span class="co">#&gt;   traits:            9</span></span>
+<span id="cb3-7"><a href="#cb3-7" tabindex="-1"></a><span class="co">#&gt;   individuals:       1548</span></span>
+<span id="cb3-8"><a href="#cb3-8" tabindex="-1"></a><span class="co">#&gt;   engine:            sommer</span></span>
+<span id="cb3-9"><a href="#cb3-9" tabindex="-1"></a><span class="co">#&gt;   subsets:           16 of up to 4 traits</span></span>
+<span id="cb3-10"><a href="#cb3-10" tabindex="-1"></a><span class="co">#&gt;   assembly:          ls (none weights)</span></span>
+<span id="cb3-11"><a href="#cb3-11" tabindex="-1"></a><span class="co">#&gt;   pair coverage:     1 to 4</span></span>
+<span id="cb3-12"><a href="#cb3-12" tabindex="-1"></a><span class="co">#&gt;   min eigenvalue:    0.1431</span></span>
+<span id="cb3-13"><a href="#cb3-13" tabindex="-1"></a><span class="co">#&gt; </span></span>
+<span id="cb3-14"><a href="#cb3-14" tabindex="-1"></a><span class="co">#&gt; G (first entries):</span></span>
+<span id="cb3-15"><a href="#cb3-15" tabindex="-1"></a><span class="co">#&gt;          growth12 growth23 growth34 growth45</span></span>
+<span id="cb3-16"><a href="#cb3-16" tabindex="-1"></a><span class="co">#&gt; growth12    0.272    0.027    0.002    0.086</span></span>
+<span id="cb3-17"><a href="#cb3-17" tabindex="-1"></a><span class="co">#&gt; growth23    0.027    0.803    0.234   -0.334</span></span>
+<span id="cb3-18"><a href="#cb3-18" tabindex="-1"></a><span class="co">#&gt; growth34    0.002    0.234    0.648    0.109</span></span>
+<span id="cb3-19"><a href="#cb3-19" tabindex="-1"></a><span class="co">#&gt; growth45    0.086   -0.334    0.109    0.997</span></span></code></pre></div>
+<div class="sourceCode" id="cb4"><pre class="sourceCode r"><code class="sourceCode r"><span id="cb4-1"><a href="#cb4-1" tabindex="-1"></a>has_asreml <span class="ot">&lt;-</span> <span class="fu">nzchar</span>(<span class="fu">system.file</span>(<span class="at">package =</span> <span class="st">&quot;asreml&quot;</span>))</span>
+<span id="cb4-2"><a href="#cb4-2" tabindex="-1"></a><span class="cf">if</span> (has_asreml) {</span>
+<span id="cb4-3"><a href="#cb4-3" tabindex="-1"></a>  time_asreml <span class="ot">&lt;-</span> <span class="fu">system.time</span>(</span>
+<span id="cb4-4"><a href="#cb4-4" tabindex="-1"></a>    fit_asreml <span class="ot">&lt;-</span> <span class="fu">fit_G</span>(Y, <span class="at">X =</span> X, <span class="at">A =</span> A, <span class="at">engine =</span> <span class="st">&quot;asreml&quot;</span>, <span class="at">cores =</span> <span class="dv">2</span><span class="dt">L</span>,</span>
+<span id="cb4-5"><a href="#cb4-5" tabindex="-1"></a>                        <span class="at">seed =</span> <span class="dv">1</span><span class="dt">L</span>, <span class="at">progress =</span> <span class="cn">FALSE</span>))</span>
+<span id="cb4-6"><a href="#cb4-6" tabindex="-1"></a>}</span></code></pre></div>
+<p>asreml needs a licence seat per worker; a standard licence allows two
+processes on one machine, hence <code>cores = 2</code>.</p>
+<p>The stanimal engine samples each block’s posterior with CmdStan. It
+is far slower, and gives posterior draws instead of a normal
+approximation. Each block runs four chains here, so a budget of
+<code>cores</code> processes runs <code>cores / 4</code> blocks at a
+time:</p>
+<div class="sourceCode" id="cb5"><pre class="sourceCode r"><code class="sourceCode r"><span id="cb5-1"><a href="#cb5-1" tabindex="-1"></a>stan_args <span class="ot">&lt;-</span> <span class="fu">list</span>(<span class="at">chains =</span> <span class="dv">4</span><span class="dt">L</span>, <span class="at">iter =</span> <span class="dv">2000</span><span class="dt">L</span>, <span class="at">refresh =</span> <span class="dv">0</span>,</span>
+<span id="cb5-2"><a href="#cb5-2" tabindex="-1"></a>                  <span class="at">show_messages =</span> <span class="cn">FALSE</span>)</span>
+<span id="cb5-3"><a href="#cb5-3" tabindex="-1"></a>time_stanimal <span class="ot">&lt;-</span> <span class="fu">system.time</span>(</span>
+<span id="cb5-4"><a href="#cb5-4" tabindex="-1"></a>  fit_stanimal <span class="ot">&lt;-</span> <span class="fu">fit_G</span>(Y, <span class="at">X =</span> X, <span class="at">A =</span> A, <span class="at">engine =</span> <span class="st">&quot;stanimal&quot;</span>,</span>
+<span id="cb5-5"><a href="#cb5-5" tabindex="-1"></a>                        <span class="at">engine_args =</span> stan_args, <span class="at">cores =</span> cores, <span class="at">seed =</span> <span class="dv">1</span><span class="dt">L</span>,</span>
+<span id="cb5-6"><a href="#cb5-6" tabindex="-1"></a>                        <span class="at">progress =</span> <span class="cn">FALSE</span>))</span>
+<span id="cb5-7"><a href="#cb5-7" tabindex="-1"></a><span class="co">#&gt; Warning: Several blocks failed to converge: 6 of 33 have rank-normalised</span></span>
+<span id="cb5-8"><a href="#cb5-8" tabindex="-1"></a><span class="co">#&gt; split-Rhat &gt;= 1.05 on G (max 1.15). The likelihood may not identify the genetic</span></span>
+<span id="cb5-9"><a href="#cb5-9" tabindex="-1"></a><span class="co">#&gt; correlations strongly enough with these data. Consider increasing the LKJ prior</span></span>
+<span id="cb5-10"><a href="#cb5-10" tabindex="-1"></a><span class="co">#&gt; parameter, e.g. `engine_args = list(lkj_prior = 2)` (this fit used 1), which</span></span>
+<span id="cb5-11"><a href="#cb5-11" tabindex="-1"></a><span class="co">#&gt; regularises the block correlations; longer chains do not help when block</span></span>
+<span id="cb5-12"><a href="#cb5-12" tabindex="-1"></a><span class="co">#&gt; posteriors are poorly identified. See `fit$diagnostics$unconverged`.</span></span></code></pre></div>
+<div class="sourceCode" id="cb6"><pre class="sourceCode r"><code class="sourceCode r"><span id="cb6-1"><a href="#cb6-1" tabindex="-1"></a>fits <span class="ot">&lt;-</span> <span class="fu">list</span>(<span class="at">sommer =</span> fit_sommer, <span class="at">stanimal =</span> fit_stanimal)</span>
+<span id="cb6-2"><a href="#cb6-2" tabindex="-1"></a><span class="cf">if</span> (has_asreml) fits <span class="ot">&lt;-</span> <span class="fu">c</span>(fits[<span class="dv">1</span>], <span class="fu">list</span>(<span class="at">asreml =</span> fit_asreml), fits[<span class="dv">2</span>])</span>
+<span id="cb6-3"><a href="#cb6-3" tabindex="-1"></a>times <span class="ot">&lt;-</span> <span class="fu">c</span>(<span class="at">sommer =</span> time_sommer[[<span class="st">&quot;elapsed&quot;</span>]],</span>
+<span id="cb6-4"><a href="#cb6-4" tabindex="-1"></a>           <span class="at">asreml =</span> <span class="cf">if</span> (has_asreml) time_asreml[[<span class="st">&quot;elapsed&quot;</span>]],</span>
+<span id="cb6-5"><a href="#cb6-5" tabindex="-1"></a>           <span class="at">stanimal =</span> time_stanimal[[<span class="st">&quot;elapsed&quot;</span>]])</span>
+<span id="cb6-6"><a href="#cb6-6" tabindex="-1"></a>upper <span class="ot">&lt;-</span> <span class="cf">function</span>(m) m[<span class="fu">upper.tri</span>(m)]</span>
+<span id="cb6-7"><a href="#cb6-7" tabindex="-1"></a>agree <span class="ot">&lt;-</span> <span class="fu">vapply</span>(fits, <span class="cf">function</span>(f) <span class="fu">cor</span>(<span class="fu">upper</span>(f<span class="sc">$</span>corrG), <span class="fu">upper</span>(fit_sommer<span class="sc">$</span>corrG)),</span>
+<span id="cb6-8"><a href="#cb6-8" tabindex="-1"></a>                <span class="fu">numeric</span>(<span class="dv">1</span>))</span>
+<span id="cb6-9"><a href="#cb6-9" tabindex="-1"></a><span class="fu">data.frame</span>(</span>
+<span id="cb6-10"><a href="#cb6-10" tabindex="-1"></a>  <span class="at">engine =</span> <span class="fu">names</span>(fits),</span>
+<span id="cb6-11"><a href="#cb6-11" tabindex="-1"></a>  <span class="at">seconds =</span> <span class="fu">round</span>(times[<span class="fu">names</span>(fits)]),</span>
+<span id="cb6-12"><a href="#cb6-12" tabindex="-1"></a>  <span class="at">blocks =</span> <span class="fu">vapply</span>(fits, <span class="cf">function</span>(f) <span class="fu">nrow</span>(f<span class="sc">$</span>subsets), <span class="fu">integer</span>(<span class="dv">1</span>)),</span>
+<span id="cb6-13"><a href="#cb6-13" tabindex="-1"></a>  <span class="at">mean_abs_corrG =</span> <span class="fu">vapply</span>(fits, <span class="cf">function</span>(f) <span class="fu">mean</span>(<span class="fu">abs</span>(<span class="fu">upper</span>(f<span class="sc">$</span>corrG))), <span class="fu">numeric</span>(<span class="dv">1</span>)),</span>
+<span id="cb6-14"><a href="#cb6-14" tabindex="-1"></a>  <span class="at">corr_with_sommer =</span> <span class="fu">vapply</span>(fits, <span class="cf">function</span>(f)</span>
+<span id="cb6-15"><a href="#cb6-15" tabindex="-1"></a>    <span class="fu">cor</span>(<span class="fu">upper</span>(f<span class="sc">$</span>corrG), <span class="fu">upper</span>(fit_sommer<span class="sc">$</span>corrG)), <span class="fu">numeric</span>(<span class="dv">1</span>)),</span>
+<span id="cb6-16"><a href="#cb6-16" tabindex="-1"></a>  <span class="at">row.names =</span> <span class="cn">NULL</span>)</span>
+<span id="cb6-17"><a href="#cb6-17" tabindex="-1"></a><span class="co">#&gt;     engine seconds blocks mean_abs_corrG corr_with_sommer</span></span>
+<span id="cb6-18"><a href="#cb6-18" tabindex="-1"></a><span class="co">#&gt; 1   sommer      17     16      0.1844255        1.0000000</span></span>
+<span id="cb6-19"><a href="#cb6-19" tabindex="-1"></a><span class="co">#&gt; 2   asreml      27     16      0.1828312        0.9994066</span></span>
+<span id="cb6-20"><a href="#cb6-20" tabindex="-1"></a><span class="co">#&gt; 3 stanimal    1076     33      0.1762084        0.9900802</span></span></code></pre></div>
+<div class="sourceCode" id="cb7"><pre class="sourceCode r"><code class="sourceCode r"><span id="cb7-1"><a href="#cb7-1" tabindex="-1"></a><span class="fu">library</span>(ggplot2)</span>
+<span id="cb7-2"><a href="#cb7-2" tabindex="-1"></a>pairs <span class="ot">&lt;-</span> <span class="fu">do.call</span>(rbind, <span class="fu">lapply</span>(<span class="fu">names</span>(fits)[<span class="sc">-</span><span class="dv">1</span>], <span class="cf">function</span>(e)</span>
+<span id="cb7-3"><a href="#cb7-3" tabindex="-1"></a>  <span class="fu">data.frame</span>(<span class="at">engine =</span> e, <span class="at">sommer =</span> <span class="fu">upper</span>(fit_sommer<span class="sc">$</span>corrG),</span>
+<span id="cb7-4"><a href="#cb7-4" tabindex="-1"></a>             <span class="at">other =</span> <span class="fu">upper</span>(fits[[e]]<span class="sc">$</span>corrG))))</span>
+<span id="cb7-5"><a href="#cb7-5" tabindex="-1"></a><span class="fu">ggplot</span>(pairs, <span class="fu">aes</span>(sommer, other)) <span class="sc">+</span></span>
+<span id="cb7-6"><a href="#cb7-6" tabindex="-1"></a>  <span class="fu">geom_abline</span>(<span class="at">linetype =</span> <span class="st">&quot;dashed&quot;</span>, <span class="at">colour =</span> <span class="st">&quot;grey50&quot;</span>) <span class="sc">+</span></span>
+<span id="cb7-7"><a href="#cb7-7" tabindex="-1"></a>  <span class="fu">geom_point</span>() <span class="sc">+</span> <span class="fu">facet_wrap</span>(<span class="sc">~</span> engine) <span class="sc">+</span> <span class="fu">coord_equal</span>() <span class="sc">+</span></span>
+<span id="cb7-8"><a href="#cb7-8" tabindex="-1"></a>  <span class="fu">labs</span>(<span class="at">x =</span> <span class="st">&quot;genetic correlation, sommer&quot;</span>, <span class="at">y =</span> <span class="st">&quot;genetic correlation, other engine&quot;</span>) <span class="sc">+</span></span>
+<span id="cb7-9"><a href="#cb7-9" tabindex="-1"></a>  <span class="fu">theme_minimal</span>()</span></code></pre></div>
+<div class="float">
+<img role="img" aria-label="plot of chunk engine-figure" src="data:image/png;base64,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" alt="plot of chunk engine-figure" />
+<div class="figcaption">plot of chunk engine-figure</div>
+</div>
+<p>The two REML engines fit the same model by the same criterion and
+agree almost exactly (their genetic correlations correlate at 0.999).
+stanimal’s agree closely too (0.99), at 18 minutes against seconds: it
+fits each pair in three blocks (33 here, against 16 for REML) and
+samples each with four chains. Its correlations are a little closer to
+zero, the pull of the prior, which the next section examines.</p>
+<p><strong>Why use stanimal, given the time?</strong> It brings four
+things the REML engines do not:</p>
+<ul>
+<li><strong>A posterior, not a normal approximation.</strong> The REML
+engines’ intervals come from a normal approximation to each block’s
+sampling distribution, which fits poorly near the boundaries (a variance
+near zero, a correlation near ±1); stanimal’s draws respect them, so
+every draw of a correlation is a correlation.</li>
+<li><strong>Tighter intervals at the same coverage.</strong> In
+simulations of 35 traits on 300 individuals (STATUS.md), stanimal’s 95%
+intervals for the genetic correlations covered the truth 96% of the
+time, as sommer’s did, but were about 20% narrower (mean width 0.57
+against 0.72), with a slightly smaller median error (0.096 against
+0.102).</li>
+<li><strong>Regularisation where the data are thin.</strong> The prior
+keeps poorly identified blocks in range, where REML can stop at a
+boundary or at an optimum it cannot certify. With few individuals per
+trait that matters more than it does here.</li>
+<li><strong>Diagnostics that say when a block is not identified</strong>
+(split-Rhat, divergent transitions), as in the next section.</li>
+</ul>
+<p>With many individuals, as here, the REML engines are the quick choice
+and agree with stanimal; stanimal pays off for smaller samples, or when
+the uncertainty of <code>G</code> is the point.</p>
+</div>
+<div id="reading-a-fit" class="section level2">
+<h2>Reading a fit</h2>
+<div class="sourceCode" id="cb8"><pre class="sourceCode r"><code class="sourceCode r"><span id="cb8-1"><a href="#cb8-1" tabindex="-1"></a><span class="fu">round</span>(fit_sommer<span class="sc">$</span>corrG, <span class="dv">2</span>)</span>
+<span id="cb8-2"><a href="#cb8-2" tabindex="-1"></a><span class="co">#&gt;           growth12 growth23 growth34 growth45 growth56 growth67 growth78</span></span>
+<span id="cb8-3"><a href="#cb8-3" tabindex="-1"></a><span class="co">#&gt; growth12      1.00     0.06     0.01     0.16     0.38     0.07     0.12</span></span>
+<span id="cb8-4"><a href="#cb8-4" tabindex="-1"></a><span class="co">#&gt; growth23      0.06     1.00     0.32    -0.37     0.07    -0.09     0.05</span></span>
+<span id="cb8-5"><a href="#cb8-5" tabindex="-1"></a><span class="co">#&gt; growth34      0.01     0.32     1.00     0.14     0.18     0.05     0.09</span></span>
+<span id="cb8-6"><a href="#cb8-6" tabindex="-1"></a><span class="co">#&gt; growth45      0.16    -0.37     0.14     1.00     0.45     0.42     0.20</span></span>
+<span id="cb8-7"><a href="#cb8-7" tabindex="-1"></a><span class="co">#&gt; growth56      0.38     0.07     0.18     0.45     1.00     0.34     0.15</span></span>
+<span id="cb8-8"><a href="#cb8-8" tabindex="-1"></a><span class="co">#&gt; growth67      0.07    -0.09     0.05     0.42     0.34     1.00     0.30</span></span>
+<span id="cb8-9"><a href="#cb8-9" tabindex="-1"></a><span class="co">#&gt; growth78      0.12     0.05     0.09     0.20     0.15     0.30     1.00</span></span>
+<span id="cb8-10"><a href="#cb8-10" tabindex="-1"></a><span class="co">#&gt; growth89      0.25     0.12     0.10     0.10     0.36     0.31     0.07</span></span>
+<span id="cb8-11"><a href="#cb8-11" tabindex="-1"></a><span class="co">#&gt; growth910     0.06     0.12     0.22     0.02     0.30     0.19     0.23</span></span>
+<span id="cb8-12"><a href="#cb8-12" tabindex="-1"></a><span class="co">#&gt;           growth89 growth910</span></span>
+<span id="cb8-13"><a href="#cb8-13" tabindex="-1"></a><span class="co">#&gt; growth12      0.25      0.06</span></span>
+<span id="cb8-14"><a href="#cb8-14" tabindex="-1"></a><span class="co">#&gt; growth23      0.12      0.12</span></span>
+<span id="cb8-15"><a href="#cb8-15" tabindex="-1"></a><span class="co">#&gt; growth34      0.10      0.22</span></span>
+<span id="cb8-16"><a href="#cb8-16" tabindex="-1"></a><span class="co">#&gt; growth45      0.10      0.02</span></span>
+<span id="cb8-17"><a href="#cb8-17" tabindex="-1"></a><span class="co">#&gt; growth56      0.36      0.30</span></span>
+<span id="cb8-18"><a href="#cb8-18" tabindex="-1"></a><span class="co">#&gt; growth67      0.31      0.19</span></span>
+<span id="cb8-19"><a href="#cb8-19" tabindex="-1"></a><span class="co">#&gt; growth78      0.07      0.23</span></span>
+<span id="cb8-20"><a href="#cb8-20" tabindex="-1"></a><span class="co">#&gt; growth89      1.00      0.18</span></span>
+<span id="cb8-21"><a href="#cb8-21" tabindex="-1"></a><span class="co">#&gt; growth910     0.18      1.00</span></span>
+<span id="cb8-22"><a href="#cb8-22" tabindex="-1"></a><span class="fu">round</span>(<span class="fu">sqrt</span>(<span class="fu">diag</span>(fit_sommer<span class="sc">$</span>G)), <span class="dv">2</span>)     <span class="co"># genetic standard deviations, in grams</span></span>
+<span id="cb8-23"><a href="#cb8-23" tabindex="-1"></a><span class="co">#&gt;  growth12  growth23  growth34  growth45  growth56  growth67  growth78  growth89 </span></span>
+<span id="cb8-24"><a href="#cb8-24" tabindex="-1"></a><span class="co">#&gt;      0.52      0.90      0.81      1.00      0.64      0.61      0.53      0.55 </span></span>
+<span id="cb8-25"><a href="#cb8-25" tabindex="-1"></a><span class="co">#&gt; growth910 </span></span>
+<span id="cb8-26"><a href="#cb8-26" tabindex="-1"></a><span class="co">#&gt;      0.55</span></span>
+<span id="cb8-27"><a href="#cb8-27" tabindex="-1"></a><span class="fu">summary</span>(fit_sommer)<span class="sc">$</span>min_eigenvalue</span>
+<span id="cb8-28"><a href="#cb8-28" tabindex="-1"></a><span class="co">#&gt; [1] 0.1430837</span></span>
+<span id="cb8-29"><a href="#cb8-29" tabindex="-1"></a>fit_sommer<span class="sc">$</span>diagnostics<span class="sc">$</span>n_unconverged</span>
+<span id="cb8-30"><a href="#cb8-30" tabindex="-1"></a><span class="co">#&gt; [1] 0</span></span></code></pre></div>
+<ul>
+<li><code>G</code> and <code>sigma_G</code> are in the units of the
+traits (grams, and grams squared); <code>corrG</code> holds the genetic
+correlations.</li>
+<li>Every pair of traits is estimated in several distinct blocks
+(<code>fit$coverage</code>); <code>G_bar</code> is their plain average,
+and <code>G</code> its projection onto the covariance matrices. The
+difference shows how much the projection had to change:</li>
+</ul>
+<div class="sourceCode" id="cb9"><pre class="sourceCode r"><code class="sourceCode r"><span id="cb9-1"><a href="#cb9-1" tabindex="-1"></a><span class="fu">round</span>(<span class="fu">max</span>(<span class="fu">abs</span>(fit_sommer<span class="sc">$</span>G <span class="sc">-</span> fit_sommer<span class="sc">$</span>G_bar)), <span class="dv">3</span>)</span>
+<span id="cb9-2"><a href="#cb9-2" tabindex="-1"></a><span class="co">#&gt; [1] 0</span></span></code></pre></div>
+<ul>
+<li>Intervals come from <code>corrG_draws</code>, which mixes each
+block’s draws (posterior draws for stanimal, a normal approximation for
+the REML engines). They are intervals for each entry, not draws of a
+whole matrix:</li>
+</ul>
+<div class="sourceCode" id="cb10"><pre class="sourceCode r"><code class="sourceCode r"><span id="cb10-1"><a href="#cb10-1" tabindex="-1"></a>lo <span class="ot">&lt;-</span> <span class="fu">apply</span>(fit_sommer<span class="sc">$</span>corrG_draws, <span class="dv">1</span><span class="sc">:</span><span class="dv">2</span>, quantile, <span class="fl">0.025</span>)</span>
+<span id="cb10-2"><a href="#cb10-2" tabindex="-1"></a>hi <span class="ot">&lt;-</span> <span class="fu">apply</span>(fit_sommer<span class="sc">$</span>corrG_draws, <span class="dv">1</span><span class="sc">:</span><span class="dv">2</span>, quantile, <span class="fl">0.975</span>)</span>
+<span id="cb10-3"><a href="#cb10-3" tabindex="-1"></a><span class="fu">data.frame</span>(<span class="at">pair =</span> <span class="fu">c</span>(<span class="st">&quot;growth12-growth23&quot;</span>, <span class="st">&quot;growth34-growth45&quot;</span>, <span class="st">&quot;growth12-growth910&quot;</span>),</span>
+<span id="cb10-4"><a href="#cb10-4" tabindex="-1"></a>           <span class="at">estimate =</span> <span class="fu">round</span>(<span class="fu">c</span>(fit_sommer<span class="sc">$</span>corrG[<span class="dv">1</span>, <span class="dv">2</span>], fit_sommer<span class="sc">$</span>corrG[<span class="dv">3</span>, <span class="dv">4</span>],</span>
+<span id="cb10-5"><a href="#cb10-5" tabindex="-1"></a>                              fit_sommer<span class="sc">$</span>corrG[<span class="dv">1</span>, <span class="dv">9</span>]), <span class="dv">2</span>),</span>
+<span id="cb10-6"><a href="#cb10-6" tabindex="-1"></a>           <span class="at">lower =</span> <span class="fu">round</span>(<span class="fu">c</span>(lo[<span class="dv">1</span>, <span class="dv">2</span>], lo[<span class="dv">3</span>, <span class="dv">4</span>], lo[<span class="dv">1</span>, <span class="dv">9</span>]), <span class="dv">2</span>),</span>
+<span id="cb10-7"><a href="#cb10-7" tabindex="-1"></a>           <span class="at">upper =</span> <span class="fu">round</span>(<span class="fu">c</span>(hi[<span class="dv">1</span>, <span class="dv">2</span>], hi[<span class="dv">3</span>, <span class="dv">4</span>], hi[<span class="dv">1</span>, <span class="dv">9</span>]), <span class="dv">2</span>))</span>
+<span id="cb10-8"><a href="#cb10-8" tabindex="-1"></a><span class="co">#&gt;                 pair estimate lower upper</span></span>
+<span id="cb10-9"><a href="#cb10-9" tabindex="-1"></a><span class="co">#&gt; 1  growth12-growth23     0.06 -0.14  0.23</span></span>
+<span id="cb10-10"><a href="#cb10-10" tabindex="-1"></a><span class="co">#&gt; 2  growth34-growth45     0.14 -0.05  0.33</span></span>
+<span id="cb10-11"><a href="#cb10-11" tabindex="-1"></a><span class="co">#&gt; 3 growth12-growth910     0.06 -0.17  0.29</span></span></code></pre></div>
+<ul>
+<li><code>diagnostics</code> lists the blocks that did not converge: for
+the REML engines, optima that could not be certified (simulations found
+them as accurate as the rest); for stanimal, blocks with split-Rhat
+above 1.05 or divergent transitions, which deserve attention (next
+section).</li>
+<li><code>E</code> is the residual covariance (the residual covariance
+after <code>X</code> minus <code>G</code>), used by the association
+scans of the next vignettes.</li>
+</ul>
+</div>
+<div id="choosing-the-lkj-prior-for-stanimal" class="section level2">
+<h2>Choosing the LKJ prior for stanimal</h2>
+<p>stanimal puts an LKJ prior on the correlation matrix of each block.
+With <code>lkj_prior = 1</code> it is uniform over correlation matrices;
+larger values pull the block correlations towards zero. indri’s default
+for its blocks is 1. In simulations of 12 to 35 traits on a few hundred
+individuals, blocks of up to four traits under LKJ(1) gave 95% intervals
+that covered the true genetic correlations about 95% of the time and the
+least shrinkage of strong correlations; LKJ(2) shrank more and covered
+less (89-94%).</p>
+<p>A stronger prior earns its keep when the data cannot identify the
+block correlations: blocks whose chains disagree (split-Rhat at or above
+1.05) or diverge, which indri reports with a warning. On another mouse
+data set (35 skull traits, 329 mice) a third of the blocks did not mix
+under LKJ(1), and longer chains did not help; a stronger prior is the
+remedy there, not more iterations.</p>
+<p>The same nine traits under three priors:</p>
+<div class="sourceCode" id="cb11"><pre class="sourceCode r"><code class="sourceCode r"><span id="cb11-1"><a href="#cb11-1" tabindex="-1"></a>lkj_fits <span class="ot">&lt;-</span> <span class="fu">list</span>(<span class="st">`</span><span class="at">1</span><span class="st">`</span> <span class="ot">=</span> fit_stanimal)</span>
+<span id="cb11-2"><a href="#cb11-2" tabindex="-1"></a><span class="cf">for</span> (eta <span class="cf">in</span> <span class="fu">c</span>(<span class="dv">2</span>, <span class="dv">4</span>)) {</span>
+<span id="cb11-3"><a href="#cb11-3" tabindex="-1"></a>  lkj_fits[[<span class="fu">as.character</span>(eta)]] <span class="ot">&lt;-</span> <span class="fu">suppressWarnings</span>(<span class="fu">fit_G</span>(</span>
+<span id="cb11-4"><a href="#cb11-4" tabindex="-1"></a>    Y, <span class="at">X =</span> X, <span class="at">A =</span> A, <span class="at">engine =</span> <span class="st">&quot;stanimal&quot;</span>,</span>
+<span id="cb11-5"><a href="#cb11-5" tabindex="-1"></a>    <span class="at">engine_args =</span> <span class="fu">c</span>(stan_args, <span class="fu">list</span>(<span class="at">lkj_prior =</span> eta)), <span class="at">cores =</span> cores,</span>
+<span id="cb11-6"><a href="#cb11-6" tabindex="-1"></a>    <span class="at">seed =</span> <span class="dv">1</span><span class="dt">L</span>, <span class="at">progress =</span> <span class="cn">FALSE</span>))</span>
+<span id="cb11-7"><a href="#cb11-7" tabindex="-1"></a>}</span></code></pre></div>
+<div class="sourceCode" id="cb12"><pre class="sourceCode r"><code class="sourceCode r"><span id="cb12-1"><a href="#cb12-1" tabindex="-1"></a>width <span class="ot">&lt;-</span> <span class="cf">function</span>(f) <span class="fu">mean</span>(<span class="fu">upper</span>(<span class="fu">apply</span>(f<span class="sc">$</span>corrG_draws, <span class="dv">1</span><span class="sc">:</span><span class="dv">2</span>, quantile, <span class="fl">0.975</span>) <span class="sc">-</span></span>
+<span id="cb12-2"><a href="#cb12-2" tabindex="-1"></a>                                  <span class="fu">apply</span>(f<span class="sc">$</span>corrG_draws, <span class="dv">1</span><span class="sc">:</span><span class="dv">2</span>, quantile, <span class="fl">0.025</span>)))</span>
+<span id="cb12-3"><a href="#cb12-3" tabindex="-1"></a>slope <span class="ot">&lt;-</span> <span class="cf">function</span>(f) <span class="fu">unname</span>(<span class="fu">coef</span>(<span class="fu">lm</span>(<span class="fu">upper</span>(f<span class="sc">$</span>corrG) <span class="sc">~</span> <span class="fu">upper</span>(fit_sommer<span class="sc">$</span>corrG)))[<span class="dv">2</span>])</span>
+<span id="cb12-4"><a href="#cb12-4" tabindex="-1"></a><span class="fu">data.frame</span>(</span>
+<span id="cb12-5"><a href="#cb12-5" tabindex="-1"></a>  <span class="at">lkj_prior =</span> <span class="fu">names</span>(lkj_fits),</span>
+<span id="cb12-6"><a href="#cb12-6" tabindex="-1"></a>  <span class="at">blocks_not_mixing =</span> <span class="fu">vapply</span>(lkj_fits, <span class="cf">function</span>(f) f<span class="sc">$</span>diagnostics<span class="sc">$</span>n_unconverged, <span class="fu">numeric</span>(<span class="dv">1</span>)),</span>
+<span id="cb12-7"><a href="#cb12-7" tabindex="-1"></a>  <span class="at">max_rhat =</span> <span class="fu">round</span>(<span class="fu">vapply</span>(lkj_fits, <span class="cf">function</span>(f) f<span class="sc">$</span>diagnostics<span class="sc">$</span>max_rhat, <span class="fu">numeric</span>(<span class="dv">1</span>)), <span class="dv">3</span>),</span>
+<span id="cb12-8"><a href="#cb12-8" tabindex="-1"></a>  <span class="at">mean_abs_corrG =</span> <span class="fu">round</span>(<span class="fu">vapply</span>(lkj_fits, <span class="cf">function</span>(f) <span class="fu">mean</span>(<span class="fu">abs</span>(<span class="fu">upper</span>(f<span class="sc">$</span>corrG))), <span class="fu">numeric</span>(<span class="dv">1</span>)), <span class="dv">3</span>),</span>
+<span id="cb12-9"><a href="#cb12-9" tabindex="-1"></a>  <span class="at">slope_on_sommer =</span> <span class="fu">round</span>(<span class="fu">vapply</span>(lkj_fits, slope, <span class="fu">numeric</span>(<span class="dv">1</span>)), <span class="dv">2</span>),</span>
+<span id="cb12-10"><a href="#cb12-10" tabindex="-1"></a>  <span class="at">interval_width =</span> <span class="fu">round</span>(<span class="fu">vapply</span>(lkj_fits, width, <span class="fu">numeric</span>(<span class="dv">1</span>)), <span class="dv">2</span>),</span>
+<span id="cb12-11"><a href="#cb12-11" tabindex="-1"></a>  <span class="at">row.names =</span> <span class="cn">NULL</span>)</span>
+<span id="cb12-12"><a href="#cb12-12" tabindex="-1"></a><span class="co">#&gt;   lkj_prior blocks_not_mixing max_rhat mean_abs_corrG slope_on_sommer</span></span>
+<span id="cb12-13"><a href="#cb12-13" tabindex="-1"></a><span class="co">#&gt; 1         1                 6    1.154          0.176            0.93</span></span>
+<span id="cb12-14"><a href="#cb12-14" tabindex="-1"></a><span class="co">#&gt; 2         2                 6    1.152          0.171            0.90</span></span>
+<span id="cb12-15"><a href="#cb12-15" tabindex="-1"></a><span class="co">#&gt; 3         4                 6    1.145          0.162            0.87</span></span>
+<span id="cb12-16"><a href="#cb12-16" tabindex="-1"></a><span class="co">#&gt;   interval_width</span></span>
+<span id="cb12-17"><a href="#cb12-17" tabindex="-1"></a><span class="co">#&gt; 1           0.38</span></span>
+<span id="cb12-18"><a href="#cb12-18" tabindex="-1"></a><span class="co">#&gt; 2           0.37</span></span>
+<span id="cb12-19"><a href="#cb12-19" tabindex="-1"></a><span class="co">#&gt; 3           0.36</span></span></code></pre></div>
+<div class="sourceCode" id="cb13"><pre class="sourceCode r"><code class="sourceCode r"><span id="cb13-1"><a href="#cb13-1" tabindex="-1"></a>lkj_pairs <span class="ot">&lt;-</span> <span class="fu">do.call</span>(rbind, <span class="fu">lapply</span>(<span class="fu">names</span>(lkj_fits), <span class="cf">function</span>(eta)</span>
+<span id="cb13-2"><a href="#cb13-2" tabindex="-1"></a>  <span class="fu">data.frame</span>(<span class="at">lkj =</span> <span class="fu">paste</span>(<span class="st">&quot;LKJ&quot;</span>, eta), <span class="at">sommer =</span> <span class="fu">upper</span>(fit_sommer<span class="sc">$</span>corrG),</span>
+<span id="cb13-3"><a href="#cb13-3" tabindex="-1"></a>             <span class="at">stanimal =</span> <span class="fu">upper</span>(lkj_fits[[eta]]<span class="sc">$</span>corrG))))</span>
+<span id="cb13-4"><a href="#cb13-4" tabindex="-1"></a><span class="fu">ggplot</span>(lkj_pairs, <span class="fu">aes</span>(sommer, stanimal)) <span class="sc">+</span></span>
+<span id="cb13-5"><a href="#cb13-5" tabindex="-1"></a>  <span class="fu">geom_abline</span>(<span class="at">linetype =</span> <span class="st">&quot;dashed&quot;</span>, <span class="at">colour =</span> <span class="st">&quot;grey50&quot;</span>) <span class="sc">+</span></span>
+<span id="cb13-6"><a href="#cb13-6" tabindex="-1"></a>  <span class="fu">geom_point</span>() <span class="sc">+</span> <span class="fu">facet_wrap</span>(<span class="sc">~</span> lkj) <span class="sc">+</span> <span class="fu">coord_equal</span>() <span class="sc">+</span></span>
+<span id="cb13-7"><a href="#cb13-7" tabindex="-1"></a>  <span class="fu">labs</span>(<span class="at">x =</span> <span class="st">&quot;genetic correlation, sommer (REML)&quot;</span>,</span>
+<span id="cb13-8"><a href="#cb13-8" tabindex="-1"></a>       <span class="at">y =</span> <span class="st">&quot;genetic correlation, stanimal&quot;</span>) <span class="sc">+</span></span>
+<span id="cb13-9"><a href="#cb13-9" tabindex="-1"></a>  <span class="fu">theme_minimal</span>()</span></code></pre></div>
+<div class="float">
+<img role="img" aria-label="plot of chunk lkj-figure" src="data:image/png;base64,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" alt="plot of chunk lkj-figure" />
+<div class="figcaption">plot of chunk lkj-figure</div>
+</div>
+<p>A slope below 1 against the REML estimates is the prior’s shrinkage.
+With 1548 mice the data dominate: from LKJ(1) to LKJ(4) the slope drops
+only from 0.93 to 0.87 and the intervals barely narrow. As many blocks
+fail to mix under every prior (six of 33); under LKJ(1) they are:</p>
+<div class="sourceCode" id="cb14"><pre class="sourceCode r"><code class="sourceCode r"><span id="cb14-1"><a href="#cb14-1" tabindex="-1"></a>fit_stanimal<span class="sc">$</span>diagnostics<span class="sc">$</span>unconverged</span>
+<span id="cb14-2"><a href="#cb14-2" tabindex="-1"></a><span class="co">#&gt;   block                                  traits     rhat divergences</span></span>
+<span id="cb14-3"><a href="#cb14-3" tabindex="-1"></a><span class="co">#&gt; 1     5  growth23, growth34, growth67, growth78 1.056629           0</span></span>
+<span id="cb14-4"><a href="#cb14-4" tabindex="-1"></a><span class="co">#&gt; 2     9 growth23, growth34, growth56, growth910 1.065716           0</span></span>
+<span id="cb14-5"><a href="#cb14-5" tabindex="-1"></a><span class="co">#&gt; 3    11  growth12, growth34, growth45, growth56 1.070626           0</span></span>
+<span id="cb14-6"><a href="#cb14-6" tabindex="-1"></a><span class="co">#&gt; 4    16  growth23, growth45, growth56, growth89 1.154291           0</span></span>
+<span id="cb14-7"><a href="#cb14-7" tabindex="-1"></a><span class="co">#&gt; 5    30  growth45, growth67, growth78, growth89 1.106724           0</span></span>
+<span id="cb14-8"><a href="#cb14-8" tabindex="-1"></a><span class="co">#&gt; 6    33 growth23, growth45, growth67, growth910 1.130273           0</span></span></code></pre></div>
+<p>A stronger prior does not reduce their number, so here the prior is
+not what keeps them from mixing: those blocks need longer chains, or the
+REML estimates, which agree with the mixed blocks. With a few hundred
+individuals, as in the 35-trait data above, the prior matters much more.
+The rule of thumb:</p>
+<ol style="list-style-type: decimal">
+<li><strong>Start with the default, LKJ(1).</strong> It is the least
+informative choice, and in simulations it gave nominal coverage.</li>
+<li><strong>Look at <code>diagnostics</code>.</strong> If blocks do not
+mix (Rhat &gt;= 1.05, divergent transitions), refit with a stronger
+prior (2, then 4) and see whether they mix and the estimates move. If
+they mix only under the stronger prior, keep it and report it: the
+correlations are shrunk towards zero accordingly. If nothing changes, as
+here, the prior is not the problem: run longer chains, or rely on REML
+for those pairs.</li>
+<li><strong>Compare with a REML engine.</strong> sommer takes seconds; a
+stanimal fit far from it, beyond what the prior’s shrinkage explains, is
+worth a second look.</li>
+</ol>
+</div>
+<div id="g-against-the-phenotypic-covariance" class="section level2">
+<h2>G against the phenotypic covariance</h2>
+<div class="sourceCode" id="cb15"><pre class="sourceCode r"><code class="sourceCode r"><span id="cb15-1"><a href="#cb15-1" tabindex="-1"></a><span class="fu">options</span>(<span class="at">rgl.useNULL =</span> <span class="cn">TRUE</span>)</span>
+<span id="cb15-2"><a href="#cb15-2" tabindex="-1"></a><span class="fu">suppressPackageStartupMessages</span>(<span class="fu">library</span>(evolqg))</span>
+<span id="cb15-3"><a href="#cb15-3" tabindex="-1"></a>resid <span class="ot">&lt;-</span> <span class="fu">lm.fit</span>(X, Y)<span class="sc">$</span>residuals</span>
+<span id="cb15-4"><a href="#cb15-4" tabindex="-1"></a>P <span class="ot">&lt;-</span> <span class="fu">crossprod</span>(resid) <span class="sc">/</span> (<span class="fu">nrow</span>(Y) <span class="sc">-</span> <span class="fu">ncol</span>(X))</span>
+<span id="cb15-5"><a href="#cb15-5" tabindex="-1"></a>G <span class="ot">&lt;-</span> fit_sommer<span class="sc">$</span>G</span>
+<span id="cb15-6"><a href="#cb15-6" tabindex="-1"></a><span class="fu">data.frame</span>(</span>
+<span id="cb15-7"><a href="#cb15-7" tabindex="-1"></a>  <span class="at">comparison =</span> <span class="fu">c</span>(<span class="st">&quot;random skewers&quot;</span>, <span class="st">&quot;Krzanowski (first 4 PCs)&quot;</span>, <span class="st">&quot;Mantel (correlations)&quot;</span>),</span>
+<span id="cb15-8"><a href="#cb15-8" tabindex="-1"></a>  <span class="at">similarity =</span> <span class="fu">round</span>(<span class="fu">c</span>(<span class="fu">RandomSkewers</span>(G, P)[[<span class="dv">1</span>]],</span>
+<span id="cb15-9"><a href="#cb15-9" tabindex="-1"></a>                       <span class="fu">KrzCor</span>(G, P, <span class="at">ret.dim =</span> <span class="dv">4</span>),</span>
+<span id="cb15-10"><a href="#cb15-10" tabindex="-1"></a>                       <span class="fu">MantelCor</span>(<span class="fu">cov2cor</span>(G), <span class="fu">cov2cor</span>(P), <span class="at">permutations =</span> <span class="dv">999</span>)[[<span class="dv">1</span>]]), <span class="dv">2</span>))</span>
+<span id="cb15-11"><a href="#cb15-11" tabindex="-1"></a><span class="co">#&gt;                 comparison similarity</span></span>
+<span id="cb15-12"><a href="#cb15-12" tabindex="-1"></a><span class="co">#&gt; 1           random skewers       0.91</span></span>
+<span id="cb15-13"><a href="#cb15-13" tabindex="-1"></a><span class="co">#&gt; 2 Krzanowski (first 4 PCs)       0.74</span></span>
+<span id="cb15-14"><a href="#cb15-14" tabindex="-1"></a><span class="co">#&gt; 3    Mantel (correlations)       0.73</span></span>
+<span id="cb15-15"><a href="#cb15-15" tabindex="-1"></a>integration <span class="ot">&lt;-</span> <span class="fu">c</span>(<span class="at">G =</span> <span class="fu">CalcEigenVar</span>(<span class="fu">cov2cor</span>(G)), <span class="at">P =</span> <span class="fu">CalcEigenVar</span>(<span class="fu">cov2cor</span>(P)))</span>
+<span id="cb15-16"><a href="#cb15-16" tabindex="-1"></a>integration</span>
+<span id="cb15-17"><a href="#cb15-17" tabindex="-1"></a><span class="co">#&gt;          G          P </span></span>
+<span id="cb15-18"><a href="#cb15-18" tabindex="-1"></a><span class="co">#&gt; 0.04903135 0.01478441</span></span></code></pre></div>
+<p><code>G</code> and the phenotypic covariance <code>P</code> point the
+same way (random skewers 0.91: the two respond alike to the same
+selection), but <code>G</code> is the more integrated, its correlations
+concentrated in fewer directions (relative eigenvalue variance 0.049
+against 0.015). Residual variation spreads <code>P</code> out over more
+directions than the genetic variation alone.</p>
+</div>
+<div id="summary" class="section level2">
+<h2>Summary</h2>
+<ul>
+<li>The three engines estimate the same <code>G</code>; sommer and
+asreml agree closely and take seconds, stanimal takes much longer and
+gives posterior draws.</li>
+<li>Start stanimal at LKJ(1). Raise the prior for blocks that do not mix
+only if that makes them mix; with many individuals, as here, it changes
+little.</li>
+<li><code>G</code> here includes variance shared by littermates.</li>
+</ul>
+</div>
+<div id="reference" class="section level2">
+<h2>Reference</h2>
+<p>Meyer, H. V., Casale, F. P., Stegle, O. and Birney, E. (2018).
+LiMMBo: a simple, scalable approach for linear mixed models in
+high-dimensional genetic association studies. <em>bioRxiv</em>. <a href="https://doi.org/10.1101/255497" class="uri">https://doi.org/10.1101/255497</a></p>
+</div>
+
+
+
+<!-- code folding -->
+
+
+<!-- dynamically load mathjax for compatibility with self-contained -->
+<script>
+  (function () {
+    var script = document.createElement("script");
+    script.type = "text/javascript";
+    script.src  = "https://mathjax.rstudio.com/latest/MathJax.js?config=TeX-AMS-MML_HTMLorMML";
+    document.getElementsByTagName("head")[0].appendChild(script);
+  })();
+</script>
+
+</body>
+</html>

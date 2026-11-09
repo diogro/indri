@@ -22,3 +22,5 @@ results/*
 package/vignettes/precompute.log
 package/vignettes/precompute.done
 package/vignettes/cache/
+# the vignette site (GitHub Pages)
+!docs/*.html
