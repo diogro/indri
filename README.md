@@ -171,6 +171,12 @@ genotypes plus `O(N P)` per SNP: thousands of SNPs take seconds.
 | `pvalues_empirical`, `qvalues_empirical`, `fdr_threshold` | with `n_permutations` (and `fdr`) |
 | `snp_info` | the SNP information, or the SNP names |
 
+**Data.** The package ships an F3 intercross of the LG/J and SM/J mouse
+strains: `lgsm_f3` (1611 mice; growth, skull area and necropsy traits,
+listed in `lgsm_traits`), `lgsm_genotypes` (353 markers coded additive `A`,
+dominance `D` and imprinting `I`; `A + 1` is the 0/1/2 dosage
+`indri_gwas()` takes) and `lgsm_markers` (the map).
+
 [`examples/gwas.R`](examples/gwas.R) runs the whole pipeline on simulated
 sibs in under a minute, with four planted SNPs showing where each test is
 strongest, permutations, and the plots.

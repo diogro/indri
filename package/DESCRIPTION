@@ -16,6 +16,7 @@ License: GPL (>= 3)
 URL: https://github.com/diogro/indri
 BugReports: https://github.com/diogro/indri/issues
 Encoding: UTF-8
+LazyData: true
 Depends:
     R (>= 4.0.0)
 Imports:
