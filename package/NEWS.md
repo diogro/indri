@@ -27,7 +27,13 @@
     for the number of traits.
   - Samples are matched by row name across `Y`, `genotypes`, `A` and `X`;
     missing genotypes are mean-imputed; monomorphic SNPs get `NA`.
-  - `print()` and `as.data.frame()` methods; `snp_info` carries SNP
+  - `n_permutations` reruns the scan with permuted genotypes:
+    `pvalues_empirical`, and `qvalues_empirical`, a permutation estimate of
+    the false discovery rate; `fdr` gives the p-value threshold at that rate
+    (`fdr_threshold`). LiMMBo's "empirical FDR" was the `fdr`-quantile of the
+    permuted p-values, an uncorrected threshold; indri estimates the FDR.
+  - `print()`, `summary()` (top SNPs, genomic inflation), `as.data.frame()`,
+    and ggplot2 Manhattan and QQ plots (`plot()`); `snp_info` carries SNP
     positions into the results.
   - Checked against dense GLS and against LiMMBo's results on its own test
     data.

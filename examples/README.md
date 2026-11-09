@@ -16,7 +16,7 @@ variables; the main ones are below. `*_CORES` is a process budget for
 | script | what it does | settings |
 |---|---|---|
 | `six_traits.R` | the whole pipeline on six traits against a known G: coverage, per-pair correlations, variances, a plot. About three minutes | none |
-| `gwas.R` | a genome scan on simulated sibs: `fit_G()` (sommer) for G and E, then `indri_gwas()` multi-trait, single-trait and with dominance, on four planted SNPs; calibration and a Manhattan/QQ figure. Seconds | `INDRI_GWAS_CORES`, `_SEED` |
+| `gwas.R` | a genome scan on simulated sibs: `fit_G()` (sommer) for G and E, then `indri_gwas()` multi-trait, single-trait and with dominance, on four planted SNPs; calibration, permutations, and Manhattan/QQ plots from `plot()`. Under a minute | `INDRI_GWAS_CORES`, `_SEED` |
 | `ratones_G.R` | real data: the ratones mice shipped with stanimal (329 mice, 35 skull traits, pedigree), G against P | `INDRI_RATONES_ENGINE`, `_CORES`, `_ITER`, `_CHAINS`, `_SEED`, `_TAG` |
 | `compare_engines.R` | one simulated dataset on stanimal, sommer and asreml, against the truth and each other | `INDRI_ENGINE_K`, `_CORES`, `_CORES_SOMMER`, `_CORES_ASREML`, `_S*`, `_SOMMER`, `_ASREML` |
 

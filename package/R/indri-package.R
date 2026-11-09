@@ -17,3 +17,6 @@
 #' @importFrom stats optim sd
 #' @importFrom utils modifyList
 NULL
+
+# The ggplot2 data pronoun in plot.indri_gwas().
+utils::globalVariables(".data")

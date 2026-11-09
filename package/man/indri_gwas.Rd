@@ -19,6 +19,10 @@ indri_gwas(
   delta = NULL,
   dominance = FALSE,
   adjust = c("none", "bonferroni", "effective"),
+  n_permutations = 0L,
+  fdr = NULL,
+  seed = NULL,
+  cores = 1L,
   chunk_size = 1000L
 )
 }
@@ -65,6 +69,19 @@ each SNP; see the Dominance section. Needs genotypes coded 0, 1 and 2.}
 \code{"bonferroni"} multiplies by \code{P}, \code{"effective"} by
 \code{\link[=indri_effective_tests]{indri_effective_tests()}} of the residuals after \code{X}; both cap at 1.}
 
+\item{n_permutations}{Number of genotype permutations for empirical
+p-values (\code{0}, the default, for none); see the Permutations section.}
+
+\item{fdr}{Optional false discovery rate for a p-value threshold estimated
+from the permutations; without \code{n_permutations} it runs 10
+permutations (LiMMBo's number).}
+
+\item{seed}{Optional seed for the permutations; the caller's random stream
+is restored afterwards.}
+
+\item{cores}{Number of processes for the permuted scans (forked; one on
+Windows).}
+
 \item{chunk_size}{Number of SNPs rotated at a time.}
 }
 \value{
@@ -76,6 +93,8 @@ adjusted, \code{snp_info}, \code{mode}, \code{model} and \code{call}. With
 \code{dominance = TRUE} also \code{pvalues_dominance}, \code{d} (the dominance effects: the
 heterozygote's deviation from the homozygotes' midpoint) and
 \code{dominance_estimable}; \code{pvalues_adjust} then adjusts the joint test.
+With permutations, \code{pvalues_empirical}, \code{qvalues_empirical} and
+\code{n_permutations}, and with \code{fdr}, \code{fdr} and \code{fdr_threshold}.
 }
 \description{
 Tests each SNP for association with the traits in \code{Y}, either jointly
@@ -119,6 +138,35 @@ additive-only test in \code{pvalues}, gets \code{NA} dominance results, and is
 \code{FALSE} in \code{dominance_estimable}. Missing genotypes are imputed by the
 column mean in each coding. The variance ratio is fitted without any SNP,
 as without dominance.
+}
+
+\section{Permutations}{
+
+With \code{n_permutations > 0} the genotype rows are permuted across
+individuals and the scan rerun, keeping the null variance ratio of the
+observed scan. \code{pvalues_empirical} is then
+\verb{(1 + #\{permuted p <= observed p\}) / (n_permutations + 1)}, per SNP (and
+trait); with \code{dominance = TRUE} it refers to the joint test.
+
+The permuted scans also estimate the false discovery rate, per SNP (for
+single-trait scans, from each SNP's smallest adjusted p-value, or raw
+without \code{adjust}): at a threshold \code{t},
+\verb{FDR(t) = (mean # permuted p <= t per permutation) / (# observed p <= t)}.
+\code{qvalues_empirical} is, for each SNP, the smallest \code{FDR(t)} over
+thresholds at or above its own p-value, and with \code{fdr}, \code{fdr_threshold} is
+the largest observed p-value with \code{FDR(t) <= fdr} (\code{NA} if none): the SNPs
+at or below it are the discoveries at that rate. (LiMMBo's "empirical
+FDR" was the \code{fdr}-quantile of the permuted p-values, which is close to
+\code{fdr} itself and so an uncorrected threshold.)
+Permutations are drawn in the main process (\code{set.seed(seed)}, then
+\code{n_permutations} calls to \code{sample.int(N)}), so results do not depend on
+\code{cores}.
+
+\strong{Relatedness.} Permuting genotypes across individuals treats them as
+exchangeable, which related individuals are not: the permuted null breaks
+the link between genotype and relatedness that the mixed model accounts
+for. The empirical p-values follow LiMMBo and are a check on the analytic
+ones, not a replacement for them in structured samples.
 
 The covariance is diagonalised once (eigenvectors of \code{A}, then of \code{G}
 relative to \code{E}), so the scan costs one \verb{N x N} rotation of the genotypes

@@ -2,10 +2,13 @@
 
 S3method(as.data.frame,indri_gwas)
 S3method(plot,indri_fit)
+S3method(plot,indri_gwas)
 S3method(print,indri_fit)
 S3method(print,indri_gwas)
 S3method(print,summary.indri_fit)
+S3method(print,summary.indri_gwas)
 S3method(summary,indri_fit)
+S3method(summary,indri_gwas)
 export(fit_G)
 export(indri_a_forms)
 export(indri_assemble)

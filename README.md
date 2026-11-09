@@ -106,6 +106,9 @@ fit <- fit_G(Y, X = X, A = A)                  # G and E, once
 scan <- indri_gwas(Y, genotypes, fit = fit, A = A, X = X,
                    snp_info = snp_info)        # one test per SNP, all traits
 scan                                           # summary print
+summary(scan)                                  # top SNPs, genomic inflation
+plot(scan)                                     # Manhattan plot (ggplot2)
+plot(scan, type = "qq")                        # QQ plot
 head(as.data.frame(scan))                      # one row per SNP, for write.csv()
 
 # trait by trait, adjusted for the effective number of traits
@@ -144,6 +147,12 @@ genotypes plus `O(N P)` per SNP: thousands of SNPs take seconds.
   genotypes coded 0/1/2 and all three genotypes in numbers: a SNP seen in
   only two genotype classes keeps the additive test and gets `NA` dominance
   results (`dominance_estimable`).
+- **Permutations.** `n_permutations` reruns the scan with the genotypes
+  permuted across individuals: `pvalues_empirical` per SNP, and
+  `qvalues_empirical`, the permutation estimate of the false discovery rate.
+  With `fdr = 0.05`, `fdr_threshold` is the p-value at or below which SNPs are
+  discoveries at that rate. Permuting across relatives ignores their
+  relatedness, so treat these as a check on the analytic p-values.
 - **Adjusting single-trait p-values** for the number of traits:
   `adjust = "bonferroni"` multiplies by the number of traits, `"effective"`
   by the effective number of independent traits (Galwey 2009,
@@ -159,10 +168,12 @@ genotypes plus `O(N P)` per SNP: thousands of SNPs take seconds.
 | `delta` | the null variance ratio (one, or one per trait) |
 | `pvalues_dominance`, `d`, `dominance_estimable` | with `dominance = TRUE` |
 | `pvalues_adjust`, `n_tests` | with `adjust` |
+| `pvalues_empirical`, `qvalues_empirical`, `fdr_threshold` | with `n_permutations` (and `fdr`) |
 | `snp_info` | the SNP information, or the SNP names |
 
 [`examples/gwas.R`](examples/gwas.R) runs the whole pipeline on simulated
-sibs in seconds, with four planted SNPs showing where each test is strongest.
+sibs in under a minute, with four planted SNPs showing where each test is
+strongest, permutations, and the plots.
 
 ## Caveats worth knowing
 
@@ -184,9 +195,8 @@ sibs in seconds, with four planted SNPs showing where each test is strongest.
   standardised `G`.
 - **Association scans** condition on the point estimates of `G` and `E`;
   their uncertainty is not propagated. Fits made before `E` was assembled
-  need refitting to drive the multi-trait test. There are no permutation
-  p-values or plotting methods yet, and genotypes are read as matrices only
-  (no PLINK reader).
+  need refitting to drive the multi-trait test. Genotypes are read as
+  matrices only (no PLINK reader).
 
 ## Repository map
 

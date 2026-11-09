@@ -38,6 +38,33 @@
 #' column mean in each coding. The variance ratio is fitted without any SNP,
 #' as without dominance.
 #'
+#' @section Permutations:
+#' With `n_permutations > 0` the genotype rows are permuted across
+#' individuals and the scan rerun, keeping the null variance ratio of the
+#' observed scan. `pvalues_empirical` is then
+#' `(1 + #{permuted p <= observed p}) / (n_permutations + 1)`, per SNP (and
+#' trait); with `dominance = TRUE` it refers to the joint test.
+#'
+#' The permuted scans also estimate the false discovery rate, per SNP (for
+#' single-trait scans, from each SNP's smallest adjusted p-value, or raw
+#' without `adjust`): at a threshold `t`,
+#' `FDR(t) = (mean # permuted p <= t per permutation) / (# observed p <= t)`.
+#' `qvalues_empirical` is, for each SNP, the smallest `FDR(t)` over
+#' thresholds at or above its own p-value, and with `fdr`, `fdr_threshold` is
+#' the largest observed p-value with `FDR(t) <= fdr` (`NA` if none): the SNPs
+#' at or below it are the discoveries at that rate. (LiMMBo's "empirical
+#' FDR" was the `fdr`-quantile of the permuted p-values, which is close to
+#' `fdr` itself and so an uncorrected threshold.)
+#' Permutations are drawn in the main process (`set.seed(seed)`, then
+#' `n_permutations` calls to `sample.int(N)`), so results do not depend on
+#' `cores`.
+#'
+#' **Relatedness.** Permuting genotypes across individuals treats them as
+#' exchangeable, which related individuals are not: the permuted null breaks
+#' the link between genotype and relatedness that the mixed model accounts
+#' for. The empirical p-values follow LiMMBo and are a check on the analytic
+#' ones, not a replacement for them in structured samples.
+#'
 #' The covariance is diagonalised once (eigenvectors of `A`, then of `G`
 #' relative to `E`), so the scan costs one `N x N` rotation of the genotypes
 #' plus `O(N P)` per SNP.
@@ -71,6 +98,15 @@
 #' @param adjust Single-trait p-value adjustment for the number of traits:
 #'   `"bonferroni"` multiplies by `P`, `"effective"` by
 #'   [indri_effective_tests()] of the residuals after `X`; both cap at 1.
+#' @param n_permutations Number of genotype permutations for empirical
+#'   p-values (`0`, the default, for none); see the Permutations section.
+#' @param fdr Optional false discovery rate for a p-value threshold estimated
+#'   from the permutations; without `n_permutations` it runs 10
+#'   permutations (LiMMBo's number).
+#' @param seed Optional seed for the permutations; the caller's random stream
+#'   is restored afterwards.
+#' @param cores Number of processes for the permuted scans (forked; one on
+#'   Windows).
 #' @param chunk_size Number of SNPs rotated at a time.
 #'
 #' @return An object of class `indri_gwas`: `pvalues` (a vector over SNPs,
@@ -81,6 +117,8 @@
 #'   `dominance = TRUE` also `pvalues_dominance`, `d` (the dominance effects: the
 #'   heterozygote's deviation from the homozygotes' midpoint) and
 #'   `dominance_estimable`; `pvalues_adjust` then adjusts the joint test.
+#'   With permutations, `pvalues_empirical`, `qvalues_empirical` and
+#'   `n_permutations`, and with `fdr`, `fdr` and `fdr_threshold`.
 #' @seealso [fit_G()], [indri_effective_tests()]
 #' @references
 #' Meyer, H. V., Casale, F. P., Stegle, O., and Birney, E. (2018). LiMMBo:
@@ -95,13 +133,26 @@ indri_gwas <- function(Y, genotypes, fit = NULL, G = NULL, E = NULL, A = NULL,
                        single_trait_variance = c("reml", "fit"),
                        delta = NULL, dominance = FALSE,
                        adjust = c("none", "bonferroni", "effective"),
-                       chunk_size = 1000L) {
+                       n_permutations = 0L, fdr = NULL, seed = NULL,
+                       cores = 1L, chunk_size = 1000L) {
   call <- match.call()
   mode <- match.arg(mode)
   model <- match.arg(model)
   single_trait_variance <- match.arg(single_trait_variance)
   adjust <- match.arg(adjust)
   chunk_size <- .indri_count(chunk_size, "chunk_size")
+  if (!is.numeric(n_permutations) || length(n_permutations) != 1L ||
+      is.na(n_permutations) || n_permutations < 0 ||
+      n_permutations != round(n_permutations))
+    stop("`n_permutations` must be a whole number >= 0.", call. = FALSE)
+  n_permutations <- as.integer(n_permutations)
+  if (!is.null(fdr)) {
+    if (!is.numeric(fdr) || length(fdr) != 1L || is.na(fdr) || fdr <= 0 ||
+        fdr >= 1)
+      stop("`fdr` must be a number between 0 and 1.", call. = FALSE)
+    if (n_permutations == 0L) n_permutations <- 10L   # LiMMBo's default
+  }
+  cores <- .indri_count(cores, "cores")
 
   Y <- .indri_gwas_matrix(Y, "Y")
   if (anyNA(Y))
@@ -195,14 +246,17 @@ indri_gwas <- function(Y, genotypes, fit = NULL, G = NULL, E = NULL, A = NULL,
                   collapse = ", "),
             if (sum(monomorphic) > 5L) ", ...", call. = FALSE)
 
-  scan <- if (mode == "multi_trait") {
-    .indri_gwas_multi(Y, X, genotypes, G, E, A, model, delta, chunk_size,
-                      monomorphic, dom, estimable)
-  } else {
-    .indri_gwas_single(Y, X, genotypes, G, E, A, model, delta,
-                       single_trait_variance, chunk_size, monomorphic, dom,
-                       estimable)
+  run_scan <- function(genotypes, dom, delta) {
+    if (mode == "multi_trait") {
+      .indri_gwas_multi(Y, X, genotypes, G, E, A, model, delta, chunk_size,
+                        monomorphic, dom, estimable)
+    } else {
+      .indri_gwas_single(Y, X, genotypes, G, E, A, model, delta,
+                         single_trait_variance, chunk_size, monomorphic, dom,
+                         estimable)
+    }
   }
+  scan <- run_scan(genotypes, dom, delta)
 
   out <- list(pvalues = scan$pvalues, a = scan$betas, delta = scan$delta,
               pvalues_adjust = NULL, n_tests = NULL, snp_info = snp_info,
@@ -215,6 +269,44 @@ indri_gwas <- function(Y, genotypes, fit = NULL, G = NULL, E = NULL, A = NULL,
   if (adjust != "none") {
     out$n_tests <- if (adjust == "bonferroni") P else indri_effective_tests(Y, X)
     out$pvalues_adjust <- pmin(scan$pvalues * out$n_tests, 1)
+  }
+  if (n_permutations > 0L) {
+    # What each permuted scan contributes to the FDR pool: the p-value per
+    # SNP, or for single-trait scans each SNP's smallest (adjusted) one.
+    per_snp <- function(p) {
+      if (mode == "multi_trait") return(p)
+      if (!is.null(out$n_tests)) p <- pmin(p * out$n_tests, 1)
+      apply(p, 1L, function(v) if (all(is.na(v))) NA_real_ else min(v, na.rm = TRUE))
+    }
+    restore <- .indri_use_seed(seed)
+    perms <- vapply(seq_len(n_permutations), function(i) sample.int(N),
+                    integer(N))
+    restore()
+    one <- function(i) {
+      o <- perms[, i]
+      run_scan(genotypes[o, , drop = FALSE],
+               if (is.null(dom)) NULL else dom[o, , drop = FALSE],
+               scan$delta)$pvalues
+    }
+    null_p <- if (cores > 1L && .Platform$OS.type != "windows") {
+      parallel::mclapply(seq_len(n_permutations), one, mc.cores = cores)
+    } else {
+      lapply(seq_len(n_permutations), one)
+    }
+    failed <- vapply(null_p, inherits, logical(1), "try-error")
+    if (any(failed))
+      stop("A permuted scan failed: ", as.character(null_p[[which(failed)[1]]]),
+           call. = FALSE)
+    count <- Reduce(`+`, lapply(null_p, function(p) p <= scan$pvalues))
+    out$pvalues_empirical <- (count + 1) / (n_permutations + 1)
+    out$n_permutations <- n_permutations
+    est <- .indri_gwas_permutation_fdr(per_snp(scan$pvalues),
+                                       lapply(null_p, per_snp), fdr)
+    out$qvalues_empirical <- stats::setNames(est$q, colnames(genotypes))
+    if (!is.null(fdr)) {
+      out$fdr <- fdr
+      out$fdr_threshold <- est$threshold
+    }
   }
   structure(out, class = "indri_gwas")
 }
@@ -459,6 +551,33 @@ indri_effective_tests <- function(Y, X = NULL) {
   out
 }
 
+# Permutation estimate of the false discovery rate. At a threshold t,
+# FDR(t) = (mean number of permuted values <= t per permutation) /
+#          (number of observed values <= t), capped at 1;
+# the q-value of an observed value is the smallest FDR(t) over t at or above
+# it, and the threshold the largest observed value with FDR(t) <= fdr (NA if
+# none). `observed` holds one value per SNP (NA for untested SNPs), and
+# `null_list` the same for each permuted scan.
+.indri_gwas_permutation_fdr <- function(observed, null_list, fdr = NULL) {
+  q <- rep(NA_real_, length(observed))
+  ok <- !is.na(observed)
+  t <- observed[ok]
+  pooled <- sort(unlist(null_list), na.last = NA)
+  n <- length(null_list)
+  at <- pmin(1, findInterval(t, pooled) / n /
+               findInterval(t, sort(t)))
+  o <- order(t, decreasing = TRUE)
+  q_ok <- numeric(length(t))
+  q_ok[o] <- cummin(at[o])
+  q[ok] <- q_ok
+  threshold <- NULL
+  if (!is.null(fdr)) {
+    passing <- t[at <= fdr]
+    threshold <- if (length(passing)) max(passing) else NA_real_
+  }
+  list(q = q, threshold = threshold)
+}
+
 # REML for the variance ratio, sigma^2 profiled: V_of(delta) gives the
 # per-entry variances of the rotated response for that ratio.
 .indri_gwas_reml_delta <- function(Ys, Xs, V_of) {
@@ -601,6 +720,10 @@ print.indri_gwas <- function(x, ...) {
   }
   if (!is.null(x$n_tests))
     cat(sprintf("  p-values adjusted for %.3g tests\n", x$n_tests))
+  if (!is.null(x$n_permutations))
+    cat(sprintf("  empirical p-values from %d permutations\n", x$n_permutations))
+  if (!is.null(x$fdr))
+    cat(.indri_gwas_fdr_line(x$fdr, x$fdr_threshold))
   if (all(is.na(x$pvalues))) {
     cat("  no SNP could be tested\n")
   } else {
@@ -619,6 +742,10 @@ as.data.frame.indri_gwas <- function(x, row.names = NULL, optional = FALSE,
     a <- as.data.frame(x$a)
     names(a) <- paste0("a_", colnames(x$a))
     out <- cbind(info, pvalue = unname(x$pvalues), a)
+    if (!is.null(x$pvalues_empirical)) {
+      out$pvalue_empirical <- unname(x$pvalues_empirical)
+      out$qvalue_empirical <- unname(x$qvalues_empirical)
+    }
     if (isTRUE(x$dominance)) {
       dom <- as.data.frame(x$d)
       names(dom) <- paste0("d_", colnames(x$d))
@@ -631,6 +758,10 @@ as.data.frame.indri_gwas <- function(x, row.names = NULL, optional = FALSE,
                     a = unname(x$a[, k]), stringsAsFactors = FALSE)
       if (!is.null(x$pvalues_adjust))
         part$pvalue_adjust <- unname(x$pvalues_adjust[, k])
+      if (!is.null(x$pvalues_empirical)) {
+        part$pvalue_empirical <- unname(x$pvalues_empirical[, k])
+        part$qvalue_empirical <- unname(x$qvalues_empirical)
+      }
       if (isTRUE(x$dominance)) {
         part$pvalue_dominance <- unname(x$pvalues_dominance[, k])
         part$d <- unname(x$d[, k])
@@ -641,4 +772,10 @@ as.data.frame.indri_gwas <- function(x, row.names = NULL, optional = FALSE,
   }
   rownames(out) <- row.names
   out
+}
+
+.indri_gwas_fdr_line <- function(fdr, threshold) {
+  if (is.na(threshold))
+    sprintf("  no SNP passes FDR %.3g (permutation estimate)\n", fdr)
+  else sprintf("  FDR %.3g (permutation estimate): p <= %.3g\n", fdr, threshold)
 }

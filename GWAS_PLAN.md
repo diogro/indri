@@ -159,8 +159,8 @@ Each milestone ends with tests passing (`devtools::test("package")`).
 | **A0** | `E` and `E_bar` assembled in `fit_G()`, in the units of `Y`, eigenvalues floored; NOTES.md §2 updated | **done**: `test-fit-E.R`, `E` matches the full-model REML `E` to 1e-3 |
 | **A1** | rotation core: multi- and single-trait LMM and LM | **done**: `test-gwas-dense.R` matches dense GLS (`helper-gwas.R`) to 1e-8, and the REML `delta` to 1e-5 |
 | **A2** | limmbo reference fixtures (§7) | **done**: `test-gwas-limmbo.R` matches limmbo given its `delta` |
-| **A3** | adjustment, empirical p, empirical FDR | **partly**: Bonferroni and effective adjustment done and tested; empirical p and empirical FDR not started |
-| **A4** | `indri_gwas()` interface, `fit =` path, sample matching, `as.data.frame()`, `print`/`summary`, Manhattan and QQ plots | **mostly**: interface, `fit =`, matching, `print`, `as.data.frame` and `examples/gwas.R` done; no `summary()` or `plot()` method yet (the example draws its own Manhattan and QQ) |
+| **A3** | adjustment, empirical p, empirical FDR | **done**: adjustments; empirical p-values; permutation q-values and FDR threshold (decision 10); `test-gwas-permutation.R` |
+| **A4** | `indri_gwas()` interface, `fit =` path, sample matching, `as.data.frame()`, `print`/`summary`, Manhattan and QQ plots | **done**: interface, `fit =`, matching, `print`, `summary`, `as.data.frame`, ggplot2 `plot()` (Manhattan, QQ), `examples/gwas.R`; `test-gwas-methods.R` |
 | **A5** | calibration and power studies (§8), STATUS.md entry | **not started**; `examples/gwas.R` gives a first look (λ_GC 0.98-1.05 on 3 seeds) |
 
 ## 7. Validation against LiMMBo
@@ -234,6 +234,11 @@ No new hard dependencies. A PLINK reader (`BEDMatrix` or `genio`) can be a
    `X`, not limmbo's `cov(Y)`.
 8. **Effective number of tests:** from the residuals after `X`
    (`indri_effective_tests(Y, X)`), not limmbo's raw phenotypes.
+10. **FDR:** LiMMBo's "empirical FDR" was the `fdr`-quantile of the
+   permuted p-values (about `fdr` itself, so uncorrected). indri estimates
+   the FDR from the permutations instead: q-values per SNP and the largest
+   p-value with estimated FDR <= `fdr`. Empirical p-values are
+   `(count + 1) / (n + 1)`, not LiMMBo's `count / n`, which can be 0.
 9. **Dominance (added 2026-11-08):** `dominance = TRUE` adds a heterozygote
    indicator per SNP next to its 0/1/2 dosage. `pvalues` becomes the joint
    additive + dominance test (2 df per trait), `pvalues_dominance` tests

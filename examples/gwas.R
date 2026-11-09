@@ -3,7 +3,7 @@
 # Run from the repository root:
 #   Rscript examples/gwas.R
 #
-# Needs sommer (the REML engine; about a minute in all). Settings:
+# Needs sommer (the REML engine) and ggplot2; under a minute. Settings:
 #   INDRI_GWAS_CORES  process budget for fit_G()     (default 2)
 #   INDRI_GWAS_SEED   seed for the simulation          (default 2026)
 #
@@ -21,6 +21,8 @@ library(indri)
 
 if (!requireNamespace("sommer", quietly = TRUE))
   stop("This example needs sommer: install.packages('sommer')")
+if (!requireNamespace("ggplot2", quietly = TRUE))
+  stop("This example needs ggplot2: install.packages('ggplot2')")
 
 cores <- as.integer(Sys.getenv("INDRI_GWAS_CORES", "2"))
 seed <- as.integer(Sys.getenv("INDRI_GWAS_SEED", "2026"))
@@ -110,9 +112,11 @@ fit_time <- as.numeric(difftime(Sys.time(), started, units = "secs"))
 ## Scans --------------------------------------------------------------------
 
 started <- Sys.time()
-# One joint test per SNP across the 10 traits (10 degrees of freedom).
+# One joint test per SNP across the 10 traits (10 degrees of freedom), with
+# empirical p-values and an FDR threshold from 99 genotype permutations.
 multi <- indri_gwas(Y, genotypes, fit = fit, A = A, X = X,
-                    snp_info = snp_info)
+                    snp_info = snp_info, n_permutations = 99L, fdr = 0.05,
+                    seed = seed, cores = cores)
 # The same SNPs trait by trait, adjusted for the effective number of traits.
 single <- indri_gwas(Y, genotypes, A = A, X = X, snp_info = snp_info,
                      mode = "single_trait", adjust = "effective")
@@ -126,7 +130,7 @@ scan_time <- as.numeric(difftime(Sys.time(), started, units = "secs"))
 cat("\n== indri genome scan: ", N, " individuals, ", P, " traits, ", M,
     " SNPs ==\n", sep = "")
 cat(sprintf("fit_G (sommer):   %.0f s\n", fit_time))
-cat(sprintf("three scans:      %.1f s\n", scan_time))
+cat(sprintf("three scans:      %.1f s (99 permutations included)\n", scan_time))
 cat(sprintf("null variance ratio delta (multi-trait): %.2f\n", multi$delta))
 cat("  (near 1: the fitted G and E describe these data)\n")
 
@@ -161,45 +165,24 @@ cat("  rs_dom: the additive tests see little of it; the dominance test finds it\
 cat("\nadditive and dominance effects at rs_dom (true d = 0.9 on traits 4-5):\n")
 print(round(rbind(a = dominance$a["rs_dom", ], d = dominance$d["rs_dom", ]), 2))
 
-top <- utils::head(as.data.frame(multi)[order(multi$pvalues),
-                                        c("snp", "chrom", "pos", "pvalue")], 5)
-cat("\ntop multi-trait SNPs:\n")
-print(top, row.names = FALSE)
+cat("\nempirical p-values of the causal SNPs (99 permutations; the smallest",
+    "possible is 0.01):\n")
+print(signif(multi$pvalues_empirical[causal], 2))
+cat("  (permuting genotypes across relatives ignores the relatedness; a check,",
+    "not a replacement)\n\n")
+print(summary(multi, n = 5))
 
-## Figure -------------------------------------------------------------------
+## Figures -----------------------------------------------------------------
 
+# plot() returns ggplot objects: a Manhattan plot by default, a QQ plot with
+# type = "qq". Mark the planted SNPs.
 dir.create("examples/figures", showWarnings = FALSE, recursive = TRUE)
-file <- "examples/figures/gwas_manhattan.png"
-grDevices::png(file, width = 1400, height = 900, res = 120)
-graphics::layout(matrix(c(1, 1, 4, 2, 2, 5, 3, 3, 6), 3, byrow = TRUE))
-graphics::par(mar = c(4.2, 4.5, 2.5, 1), mgp = c(2.4, 0.8, 0))
-
-x_pos <- seq_len(M)
-colours <- c("grey25", "grey60")[snp_info$chrom %% 2 + 1]
-manhattan <- function(p, main) {
-  y <- -log10(p)
-  graphics::plot(x_pos, y, pch = 20, cex = 0.6, col = colours, xaxt = "n",
-                 xlab = "", ylab = expression(-log[10](p)), main = main,
-                 ylim = c(0, max(y, -log10(threshold), na.rm = TRUE) * 1.05))
-  mids <- tapply(x_pos, snp_info$chrom, mean)
-  graphics::axis(1, at = mids, labels = paste("chr", names(mids)), tick = FALSE)
-  graphics::abline(h = -log10(threshold), lty = 2, col = "firebrick")
-  graphics::points(causal, y[causal], pch = 21, bg = "firebrick", cex = 1.2)
-  graphics::text(causal, y[causal], names(causal), pos = 3, cex = 0.7)
-}
-qq <- function(p, main) {
-  p <- sort(p[!is.na(p)])
-  expected <- -log10(stats::ppoints(length(p)))
-  graphics::plot(expected, -log10(p), pch = 20, cex = 0.6,
-                 xlab = "expected", ylab = "observed", main = main)
-  graphics::abline(0, 1, lty = 2)
-}
-
-manhattan(multi$pvalues, "multi-trait LMM (10 df)")
-manhattan(best_single, "single-trait LMM, best trait, effective-tests adjusted")
-manhattan(dominance$pvalues_dominance, "dominance given additive")
-qq(multi$pvalues[null], "QQ, null SNPs")
-qq(single$pvalues[null, ], "QQ, null SNPs, every trait")
-qq(dominance$pvalues_dominance[null], "QQ, null SNPs, dominance")
-grDevices::dev.off()
-cat("\nfigure:", file, "\n")
+save <- function(plot, name, height = 3)
+  ggplot2::ggsave(file.path("examples/figures", name), plot, width = 9,
+                  height = height, dpi = 120)
+save(plot(multi, highlight = names(causal)), "gwas_manhattan_multi.png")
+save(plot(single, highlight = names(causal)), "gwas_manhattan_single.png")
+save(plot(dominance, which = "dominance", highlight = names(causal)),
+     "gwas_manhattan_dominance.png")
+save(plot(multi, type = "qq"), "gwas_qq_multi.png", height = 4)
+cat("\nfigures: examples/figures/gwas_*.png\n")
