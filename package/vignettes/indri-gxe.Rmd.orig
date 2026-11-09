@@ -45,20 +45,23 @@ what make the genetic covariance between the sexes estimable.
 `fit_G_env()` treats each trait in each sex as its own trait (a "character
 state"): `growth12:F` is observed in females, `growth12:M` in males. Its `G`
 holds the genetic covariance within each sex and between the sexes. The
-environment's main effect is in the states' own means, so the `SEXM` column
-of `X` is dropped:
+environment's main effect is in the states' own means, so the sex column of
+`X` is left out:
 
 ```{r fit-env}
-fit_env <- fit_G_env(Y, env = "SEXM", X = X, A = A, cores = cores, seed = 1L,
-                     progress = FALSE)
+fit_env <- fit_G_env(Y, env = d$SEX, X = X[, colnames(X) != "SEXM"], A = A,
+                     cores = cores, seed = 1L, progress = FALSE)
 fit_env
 ```
 
 `corr_between` is each trait's genetic correlation between the sexes. A value
 of 1 means the same genes act in both sexes in the same way; below 1, the
 genetic effects differ between the sexes: genotype-by-sex interaction in the
-polygenic background. Given the downward bias above, values somewhat below 1
-are not by themselves evidence of interaction.
+polygenic background. Here they run from
+`r round(min(fit_env$corr_between), 2)` to
+`r round(max(fit_env$corr_between), 2)`. Given the downward bias above,
+values somewhat below 1 are not by themselves evidence of interaction; the
+lowest ones are the most suggestive.
 
 ```{r within}
 round(sqrt(diag(fit_env$G)), 2)
@@ -105,14 +108,30 @@ plot(by_sex, which = "gxe", threshold = threshold)
 ```
 
 ```{r gxe-hits}
-c(usual = sum(usual$pvalues_gxe <= threshold, na.rm = TRUE),
-  environment_specific = sum(by_sex$pvalues_gxe <= threshold, na.rm = TRUE))
+gxe_hits <- c(usual = sum(usual$pvalues_gxe <= threshold, na.rm = TRUE),
+              environment_specific = sum(by_sex$pvalues_gxe <= threshold,
+                                         na.rm = TRUE))
+gxe_hits
 ```
+
+The interaction tests are inflated with either background (genomic
+inflation `r round(lambda(usual$pvalues_gxe, ncol(Y)), 2)` with the usual
+one, `r round(lambda(by_sex$pvalues_gxe, ncol(Y)), 2)` with the
+environment-specific one), and the environment-specific background removes
+part of it, as in the simulations. What remains may be genotype-by-sex
+interaction spread over many linked loci, or variance the model does not
+have, such as litter effects that differ between the sexes. No marker
+passes the Bonferroni threshold with either background
+(`r gxe_hits[["usual"]]` and `r gxe_hits[["environment_specific"]]`): these
+data give no strong evidence of single loci acting differently in males and
+females.
 
 ## Sex-specific effects
 
 `a` is a marker's effect where the environment column is 0 (females), and
-`a + gxe` its effect in males. At the marker with the strongest interaction:
+`a + gxe` its effect in males. At the marker with the strongest interaction,
+which is not significant, the two profiles show what an interaction would
+look like:
 
 ```{r sex-effects, fig.height = 3.5}
 j <- which.min(by_sex$pvalues_gxe)

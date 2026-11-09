@@ -72,16 +72,24 @@ chromosome are not counted as independent.
 How much of the genetic variance of each trait do they account for?
 
 ```{r variance-share}
-round(diag(locus$G) / diag(fit$G), 2)
+share <- diag(locus$G) / diag(fit$G)
+round(share, 2)
 ```
+
+The `r length(loci)` loci account for `r round(100 * min(share))` to
+`r round(100 * max(share))`% of each trait's genetic variance: the rest is
+spread over loci too small to map here. Their genetic correlations are much
+stronger than the polygenic ones: a few large loci, each affecting several
+weeks of growth, make a tightly integrated `G`.
 
 ## Comparing with the polygenic G
 
-```{r compare}
-library(evolqg)
+```{r compare, message = FALSE, warning = FALSE}
+options(rgl.useNULL = TRUE)
+suppressPackageStartupMessages(library(evolqg))
 compare <- function(x, y) c(
   random_skewers = RandomSkewers(x, y)[[1]],
-  krzanowski = KrzCor(x, y, ret.dim = 4),
+  krzanowski = unname(KrzCor(x, y, ret.dim = 4)),
   correlation_of_entries = cor(cov2cor(x)[upper.tri(x)], cov2cor(y)[upper.tri(y)]))
 round(rbind(`loci G vs polygenic G` = compare(locus$G, fit$G),
             `loci D vs loci G` = compare(locus$D + diag(1e-8, nrow(locus$D)), locus$G)), 2)
@@ -89,9 +97,10 @@ round(rbind(`loci G vs polygenic G` = compare(locus$G, fit$G),
 
 Random skewers compares the responses of the two matrices to the same random
 selection gradients; Krzanowski's statistic the subspaces of their first four
-principal components. A high similarity says the loci found reproduce the
-pattern of the genetic covariance, even if they explain only part of its
-magnitude.
+principal components. Despite the difference in strength, the loci's `G` responds to selection much
+like the polygenic one (random skewers
+`r round(compare(locus$G, fit$G)[["random_skewers"]], 2)`): the mapped loci
+reproduce the main directions of genetic covariance, if not its spread.
 
 ```{r compare-figure, fig.height = 4}
 library(ggplot2)

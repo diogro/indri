@@ -9,6 +9,7 @@ vignette: >
 
 ```{r knitr, include = FALSE}
 knitr::opts_chunk$set(collapse = TRUE, comment = "#>", error = FALSE, fig.path = "figures/indri-G-",
+                      cache.path = "cache/indri-G/",
                       fig.width = 7, fig.height = 4.5, dpi = 96)
 ```
 
@@ -60,14 +61,14 @@ additive-plus-litter covariance; the original analyses included a dam effect.
 All three engines take the same call; only `engine` changes. The REML engines
 run in seconds:
 
-```{r fit-reml}
+```{r fit-reml, cache = TRUE}
 time_sommer <- system.time(
   fit_sommer <- fit_G(Y, X = X, A = A, engine = "sommer", cores = cores,
                       seed = 1L, progress = FALSE))
 fit_sommer
 ```
 
-```{r fit-asreml}
+```{r fit-asreml, cache = TRUE}
 has_asreml <- nzchar(system.file(package = "asreml"))
 if (has_asreml) {
   time_asreml <- system.time(
@@ -84,7 +85,7 @@ slower, and gives posterior draws instead of a normal approximation. Each
 block runs four chains here, so a budget of `cores` processes runs
 `cores / 4` blocks at a time:
 
-```{r fit-stanimal}
+```{r fit-stanimal, cache = TRUE}
 stan_args <- list(chains = 4L, iter = 2000L, refresh = 0,
                   show_messages = FALSE)
 time_stanimal <- system.time(
@@ -100,6 +101,8 @@ times <- c(sommer = time_sommer[["elapsed"]],
            asreml = if (has_asreml) time_asreml[["elapsed"]],
            stanimal = time_stanimal[["elapsed"]])
 upper <- function(m) m[upper.tri(m)]
+agree <- vapply(fits, function(f) cor(upper(f$corrG), upper(fit_sommer$corrG)),
+                numeric(1))
 data.frame(
   engine = names(fits),
   seconds = round(times[names(fits)]),
@@ -122,10 +125,15 @@ ggplot(pairs, aes(sommer, other)) +
   theme_minimal()
 ```
 
-The two REML engines fit the same model by the same criterion and should
-agree closely. stanimal's correlations follow the same structure; at this
-sample size the prior on the block correlations has some pull, which the
-next section examines.
+The two REML engines fit the same model by the same criterion and agree
+almost exactly (their genetic correlations correlate at
+`r if (has_asreml) round(agree[["asreml"]], 3) else "n/a"`). stanimal's
+agree closely too (`r round(agree[["stanimal"]], 3)`), at
+`r round(times[["stanimal"]] / 60)` minutes against seconds: it fits each
+pair in three blocks (`r nrow(fit_stanimal$subsets)` here, against
+`r nrow(fit_sommer$subsets)` for REML) and samples each with four chains.
+Its correlations are a little closer to zero, the pull of the prior,
+which the next section examines.
 
 ## Reading a fit
 
@@ -187,7 +195,7 @@ iterations.
 
 The same nine traits under three priors:
 
-```{r fit-lkj}
+```{r fit-lkj, cache = TRUE}
 lkj_fits <- list(`1` = fit_stanimal)
 for (eta in c(2, 4)) {
   lkj_fits[[as.character(eta)]] <- suppressWarnings(fit_G(
@@ -223,23 +231,38 @@ ggplot(lkj_pairs, aes(sommer, stanimal)) +
   theme_minimal()
 ```
 
-A slope below 1 against the REML estimates is the prior's shrinkage. The rule
-of thumb:
+A slope below 1 against the REML estimates is the prior's shrinkage. With
+`r nrow(Y)` mice the data dominate: from LKJ(1) to LKJ(4) the slope drops
+only from `r round(slope(lkj_fits[["1"]]), 2)` to
+`r round(slope(lkj_fits[["4"]]), 2)` and the intervals barely narrow. The
+blocks that did not mix are the same under every prior:
+
+```{r not-mixing}
+fit_stanimal$diagnostics$unconverged
+```
+
+So here the prior is not what keeps them from mixing, and a stronger one
+does not help: those blocks need longer chains, or the REML estimates,
+which agree with the mixed blocks. With a few hundred individuals, as in
+the 35-trait data above, the prior matters much more. The rule of thumb:
 
 1. **Start with the default, LKJ(1).** It is the least informative choice,
    and in simulations it gave nominal coverage.
 2. **Look at `diagnostics`.** If blocks do not mix (Rhat >= 1.05, divergent
-   transitions) and longer chains do not fix them, raise the prior to 2, and
-   to 4 if needed, and report it: the correlations will be shrunk towards
-   zero accordingly.
+   transitions), refit with a stronger prior (2, then 4) and see whether
+   they mix and the estimates move. If they mix only under the stronger
+   prior, keep it and report it: the correlations are shrunk towards zero
+   accordingly. If nothing changes, as here, the prior is not the problem:
+   run longer chains, or rely on REML for those pairs.
 3. **Compare with a REML engine.** sommer takes seconds; a stanimal fit far
    from it, beyond what the prior's shrinkage explains, is worth a second
    look.
 
 ## G against the phenotypic covariance
 
-```{r g-vs-p}
-library(evolqg)
+```{r g-vs-p, message = FALSE, warning = FALSE}
+options(rgl.useNULL = TRUE)
+suppressPackageStartupMessages(library(evolqg))
 resid <- lm.fit(X, Y)$residuals
 P <- crossprod(resid) / (nrow(Y) - ncol(X))
 G <- fit_sommer$G
@@ -248,8 +271,17 @@ data.frame(
   similarity = round(c(RandomSkewers(G, P)[[1]],
                        KrzCor(G, P, ret.dim = 4),
                        MantelCor(cov2cor(G), cov2cor(P), permutations = 999)[[1]]), 2))
-c(integration_G = CalcEigenVar(cov2cor(G)), integration_P = CalcEigenVar(cov2cor(P)))
+integration <- c(G = CalcEigenVar(cov2cor(G)), P = CalcEigenVar(cov2cor(P)))
+integration
 ```
+
+`G` and the phenotypic covariance `P` point the same way (random skewers
+`r round(RandomSkewers(G, P)[[1]], 2)`: the two respond alike to the same
+selection), but `G` is the more integrated, its correlations concentrated
+in fewer directions (relative eigenvalue variance
+`r round(integration[["G"]], 3)` against `r round(integration[["P"]], 3)`).
+Residual variation spreads `P` out over more directions than the genetic
+variation alone.
 
 ```{r save, include = FALSE}
 saveRDS(fit_sommer, "cache/fit_sommer.rds")
@@ -260,8 +292,9 @@ saveRDS(fit_stanimal, "cache/fit_stanimal.rds")
 
 - The three engines estimate the same `G`; sommer and asreml agree closely
   and take seconds, stanimal takes much longer and gives posterior draws.
-- Start stanimal at LKJ(1), and raise the prior only for blocks that do not
-  mix.
+- Start stanimal at LKJ(1). Raise the prior for blocks that do not mix
+  only if that makes them mix; with many individuals, as here, it changes
+  little.
 - `G` here includes variance shared by littermates.
 
 ## Reference
