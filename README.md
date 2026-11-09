@@ -155,7 +155,9 @@ genotypes plus `O(N P)` per SNP: thousands of SNPs take seconds.
   the background (a polygenic G x E, or residual variance differing between
   environments) is not modelled by default: pass a `fit_G_env()` fit
   (experimental) as `fit` for a background with its own `G` in each
-  environment and between environments.
+  environment and between environments. That removes the inflation, but
+  `fit_G_env()` currently underestimates cross-environment genetic
+  correlations, so its interaction tests are conservative.
 - **Permutations.** `n_permutations` reruns the scan with the genotypes
   permuted across individuals: `pvalues_empirical` per SNP, and
   `qvalues_empirical`, the permutation estimate of the false discovery rate.

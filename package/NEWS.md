@@ -16,7 +16,10 @@
   individuals' genetic covariance depends on both their environments). The
   scan rotates by a generalized eigendecomposition per connected component
   of `A`, so it stays fast for family data; it matches a dense GLS, and
-  reduces to the usual scan when the background has no GxE.
+  reduces to the usual scan when the background has no GxE. With it, the
+  interaction tests are no longer inflated by polygenic GxE, but they are
+  conservative: `fit_G_env()` underestimates cross-environment genetic
+  correlations (0.67-0.77 for a true 1 in simulations).
 
 * `indri_gwas(gxe = )` fits genotype-by-environment interactions: each SNP's
   dosage also enters multiplied by the named columns of `X` (sex, diet, a

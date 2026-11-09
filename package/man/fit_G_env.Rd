@@ -55,7 +55,13 @@ means, so a column of \code{X} named by \code{env} is dropped; every other colum
 of \code{X} must vary within each environment.
 
 This is a trial: the cross-environment covariances rest on relatives in
-different environments only, and need a measured design to be trusted.
+different environments only. In simulations (900 sibs of both sexes, 10
+and 30 traits; STATUS.md) the cross-environment genetic correlations
+came out \strong{too low}: 0.67-0.77 where the truth was 1, 0.36-0.45 where it
+was 0.5, more so with more traits. Scans with this covariance
+(\code{\link[=indri_gwas]{indri_gwas()}} with this fit) are then conservative for interaction
+tests (genomic inflation 0.88-0.98), not anti-conservative, but lose
+power. The cause is under investigation.
 }
 \seealso{
 \code{\link[=fit_G]{fit_G()}}, \code{\link[=indri_gwas]{indri_gwas()}}

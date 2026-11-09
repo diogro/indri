@@ -177,9 +177,11 @@ cross-sex genetic covariance is estimable.
    X, A)`: within-sex `G`, cross-sex genetic correlations per week
    (`corr_between`), and what values below 1 mean.
 2. **Why the background matters:** the calibration result (STATUS.md):
-   unmodelled polygenic G x sex inflates interaction tests; the
-   environment-specific background removes it (pending the current
-   meyer run).
+   unmodelled polygenic G x sex inflates interaction tests (lambda 1.14);
+   the environment-specific background removes it but is conservative
+   (lambda 0.88-0.98), because `fit_G_env()` underestimates cross-sex
+   genetic correlations (0.67-0.77 for a true 1). The vignette says so and
+   shows both scans side by side; it is a trial feature.
 3. **The scan:** `indri_gwas(..., fit = fit_env, gxe = "SEXM")` (the
    column name from `model.matrix`); `pvalues_gxe`, `gxe` effects;
    Manhattan of interactions; the same scan with the usual background for
@@ -217,8 +219,8 @@ minutes; precomputed.
    meyer, with BLAS capped).
 4. Vignette 2, from vignette 1's saved fit.
 5. Vignette 3.
-6. Vignette 4, after the GxE calibration with the environment-specific
-   background is in (running now).
+6. Vignette 4, with the measured caveat (conservative interaction tests;
+   cross-environment correlations biased low) stated up front.
 7. README: a "Vignettes" section; pkgdown later, if wanted.
 
 ## 9. Open questions
