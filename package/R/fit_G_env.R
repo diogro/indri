@@ -38,7 +38,9 @@
 #'   by character states, in the units of `Y`), `corr_between` (traits by
 #'   pairs of environments: each trait's genetic correlation between two
 #'   environments), `levels`, `traits`, `states` (the character-state
-#'   names) and `fit` (the [fit_G()] fit of the character states).
+#'   names), `env` (each individual's environment, named by individual) and
+#'   `fit` (the [fit_G()] fit of the character states). Pass it to
+#'   [indri_gwas()] as `fit` to scan with this covariance.
 #' @seealso [fit_G()], [indri_gwas()]
 #' @export
 fit_G_env <- function(Y, env, X = NULL, A, engine = "sommer", ...) {
@@ -116,7 +118,8 @@ fit_G_env <- function(Y, env, X = NULL, A, engine = "sommer", ...) {
   }
 
   structure(list(G = G, E = E, corr_between = corr_between, levels = levels,
-                 traits = traits, states = states, env = env, fit = fit),
+                 traits = traits, states = states,
+                 env = stats::setNames(env, rownames(Y)), fit = fit),
             class = "indri_fit_env")
 }
 

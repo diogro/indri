@@ -153,7 +153,9 @@ genotypes plus `O(N P)` per SNP: thousands of SNPs take seconds.
   test of the SNP and its interactions, `pvalues_gxe` tests the
   interactions given the main effect, and `gxe` holds their effects. GxE in
   the background (a polygenic G x E, or residual variance differing between
-  environments) is not modelled.
+  environments) is not modelled by default: pass a `fit_G_env()` fit
+  (experimental) as `fit` for a background with its own `G` in each
+  environment and between environments.
 - **Permutations.** `n_permutations` reruns the scan with the genotypes
   permuted across individuals: `pvalues_empirical` per SNP, and
   `qvalues_empirical`, the permutation estimate of the false discovery rate.

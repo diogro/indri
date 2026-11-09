@@ -8,7 +8,12 @@
   environments (`corr_between`: each trait's cross-environment genetic
   correlation); `E` is block diagonal, as no individual is observed in two
   environments. The first step towards modelling polygenic GxE in the
-  association scans.
+  association scans: pass the result to `indri_gwas()` as `fit` and the
+  scan uses an environment-specific background covariance (each pair of
+  individuals' genetic covariance depends on both their environments). The
+  scan rotates by a generalized eigendecomposition per connected component
+  of `A`, so it stays fast for family data; it matches a dense GLS, and
+  reduces to the usual scan when the background has no GxE.
 
 * `indri_gwas(gxe = )` fits genotype-by-environment interactions: each SNP's
   dosage also enters multiplied by the named columns of `X` (sex, diet, a

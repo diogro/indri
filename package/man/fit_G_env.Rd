@@ -25,7 +25,9 @@ An object of class \code{indri_fit_env}: \code{G} and \code{E} (character states
 by character states, in the units of \code{Y}), \code{corr_between} (traits by
 pairs of environments: each trait's genetic correlation between two
 environments), \code{levels}, \code{traits}, \code{states} (the character-state
-names) and \code{fit} (the \code{\link[=fit_G]{fit_G()}} fit of the character states).
+names), \code{env} (each individual's environment, named by individual) and
+\code{fit} (the \code{\link[=fit_G]{fit_G()}} fit of the character states). Pass it to
+\code{\link[=indri_gwas]{indri_gwas()}} as \code{fit} to scan with this covariance.
 }
 \description{
 Estimates the genetic covariance of a set of traits within and between

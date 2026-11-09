@@ -1,6 +1,7 @@
 # Calibration of the genotype-by-environment tests of indri_gwas(gxe = )
-# when the background has GxE the scan does not model: null SNPs, sex as the
-# environment, three scenarios.
+# when the background has GxE: null SNPs, sex as the environment, three
+# scenarios, each scanned with the usual background (G and E from fit_G())
+# and with an environment-specific one (fit_G_env(), tests "*_env").
 #   none          no background GxE
 #   residual      residual variance twice as large in males
 #   polygenic     genetic values differ between the sexes (cross-sex genetic
@@ -67,11 +68,18 @@ one_replicate <- function(seed) {
     Y <- background(pop, scenario)
     fit <- fit_G(Y, X = pop$X, A = pop$A, engine = "sommer", cores = 1L,
                  seed = seed, progress = FALSE)
+    fit_env <- fit_G_env(Y, env = "sex", X = pop$X, A = pop$A, cores = 1L,
+                         seed = seed, progress = FALSE)
     scans <- list(
       multi_lmm = indri_gwas(Y, pop$genotypes, fit = fit, A = pop$A,
                              X = pop$X, gxe = "sex"),
       single_lmm = indri_gwas(Y, pop$genotypes, A = pop$A, X = pop$X,
-                              mode = "single_trait", gxe = "sex"))
+                              mode = "single_trait", gxe = "sex"),
+      multi_lmm_env = indri_gwas(Y, pop$genotypes, fit = fit_env, A = pop$A,
+                                 X = pop$X, gxe = "sex"),
+      single_lmm_env = indri_gwas(Y, pop$genotypes, fit = fit_env,
+                                  A = pop$A, X = pop$X,
+                                  mode = "single_trait", gxe = "sex"))
     for (test in names(scans)) for (which in c("gxe", "joint")) {
       s <- scans[[test]]
       p <- c(if (which == "gxe") s$pvalues_gxe else s$pvalues)
@@ -84,7 +92,8 @@ one_replicate <- function(seed) {
       rows[[length(rows) + 1L]] <- data.frame(
         seed = seed, P = P, N = pop$N, scenario = scenario, test = test,
         which = which, lambda_gc = lambda, t1e_1e2 = rate[1],
-        t1e_1e3 = rate[2], t1e_1e4 = rate[3], n_tests = length(p))
+        t1e_1e3 = rate[2], t1e_1e4 = rate[3], n_tests = length(p),
+        r_between = mean(fit_env$corr_between))
     }
   }
   do.call(rbind, rows)
@@ -108,7 +117,7 @@ summary <- do.call(rbind, lapply(cells, function(r)
   data.frame(scenario = r$scenario[1], test = r$test[1], which = r$which[1],
              replicates = nrow(r), lambda_gc = mean(r$lambda_gc),
              t1e_1e2 = mean(r$t1e_1e2), t1e_1e3 = mean(r$t1e_1e3),
-             t1e_1e4 = mean(r$t1e_1e4))))
+             t1e_1e4 = mean(r$t1e_1e4), r_between = mean(r$r_between))))
 summary <- summary[order(summary$which, summary$test, summary$scenario), ]
 utils::write.csv(summary, sub("\\.csv$", "_summary.csv", file),
                  row.names = FALSE)

@@ -270,8 +270,13 @@ No new hard dependencies. A PLINK reader (`BEDMatrix` or `genio`) can be a
    interaction test (STATUS.md), so the background needs G per environment
    and between environments. `fit_G_env()` (experimental) estimates it from
    character states (trait x environment, each observed in its own group)
-   with `fit_G()`; `E` is block diagonal. Still to do: the scan with that
-   covariance (no longer `G (x) A + E (x) I`, so not one rotation), and a
-   study of how well the between-environment covariance is recovered.
+   with `fit_G()`; `E` is block diagonal. `indri_gwas(fit = <fit_G_env>)`
+   scans with that covariance: `V(delta) = Vg + delta Ve` is a pencil, so a
+   generalized eigendecomposition rotates it for every `delta`, once per
+   connected component of `A` (`test-gwas-env.R`: dense GLS, REML `delta`,
+   gxe and dominance, a non-block `A`, single-trait, and equality with the
+   Kronecker scan without background GxE). Still to do: the calibration
+   with polygenic GxE, and the recovery of the between-environment
+   covariance.
 
 Work happens on the `gwas` branch, tests first.

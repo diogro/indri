@@ -33,7 +33,9 @@ indri_gwas(
 \item{genotypes}{Numeric matrix, individuals by SNPs (typically 0/1/2).
 Missing values are replaced by the SNP's mean; monomorphic SNPs get \code{NA}.}
 
-\item{fit}{An \code{indri_fit} from \code{\link[=fit_G]{fit_G()}} supplying \code{G} and \code{E}.}
+\item{fit}{An \code{indri_fit} from \code{\link[=fit_G]{fit_G()}} supplying \code{G} and \code{E}, or an
+\code{indri_fit_env} from \code{\link[=fit_G_env]{fit_G_env()}} for an environment-specific
+background; see that section.}
 
 \item{G, E}{Genetic and residual covariance matrices of the traits, in the
 units of \code{Y}, instead of \code{fit}. Matched to the columns of \code{Y} by name
@@ -166,6 +168,21 @@ environment) keeps the test without them, gets \code{NA} interaction results,
 and is \code{FALSE} in \code{gxe_estimable}. The covariance is the same as without
 \code{gxe}: GxE in the background (a polygenic G x E, or a residual variance
 that differs between environments) is not modelled.
+}
+
+\section{Environment-specific background}{
+
+With \code{fit} from \code{\link[=fit_G_env]{fit_G_env()}}, the polygenic background has its own
+genetic covariance in each group of a discrete environment and between
+groups, and its own residual covariance in each: the covariance of the
+traits of individuals \code{i} and \code{j} is \verb{A_ij G[(env_i), (env_j)]} plus, for
+\code{i = j}, \verb{delta E[(env_i)]}. This is the background to use with \code{gxe} on
+that environment: unmodelled polygenic GxE inflates the interaction
+tests. The covariance is no Kronecker product, so the scan rotates by a
+generalized eigendecomposition of its genetic and residual parts, once
+per connected component of \code{A}: fast for families (a block-diagonal \code{A}),
+cubic in the number of individuals times traits for a dense \code{A}. \code{delta}
+is fitted by REML as usual; \code{single_trait_variance} does not apply.
 }
 
 \section{Permutations}{

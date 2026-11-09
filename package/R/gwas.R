@@ -55,6 +55,19 @@
 #' `gxe`: GxE in the background (a polygenic G x E, or a residual variance
 #' that differs between environments) is not modelled.
 #'
+#' @section Environment-specific background:
+#' With `fit` from [fit_G_env()], the polygenic background has its own
+#' genetic covariance in each group of a discrete environment and between
+#' groups, and its own residual covariance in each: the covariance of the
+#' traits of individuals `i` and `j` is `A_ij G[(env_i), (env_j)]` plus, for
+#' `i = j`, `delta E[(env_i)]`. This is the background to use with `gxe` on
+#' that environment: unmodelled polygenic GxE inflates the interaction
+#' tests. The covariance is no Kronecker product, so the scan rotates by a
+#' generalized eigendecomposition of its genetic and residual parts, once
+#' per connected component of `A`: fast for families (a block-diagonal `A`),
+#' cubic in the number of individuals times traits for a dense `A`. `delta`
+#' is fitted by REML as usual; `single_trait_variance` does not apply.
+#'
 #' @section Permutations:
 #' With `n_permutations > 0` the genotype rows are permuted across
 #' individuals and the scan rerun, keeping the null variance ratio of the
@@ -89,7 +102,9 @@
 #' @param Y Numeric matrix, individuals by traits, with no missing values.
 #' @param genotypes Numeric matrix, individuals by SNPs (typically 0/1/2).
 #'   Missing values are replaced by the SNP's mean; monomorphic SNPs get `NA`.
-#' @param fit An `indri_fit` from [fit_G()] supplying `G` and `E`.
+#' @param fit An `indri_fit` from [fit_G()] supplying `G` and `E`, or an
+#'   `indri_fit_env` from [fit_G_env()] for an environment-specific
+#'   background; see that section.
 #' @param G,E Genetic and residual covariance matrices of the traits, in the
 #'   units of `Y`, instead of `fit`. Matched to the columns of `Y` by name
 #'   when both are named. For the multi-trait LM, `E` replaces the residual
@@ -219,6 +234,32 @@ indri_gwas <- function(Y, genotypes, fit = NULL, G = NULL, E = NULL, A = NULL,
     snp_info <- data.frame(snp = colnames(genotypes), stringsAsFactors = FALSE)
   }
 
+  env_fit <- NULL
+  if (inherits(fit, "indri_fit_env")) {
+    if (!is.null(G) || !is.null(E))
+      stop("Pass either `fit` or `G` and `E`, not both.", call. = FALSE)
+    if (model != "lmm")
+      stop("An environment-specific fit (fit_G_env()) needs ",
+           "model = \"lmm\".", call. = FALSE)
+    if (!setequal(fit$traits, traits))
+      stop("`fit` describes the traits ",
+           paste(utils::head(fit$traits, 5L), collapse = ", "),
+           ", not the traits of `Y`.", call. = FALSE)
+    fe <- fit$env
+    if (!is.null(names(fe)) && !is.null(rownames(Y))) {
+      missing <- setdiff(rownames(Y), names(fe))
+      if (length(missing))
+        stop("`fit` has no environment for ", length(missing),
+             " individual(s) of `Y`: ",
+             paste(utils::head(missing, 5L), collapse = ", "), call. = FALSE)
+      fe <- fe[rownames(Y)]
+    } else if (length(fe) != N) {
+      stop("`fit` has an environment for ", length(fe), " individuals, `Y` ",
+           "has ", N, ".", call. = FALSE)
+    }
+    env_fit <- list(Gs = fit$G, Es = fit$E, env = as.character(fe))
+    fit <- NULL
+  }
   if (!is.null(fit)) {
     if (!is.null(G) || !is.null(E))
       stop("Pass either `fit` or `G` and `E`, not both.", call. = FALSE)
@@ -229,7 +270,7 @@ indri_gwas <- function(Y, genotypes, fit = NULL, G = NULL, E = NULL, A = NULL,
       stop("`fit` has no `E`: it was made before indri assembled the ",
            "residual covariance. Refit it with fit_G().", call. = FALSE)
   }
-  needs_GE <- model == "lmm" &&
+  needs_GE <- model == "lmm" && is.null(env_fit) &&
     (mode == "multi_trait" || single_trait_variance == "fit")
   if (needs_GE && (is.null(G) || is.null(E)))
     stop(if (mode == "multi_trait") "The multi-trait LMM" else
@@ -291,7 +332,10 @@ indri_gwas <- function(Y, genotypes, fit = NULL, G = NULL, E = NULL, A = NULL,
             if (sum(monomorphic) > 5L) ", ...", call. = FALSE)
 
   run_scan <- function(genotypes, dom, delta) {
-    if (mode == "multi_trait") {
+    if (!is.null(env_fit)) {
+      .indri_gwas_env(Y, X, genotypes, env_fit, A, mode, delta, chunk_size,
+                      monomorphic, dom, estimable, env)
+    } else if (mode == "multi_trait") {
       .indri_gwas_multi(Y, X, genotypes, G, E, A, model, delta, chunk_size,
                         monomorphic, dom, estimable, env)
     } else {
@@ -313,6 +357,8 @@ indri_gwas <- function(Y, genotypes, fit = NULL, G = NULL, E = NULL, A = NULL,
               pvalues_gxe = scan$pvalues_gxe,
               gxe = scan$betas_gxe,
               gxe_estimable = scan$gxe_estimable,
+              background = if (is.null(env_fit)) "kronecker" else "environment",
+              n_components = scan$n_components,
               mode = mode, model = model, n_individuals = N, traits = traits,
               call = call)
   if (adjust != "none") {
@@ -754,6 +800,211 @@ indri_effective_tests <- function(Y, X = NULL) {
     out$dominance_estimable <- stats::setNames(d_ok, snps)
   }
   out
+}
+
+# Scans with an environment-specific background (fit_G_env()). The
+# covariance of vec(Y) (trait-major) is V(delta) = Vg + delta Ve, with
+# Vg[(k,i),(l,j)] = A_ij Gs[(k, env_i), (l, env_j)] and Ve block diagonal by
+# individual. That is no Kronecker product, but it is a pencil of two
+# matrices: with Ve = L L' and L^-1 Vg L^-T = U diag(lambda) U', the rotation
+# R = U' L^-1 gives R V(delta) R' = diag(lambda + delta) for every delta. A
+# block-diagonal A (families) makes V block diagonal, so the decomposition
+# runs per connected component of A. After the rotation each SNP is a
+# weighted regression of the rotated response on rotated terms, one column
+# per trait and SNP term, as in .indri_gwas_nested().
+.indri_gwas_env <- function(Y, X, genotypes, env_fit, A, mode, delta,
+                            chunk_size, monomorphic, dom, estimable, env) {
+  N <- nrow(Y)
+  traits <- colnames(Y)
+  comps <- .indri_components(A)
+  problems <- if (mode == "multi_trait") list(traits) else as.list(traits)
+  has_d <- !is.null(dom)
+  m_env <- if (is.null(env)) 0L else ncol(env)
+  M <- ncol(genotypes)
+  snps <- colnames(genotypes)
+  results <- lapply(problems, function(tr) {
+    p <- length(tr)
+    rot <- lapply(comps, function(idx)
+      .indri_env_rotation(A[idx, idx, drop = FALSE], env_fit$env[idx],
+                          env_fit$Gs, env_fit$Es, tr))
+    rotate_terms <- function(T) {
+      # one rotated column per trait for each column of T (individuals x m)
+      lapply(seq_len(p), function(k) do.call(rbind, lapply(seq_along(comps),
+        function(c) {
+          idx <- comps[[c]]
+          block <- (k - 1L) * length(idx) + seq_along(idx)
+          rot[[c]]$R[, block, drop = FALSE] %*% T[idx, , drop = FALSE]
+        })))
+    }
+    ys <- do.call(c, lapply(seq_along(comps), function(c)
+      drop(rot[[c]]$R %*% c(Y[comps[[c]], tr, drop = FALSE]))))
+    Xs <- do.call(cbind, rotate_terms(X))
+    lambda <- do.call(c, lapply(rot, `[[`, "lambda"))
+    V_of <- function(dl) matrix(lambda + dl, ncol = 1L)
+    dl <- if (!is.null(delta)) {
+      if (mode == "multi_trait") delta else delta[[tr]]
+    } else {
+      .indri_gwas_reml_delta(matrix(ys, ncol = 1L), Xs, V_of)
+    }
+    V <- V_of(dl)
+    null <- .indri_gwas_null(matrix(ys, ncol = 1L), Xs, V)
+    # term groups: a, [d], gxe_1..gxe_m, each with one column per trait
+    group <- function(g) (g - 1L) * p + seq_len(p)
+    i_a <- group(1L)
+    i_d <- if (has_d) group(2L) else integer()
+    i_g <- unlist(lapply(seq_len(m_env), function(k) group(1L + has_d + k)))
+    subsets <- list(a = i_a)
+    if (has_d) subsets$ad <- c(i_a, i_d)
+    if (m_env) subsets$ag <- c(i_a, i_g)
+    if (has_d && m_env) subsets$adg <- c(i_a, i_d, i_g)
+    store <- lapply(subsets, function(s)
+      list(q = rep(NA_real_, M), ok = rep(FALSE, M),
+           beta = matrix(NA_real_, M, length(s))))
+    for (ch in .indri_gwas_chunks(M, chunk_size)) {
+      g <- genotypes[, ch, drop = FALSE]
+      terms <- c(rotate_terms(g),
+                 if (has_d) rotate_terms(dom[, ch, drop = FALSE]),
+                 unlist(lapply(seq_len(m_env), function(k)
+                   rotate_terms(g * env[, k])), recursive = FALSE))
+      fits <- .indri_gwas_nested(null, Xs, terms, V, subsets)
+      for (s in names(subsets)) {
+        store[[s]]$q[ch] <- fits[[s]]$q[1L, ]
+        store[[s]]$ok[ch] <- fits[[s]]$ok[1L, ]
+        store[[s]]$beta[ch, ] <- fits[[s]]$beta[1L, , ]
+      }
+    }
+    d_ok <- if (has_d) estimable & store$ad$ok else rep(FALSE, M)
+    g_ok <- if (!m_env) rep(FALSE, M) else
+      ifelse(d_ok, if (has_d) store$adg$ok else FALSE, store$ag$ok)
+    fit_of <- ifelse(d_ok, ifelse(g_ok, "adg", "ad"), ifelse(g_ok, "ag", "a"))
+    q_of <- function(which) vapply(seq_len(M), function(j)
+      store[[which[j]]]$q[j], numeric(1))
+    q_fit <- q_of(fit_of)
+    q_no_g <- q_of(ifelse(d_ok, "ad", "a"))
+    q_no_d <- q_of(ifelse(g_ok, "ag", "a"))
+    n <- length(ys)
+    n_terms <- 1 + d_ok + m_env * g_ok
+    coef <- function(j, cols) store[[fit_of[j]]]$beta[j, cols]
+    pos <- function(j, what) {
+      if (what == "a") return(seq_len(p))
+      if (what == "d") return(p + seq_len(p))
+      offset <- p * (1L + d_ok[j])
+      offset + seq_len(p * m_env)
+    }
+    list(
+      p = stats::pchisq(n * log(null$q0 / q_fit), p * n_terms,
+                        lower.tail = FALSE),
+      p_g = ifelse(g_ok, stats::pchisq(n * log(q_no_g / q_fit), p * m_env,
+                                       lower.tail = FALSE), NA_real_),
+      p_d = ifelse(d_ok, stats::pchisq(n * log(q_no_d / q_fit), p,
+                                       lower.tail = FALSE), NA_real_),
+      a = t(vapply(seq_len(M), function(j) coef(j, pos(j, "a")), numeric(p))),
+      d = t(vapply(seq_len(M), function(j)
+        if (d_ok[j]) coef(j, pos(j, "d")) else rep(NA_real_, p), numeric(p))),
+      g = vapply(seq_len(M), function(j)
+        if (g_ok[j]) coef(j, pos(j, "g")) else rep(NA_real_, p * m_env),
+        numeric(p * m_env)),
+      d_ok = d_ok, g_ok = g_ok, delta = dl)
+  })
+
+  P <- length(traits)
+  na <- monomorphic
+  shape <- function(x) {
+    x <- matrix(x, M)
+    x[na, ] <- NA_real_
+    dimnames(x) <- list(snps, if (ncol(x) == P) traits else NULL)
+    x
+  }
+  if (mode == "multi_trait") {
+    r <- results[[1L]]
+    p <- r$p; p_g <- r$p_g; p_d <- r$p_d
+    p[na] <- p_g[na] <- p_d[na] <- NA_real_
+    out <- list(pvalues = stats::setNames(p, snps), betas = shape(r$a),
+                delta = unname(r$delta))
+    gxe <- if (m_env) array(NA_real_, c(M, P, m_env),
+                            dimnames = list(snps, traits, colnames(env)))
+    if (m_env) for (k in seq_len(m_env))
+      gxe[, , k] <- shape(t(matrix(r$g, P * m_env)[(k - 1L) * P + seq_len(P), ,
+                                                    drop = FALSE]))
+    if (m_env) {
+      out$pvalues_gxe <- stats::setNames(p_g, snps)
+      out$betas_gxe <- gxe
+      out$gxe_estimable <- stats::setNames(r$g_ok, snps)
+    }
+    if (has_d) {
+      out$pvalues_dominance <- stats::setNames(p_d, snps)
+      out$betas_dominance <- shape(r$d)
+      out$dominance_estimable <- stats::setNames(r$d_ok, snps)
+    }
+  } else {
+    col <- function(field) shape(vapply(results, function(r) r[[field]],
+                                        numeric(M)))
+    out <- list(pvalues = col("p"), betas = col("a"),
+                delta = stats::setNames(vapply(results, `[[`, numeric(1),
+                                               "delta"), traits))
+    if (m_env) {
+      out$pvalues_gxe <- col("p_g")
+      gxe <- array(NA_real_, c(M, P, m_env),
+                   dimnames = list(snps, traits, colnames(env)))
+      for (k in seq_len(P)) gxe[, k, ] <- t(matrix(results[[k]]$g, m_env))
+      gxe[na, , ] <- NA_real_
+      out$betas_gxe <- gxe
+      out$gxe_estimable <- stats::setNames(
+        Reduce(`&`, lapply(results, `[[`, "g_ok")), snps)
+    }
+    if (has_d) {
+      out$pvalues_dominance <- col("p_d")
+      out$betas_dominance <- col("d")
+      out$dominance_estimable <- stats::setNames(
+        Reduce(`&`, lapply(results, `[[`, "d_ok")), snps)
+    }
+  }
+  out$n_components <- length(comps)
+  out
+}
+
+# The generalized rotation of one connected component: Vg and Ve as in
+# .indri_gwas_env(), for the individuals of the component and traits `tr`
+# (trait-major), and R = U' L^-1 with the eigenvalues lambda.
+.indri_env_rotation <- function(A, env, Gs, Es, tr) {
+  n <- nrow(A)
+  p <- length(tr)
+  Vg <- Ve <- matrix(0, n * p, n * p)
+  for (k in seq_len(p)) for (l in seq_len(p)) {
+    sk <- paste(tr[k], env, sep = ":")
+    sl <- paste(tr[l], env, sep = ":")
+    rows <- (k - 1L) * n + seq_len(n)
+    cols <- (l - 1L) * n + seq_len(n)
+    Vg[rows, cols] <- A * Gs[sk, sl, drop = FALSE]
+    Ve[rows, cols] <- diag(Es[cbind(sk, sl)], n)
+  }
+  L <- t(chol(Ve))
+  Li <- forwardsolve(L, diag(n * p))      # L^-1
+  W <- Li %*% Vg %*% t(Li)
+  e <- eigen((W + t(W)) / 2, symmetric = TRUE)
+  list(R = crossprod(e$vectors, Li), lambda = pmax(e$values, 0))
+}
+
+# Connected components of the relationship graph (nonzero entries of A).
+.indri_components <- function(A) {
+  N <- nrow(A)
+  linked <- A != 0
+  comp <- integer(N)
+  current <- 0L
+  for (start in seq_len(N)) {
+    if (comp[start]) next
+    current <- current + 1L
+    queue <- start
+    comp[start] <- current
+    while (length(queue)) {
+      i <- queue[1L]
+      queue <- queue[-1L]
+      new <- which(linked[i, ] & comp == 0L)
+      comp[new] <- current
+      queue <- c(queue, new)
+    }
+  }
+  split(seq_len(N), comp)
 }
 
 # Nested weighted regressions with several SNP terms: for each rotated
