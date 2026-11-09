@@ -172,6 +172,12 @@ genotypes plus `O(N P)` per SNP: thousands of SNPs take seconds.
 | `pvalues_empirical`, `qvalues_empirical`, `fdr_threshold` | with `n_permutations` (and `fdr`) |
 | `snp_info` | the SNP information, or the SNP names |
 
+`indri_locus_G(scan, genotypes = genotypes)` turns the loci's `a` and `d`
+into the additive and dominance covariance matrices they imply, with the
+allele frequencies and linkage disequilibrium of the genotypes (Melo,
+Marroig and Wolf 2019): how the mapped loci build up the genetic
+covariance between traits.
+
 **Data.** The package ships an F3 intercross of the LG/J and SM/J mouse
 strains: `lgsm_f3` (1611 mice; growth (weekly gains), raw weekly weight,
 mandible area and necropsy traits, listed in `lgsm_traits`), `lgsm_genotypes` (353 markers coded additive `A`,

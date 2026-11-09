@@ -18,6 +18,7 @@ export(indri_engine)
 export(indri_engines)
 export(indri_gwas)
 export(indri_inflate)
+export(indri_locus_G)
 export(indri_project_psd)
 export(indri_subsets)
 importFrom(stats,
