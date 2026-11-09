@@ -14,6 +14,7 @@ results/*
 !results/uncertainty_coverage_*.csv
 !results/gwas_calibration_*.csv
 !results/gwas_power_*.csv
+!results/shrinkage_G_*.csv
 *.rds
 # test fixtures are data the suite needs
 !package/tests/testthat/fixtures/**/*.rds

@@ -8,11 +8,14 @@
 #   OPENBLAS_NUM_THREADS=1 OMP_NUM_THREADS=1 MKL_NUM_THREADS=1 \
 #     Rscript examples/gwas_calibration.R
 #
-# Needs sommer and stanimal (for random_covariance()). Settings:
+# Needs sommer, stanimal (for random_covariance()) and corpcor (for the
+# shrunk-E scan). Settings:
 #   INDRI_GWAS_STUDY_P       traits                          (default 10)
 #   INDRI_GWAS_STUDY_SEEDS   replicates, as "from:to"         (default 1:20)
 #   INDRI_GWAS_STUDY_N_FAM   families of 5 full sibs          (default 100)
 #   INDRI_GWAS_STUDY_M       null SNPs per replicate          (default 5000)
+#   INDRI_GWAS_STUDY_G       G generator, "partial" or "lkj"   (default partial)
+#   INDRI_GWAS_STUDY_TAG     extra tag for the output files    (default none)
 #   INDRI_GWAS_STUDY_CORES   replicates run at once (forked)  (default 1)
 #
 # Writes results/gwas_calibration_P<P>.csv (one row per replicate and test)
@@ -34,7 +37,8 @@ cores <- as.integer(Sys.getenv("INDRI_GWAS_STUDY_CORES", "1"))
 alphas <- c(1e-2, 1e-3, 1e-4)
 
 one_replicate <- function(seed) {
-  sim <- gwas_simulate_population(P = P, n_fam = n_fam, M = M, seed = seed)
+  sim <- gwas_simulate_population(P = P, n_fam = n_fam, M = M, seed = seed,
+                                  G_method = gwas_study_G_method())
   Y <- sim$Y
   started <- Sys.time()
   fit <- fit_G(Y, X = sim$X, A = sim$A, engine = "sommer", cores = 1L,
@@ -43,6 +47,10 @@ one_replicate <- function(seed) {
   scans <- list(
     multi_lmm_fit = function()
       indri_gwas(Y, sim$genotypes, fit = fit, A = sim$A, X = sim$X),
+    multi_lmm_fit_shrunk_E = function()
+      indri_gwas(Y, sim$genotypes, G = fit$G,
+                 E = gwas_shrunk_E(Y, sim$X, fit$G, sim$A), A = sim$A,
+                 X = sim$X),
     multi_lmm_truth = function()
       indri_gwas(Y, sim$genotypes, G = sim$G, E = sim$E, A = sim$A, X = sim$X),
     multi_lm = function()
@@ -86,7 +94,7 @@ results <- parallel::mclapply(seeds, function(s)
 results <- do.call(rbind, results)
 
 dir.create("results", showWarnings = FALSE)
-file <- sprintf("results/gwas_calibration_P%d.csv", P)
+file <- sprintf("results/gwas_calibration_P%d%s.csv", P, gwas_study_tag())
 utils::write.csv(results, file, row.names = FALSE)
 
 summary <- do.call(rbind, lapply(split(results, results$test), function(r)
@@ -97,7 +105,7 @@ summary <- do.call(rbind, lapply(split(results, results$test), function(r)
              t1e_1e2 = mean(r$t1e_1e2), t1e_1e3 = mean(r$t1e_1e3),
              t1e_1e4 = mean(r$t1e_1e4),
              delta = mean(r$delta), scan_secs = mean(r$scan_secs))))
-summary_file <- sprintf("results/gwas_calibration_P%d_summary.csv", P)
+summary_file <- sprintf("results/gwas_calibration_P%d%s_summary.csv", P, gwas_study_tag())
 utils::write.csv(summary, summary_file, row.names = FALSE)
 print(summary, row.names = FALSE, digits = 3)
 cat("\nwrote", file, "and", summary_file, "\n")

@@ -28,15 +28,25 @@ gwas_sibship_A <- function(n_fam, size) {
 }
 
 # A population: G, E, a design with sex, the background phenotypes (no
-# causal SNP) and M null SNPs.
-gwas_simulate_population <- function(P, n_fam, M, seed, size = 5L) {
+# causal SNP) and M null SNPs. `G_method` is passed to
+# stanimal::random_covariance(): "partial" gives strong, nearly singular
+# genetic correlation structures at many traits (smallest eigenvalue ~1e-8
+# at 30 traits), "lkj" (LKJ(2)) weaker and better conditioned ones.
+gwas_simulate_population <- function(P, n_fam, M, seed, size = 5L,
+                                     G_method = "partial") {
   set.seed(seed)
   N <- n_fam * size
   traits <- paste0("trait", seq_len(P))
   ids <- paste0("id", seq_len(N))
-  G <- stanimal::random_covariance(n_traits = P, method = "partial",
-                                   min_var = 0.8, max_var = 1.4,
-                                   trait_names = traits)
+  G <- if (G_method == "lkj") {
+    stanimal::random_covariance(n_traits = P, method = "lkj", lkj_prior = 2,
+                                min_var = 0.8, max_var = 1.4,
+                                trait_names = traits)
+  } else {
+    stanimal::random_covariance(n_traits = P, method = "partial",
+                                min_var = 0.8, max_var = 1.4,
+                                trait_names = traits)
+  }
   E <- stanimal::random_covariance(n_traits = P, method = "lkj",
                                    lkj_prior = 2, min_var = 0.8,
                                    max_var = 1.6, trait_names = traits)
@@ -52,4 +62,30 @@ gwas_simulate_population <- function(P, n_fam, M, seed, size = 5L) {
   dimnames(geno) <- list(ids, paste0("rs", seq_len(M)))
   list(Y = Y, X = X, A = A, G = G, E = E, genotypes = geno, N = N, P = P,
        n_fam = n_fam, size = size)
+}
+
+# Settings shared by the studies: the G generator and a tag for the output
+# file names ("" for the default "partial" generator).
+gwas_study_G_method <- function() Sys.getenv("INDRI_GWAS_STUDY_G", "partial")
+gwas_study_tag <- function() {
+  m <- gwas_study_G_method()
+  extra <- Sys.getenv("INDRI_GWAS_STUDY_TAG", "")
+  paste0(if (m == "partial") "" else paste0("_", m),
+         if (nzchar(extra)) paste0("_", extra) else "")
+}
+
+# E from a shrunk residual covariance: Schafer and Strimmer's (2005)
+# estimator (corpcor::cov.shrink: correlations towards 0, variances towards
+# their median, intensities by the Ledoit-Wolf lemma) of the residuals of Y
+# on X, minus c G, floored like fit_G()'s E. For the studies only.
+gwas_shrunk_E <- function(Y, X, G, A) {
+  R <- stats::lm.fit(X, Y)$residuals
+  S <- unclass(corpcor::cov.shrink(R, verbose = FALSE))
+  S <- S * (nrow(R) - 1) / (nrow(R) - ncol(X))
+  M_A <- sum(diag(A)) - sum(diag(solve(crossprod(X), crossprod(X, A %*% X))))
+  E <- S - (M_A / (nrow(R) - ncol(X))) * G
+  e <- eigen((E + t(E)) / 2, symmetric = TRUE)
+  E <- e$vectors %*% (pmax(e$values, 1e-3 * e$values[1]) * t(e$vectors))
+  dimnames(E) <- dimnames(G)
+  (E + t(E)) / 2
 }

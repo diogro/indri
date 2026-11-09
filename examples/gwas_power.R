@@ -17,6 +17,8 @@
 #                            scenario and effect size          (default 10)
 #   INDRI_GWAS_STUDY_H       effect sizes, comma-separated     (default
 #                            0.001,0.0025,0.005)
+#   INDRI_GWAS_STUDY_G       G generator, "partial" or "lkj"   (default partial)
+#   INDRI_GWAS_STUDY_TAG     extra tag for the output files    (default none)
 #   INDRI_GWAS_STUDY_CORES   populations run at once (forked)  (default 1)
 #
 # For each population, G and E are fitted once on the background phenotypes
@@ -66,7 +68,8 @@ pattern <- function(scenario, Ptot) {
 }
 
 one_population <- function(seed) {
-  pop <- gwas_simulate_population(P = P, n_fam = n_fam, M = 1L, seed = seed)
+  pop <- gwas_simulate_population(P = P, n_fam = n_fam, M = 1L, seed = seed,
+                                  G_method = gwas_study_G_method())
   fit <- fit_G(pop$Y, X = pop$X, A = pop$A, engine = "sommer", cores = 1L,
                seed = seed, progress = FALSE)
   Ptot <- pop$G + pop$E
@@ -111,7 +114,7 @@ results <- parallel::mclapply(seeds, function(s)
 results <- do.call(rbind, results)
 
 dir.create("results", showWarnings = FALSE)
-file <- sprintf("results/gwas_power_P%d.csv", P)
+file <- sprintf("results/gwas_power_P%d%s.csv", P, gwas_study_tag())
 utils::write.csv(results, file, row.names = FALSE)
 
 cells <- split(results, list(results$scenario, results$h, results$test),
@@ -123,7 +126,7 @@ summary <- do.call(rbind, lapply(cells, function(r)
              power_5e8 = mean(r$p <= alphas[2]),
              median_log10p = stats::median(-log10(r$p)))))
 summary <- summary[order(summary$scenario, summary$h, summary$test), ]
-summary_file <- sprintf("results/gwas_power_P%d_summary.csv", P)
+summary_file <- sprintf("results/gwas_power_P%d%s_summary.csv", P, gwas_study_tag())
 utils::write.csv(summary, summary_file, row.names = FALSE)
 print(summary, row.names = FALSE, digits = 3)
 cat("\nwrote", file, "and", summary_file, "\n")
