@@ -147,7 +147,7 @@ test_that("effects must be numeric, loci by traits", {
                "loci by traits")
   # orientation turns it round
   flipped <- indri_locus_G(t(x$a), t(x$d), genotypes = x$geno,
-                           orientation = "traits_by_loci")
+                           orientation = "traits_in_rows")
   expect_equal(flipped$G, x$ref$G)
   expect_equal(flipped$D, x$ref$D)
 })

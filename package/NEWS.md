@@ -6,7 +6,7 @@
   (Melo, Marroig and Wolf 2019, Eqs. 7-14). It takes `indri_gwas()`'s `a`
   and `d` directly, with frequencies and composite LD from the genotypes,
   or effects from other software: a data frame with a column of locus
-  names, either orientation (`orientation`), loci matched to the genotypes
+  names, traits in rows or in columns (`orientation`), loci matched to the genotypes
   (and to `d`, `p`, `lambda`) by name, and errors for 0/1/2 codings and
   transposed effects. The help page sets out the effect-allele, dominance
   and unit conventions the effects must follow.

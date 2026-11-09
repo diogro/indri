@@ -45,7 +45,7 @@
 #'   units squared. Standardised betas give matrices on the standardised
 #'   scale.
 #' * **Shape.** Effects are loci by traits (one row per locus); a
-#'   traits-by-loci matrix needs `orientation = "traits_by_loci"`. A data
+#'   matrix with one row per trait needs `orientation = "traits_in_rows"`. A data
 #'   frame may carry one non-numeric column of locus names.
 #'
 #' Loci are matched to the columns of `genotypes`, and to `d`, `p` and
@@ -66,8 +66,8 @@
 #'   diagonal is ignored), instead of the estimate from `genotypes`.
 #' @param ld If `FALSE`, ignore linkage disequilibrium (only the per-locus
 #'   sums).
-#' @param orientation `"loci_by_traits"` (the default) or `"traits_by_loci"`
-#'   for the layout of `a` and `d`.
+#' @param orientation `"loci_in_rows"` (the default: one row per locus, one
+#'   column per trait) or `"traits_in_rows"` for the layout of `a` and `d`.
 #' @return A list with `G` and `D` (traits by traits), `alpha` (the average
 #'   effects, loci by traits), `p` and `loci` (the loci used).
 #' @references Melo, D., Marroig, G. and Wolf, J. B. (2019). Genomic
@@ -81,7 +81,7 @@
 #' @export
 indri_locus_G <- function(a, d = NULL, genotypes = NULL, p = NULL,
                           lambda = NULL, ld = TRUE,
-                          orientation = c("loci_by_traits", "traits_by_loci")) {
+                          orientation = c("loci_in_rows", "traits_in_rows")) {
   orientation <- match.arg(orientation)
   if (inherits(a, "indri_gwas")) {
     scan <- a
@@ -191,7 +191,7 @@ indri_locus_G <- function(a, d = NULL, genotypes = NULL, p = NULL,
   if (!is.numeric(x))
     stop("`", name, "` must hold numeric effects, loci by traits.",
          call. = FALSE)
-  if (orientation == "traits_by_loci") x <- t(x)
+  if (orientation == "traits_in_rows") x <- t(x)
   storage.mode(x) <- "double"
   x
 }
@@ -219,7 +219,7 @@ indri_locus_G <- function(a, d = NULL, genotypes = NULL, p = NULL,
     nrow(a) != ncol(genotypes)
   if (by_name || by_size)
     stop("The effects look transposed: they must be loci by traits (one row ",
-         "per locus). Use t(), or `orientation = \"traits_by_loci\"`.",
+         "per locus). Use t(), or `orientation = \"traits_in_rows\"`.",
          call. = FALSE)
 }
 
