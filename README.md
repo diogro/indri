@@ -85,7 +85,7 @@ fit <- fit_G(d$Y, X = d$X, A = d$A)
 | `G`, `corrG`, `sigma_G` | the assembled estimate (`G` and `sigma_G` in the units of `Y`) |
 | `G_draws`, `corrG_draws` | assembled draws (traits × traits × draws), for per-entry intervals |
 | `G_bar` | the average of the blocks before the PSD projection |
-| `E`, `E_bar` | the residual covariance, assembled the same way (units of `Y`, kept positive definite), and its average before projection |
+| `E`, `E_bar` | the residual covariance for association scans (residual covariance of `Y` after `X` minus `G`, kept well conditioned; units of `Y`), and the average of the block residual covariances |
 | `subsets`, `coverage` | the trait subsets fitted, and how many covered each pair |
 | `diagnostics` | per-block convergence; uncertified blocks listed by trait |
 | `blocks` | the raw block fits, on the internal standardised scale |

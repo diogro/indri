@@ -39,8 +39,13 @@
     data.
 * `indri_effective_tests()` gives Galwey's (2009) effective number of
   independent traits, from the residuals after `X` when a design is given.
-* `fit_G()` returns `E` and `E_bar`: the residual covariance, assembled from
-  the block fits like `G` and kept positive definite, in the units of `Y`.
+* `fit_G()` returns `E`, the residual covariance in the units of `Y`: the
+  covariance of the residuals of `Y` on `X` minus the assembled `G` (scaled
+  for the relatedness in `A`), with eigenvalues floored at 1e-3 of the
+  largest. `E_bar` is the average of the block residual covariances. The
+  block average is not used for `E`: at 30 traits it was strongly
+  indefinite, its projection had eigenvalues near zero, and the
+  multi-trait test ran at 66 times its nominal rate at 1e-4.
   Fits made by earlier versions have no `E` and cannot drive the
   multi-trait scan.
 * `examples/gwas.R` runs the whole pipeline on simulated sibs in seconds.

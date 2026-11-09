@@ -247,4 +247,13 @@ No new hard dependencies. A PLINK reader (`BEDMatrix` or `genio`) can be a
    p-value with estimated FDR <= `fdr`. Empirical p-values are
    `(count + 1) / (n + 1)`, not LiMMBo's `count / n`, which can be 0.
 
+11. **E from the residual covariance:** `fit_G()`'s `E` is the residual
+   covariance of `Y` after `X` minus `c G` (`c = tr(M A) / (n - J)`),
+   floored at 1e-3 of the largest eigenvalue. The first calibration run
+   (2026-11-08) found the block-assembled `E` nearly singular at 30 traits
+   (block average smallest eigenvalue -2.9, projected eigenvalues ~5e-6
+   against a truth of 0.006-0.08) and the multi-trait test at 66x its
+   nominal rate at 1e-4; the residual `E` was calibrated on all 20
+   replicates at 10 and 30 traits.
+
 Work happens on the `gwas` branch, tests first.

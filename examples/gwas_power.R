@@ -16,7 +16,7 @@
 #   INDRI_GWAS_STUDY_REPS    causal SNPs per population, per
 #                            scenario and effect size          (default 10)
 #   INDRI_GWAS_STUDY_H       effect sizes, comma-separated     (default
-#                            0.01,0.02,0.04)
+#                            0.001,0.0025,0.005)
 #   INDRI_GWAS_STUDY_CORES   populations run at once (forked)  (default 1)
 #
 # For each population, G and E are fitted once on the background phenotypes
@@ -47,7 +47,7 @@ P <- as.integer(Sys.getenv("INDRI_GWAS_STUDY_P", "10"))
 seeds <- eval(parse(text = Sys.getenv("INDRI_GWAS_STUDY_SEEDS", "1:20")))
 n_fam <- as.integer(Sys.getenv("INDRI_GWAS_STUDY_N_FAM", "100"))
 reps <- as.integer(Sys.getenv("INDRI_GWAS_STUDY_REPS", "10"))
-hs <- as.numeric(strsplit(Sys.getenv("INDRI_GWAS_STUDY_H", "0.01,0.02,0.04"),
+hs <- as.numeric(strsplit(Sys.getenv("INDRI_GWAS_STUDY_H", "0.001,0.0025,0.005"),
                           ",")[[1]])
 cores <- as.integer(Sys.getenv("INDRI_GWAS_STUDY_CORES", "1"))
 alphas <- c(1e-5, 5e-8)

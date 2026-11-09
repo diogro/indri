@@ -95,9 +95,13 @@
 #'
 #' @return An object of class `indri_fit`. The estimate is `G`, in the units
 #'   of `Y`, with `corrG` its correlation matrix; `G_bar` (the average before
-#'   projection) and `sigma_G` are in the units of `Y` too. `E` and `E_bar`
-#'   are the residual covariance, assembled the same way from the block fits
-#'   and kept positive definite, for [indri_gwas()]; `blocks`
+#'   projection) and `sigma_G` are in the units of `Y` too. `E` is the
+#'   residual covariance, for [indri_gwas()]: the covariance of the residuals
+#'   of `Y` on `X` minus the assembled `G` (scaled for the relatedness in
+#'   `A`), with eigenvalues floored at 1e-3 of the largest. `E_bar` is the
+#'   average of the block residual covariances, for reference: at many traits
+#'   it is not a covariance matrix, and a projection of it miscalibrates the
+#'   association tests. `blocks`
 #'   holds the raw standardised-scale block fits. `G_draws` and `corrG_draws`
 #'   (traits x traits x draws) carry the assembled block uncertainty, from
 #'   the posterior draws of `"stanimal"` blocks or from the normal sampling
@@ -311,10 +315,16 @@ fit_G <- function(Y, X = NULL, A, s = NULL, min_cooccurrence = NULL,
     if (minimum < 0) G <- G + (-minimum + 1e-8) * diag(K)
   }
 
-  # The residual covariance, assembled like G but without draws or weights.
-  # It is a nuisance inside each block; indri_gwas() needs it as a whole.
-  E_parts <- .indri_assemble_E(lapply(blocks, function(b) list(G = b$E)),
-                               subsets, K)
+  # The residual covariance, for indri_gwas(). Not assembled from the block
+  # E: their average can be strongly indefinite at many traits, and its
+  # projection then has eigenvalues near zero that miscalibrate the
+  # association tests (30 traits: 66x the nominal rate at 1e-4). E is the
+  # residual covariance of Y after X minus the assembled G instead; the
+  # block average is kept as E_bar.
+  E_parts <- list(
+    E = .indri_residual_E(Y_std, X, G, A),
+    E_bar = indri_assemble(lapply(blocks, function(b) list(G = b$E)),
+                           subsets, K)$G)
 
   # REML blocks carry a sampling covariance instead of draws: draw them here,
   # in the main process, so the result does not depend on how many workers
@@ -408,18 +418,34 @@ fit_G <- function(Y, X = NULL, A, s = NULL, min_cooccurrence = NULL,
   ), class = "indri_fit")
 }
 
-# Average the block residual covariances, project the average onto the PSD
-# cone like G, and floor the eigenvalues so that E stays positive definite:
-# indri_gwas() whitens by its Cholesky factor. `blocks` hold E as `$G`, the
-# form indri_assemble() and indri_project_psd() read.
-.indri_assemble_E <- function(blocks, subsets, K) {
-  E_bar <- indri_assemble(blocks, subsets, K)$G
-  E <- indri_project_psd(blocks, subsets, K, init = E_bar)$matrix
+# The residual covariance E from the phenotypes and the assembled G. The
+# residuals R of Y on X have expected covariance E + c G, with
+# c = tr(M A) / (n - J) and M the residual-maker of X (c = 1 when A = I, and
+# close to 1 for most designs), so E = R'R / (n - J) - c G. Traits with gaps
+# are regressed on their observed rows, and each covariance uses the rows
+# both traits have. The eigenvalues are floored at 1e-3 of the largest, so E
+# is positive definite and well conditioned for the whitening in
+# indri_gwas().
+.indri_residual_E <- function(Y, X, G, A) {
+  N <- nrow(Y)
+  J <- ncol(X)
+  R <- matrix(NA_real_, N, ncol(Y))
+  for (k in seq_len(ncol(Y))) {
+    seen <- !is.na(Y[, k])
+    R[seen, k] <- stats::lm.fit(X[seen, , drop = FALSE], Y[seen, k])$residuals
+  }
+  seen <- !is.na(R)
+  R[!seen] <- 0
+  pairs <- crossprod(seen * 1)
+  P <- crossprod(R) / pmax(pairs - J, 1)
+  XtX_inv <- chol2inv(chol(crossprod(X)))
+  c_A <- (sum(diag(A)) - sum(diag(XtX_inv %*% crossprod(X, A %*% X)))) /
+    (N - J)
+  E <- P - c_A * G
   e <- eigen((E + t(E)) / 2, symmetric = TRUE)
-  floor <- 1e-6 * max(e$values[1L], .Machine$double.eps)
-  if (min(e$values) < floor)
-    E <- e$vectors %*% (pmax(e$values, floor) * t(e$vectors))
-  list(E = (E + t(E)) / 2, E_bar = E_bar)
+  floor <- 1e-3 * max(e$values[1L], .Machine$double.eps)
+  E <- e$vectors %*% (pmax(e$values, floor) * t(e$vectors))
+  (E + t(E)) / 2
 }
 
 .indri_diagnostics <- function(blocks, subsets = NULL, trait_names = NULL) {
