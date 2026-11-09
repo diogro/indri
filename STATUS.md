@@ -1,6 +1,6 @@
 # Status and next steps
 
-Last updated: 2026-11-07. The design is in [NOTES.md](NOTES.md); this file is
+Last updated: 2026-11-08. The design is in [NOTES.md](NOTES.md); this file is
 where the work stands, what has been measured, and what to do next.
 
 ## Where things stand
@@ -156,6 +156,65 @@ with stanimal decomposing `A` in each chain, 50 s with indri's shared
 decomposition; 7 s saved at N = 2000, nothing below 1000. The models and their
 draws are unchanged.
 
+### Association scans (`gwas` branch, 2026-11-08)
+
+`indri_gwas()` on simulated sibs (100 families of 5, N = 500), G from
+`random_covariance(method = "partial")`, E LKJ(2), sex in `X`, `fit_G()` with
+sommer; 20 replicates. Results in `results/gwas_calibration_P*.csv` and
+`results/gwas_power_P*.csv` (`gwas_calibration.R`, `gwas_power.R`).
+
+**Calibration** (5000 null SNPs per replicate):
+
+| P | test | lambda_gc | type-I 1e-2 / 1e-3 / 1e-4 | delta |
+|---|---|---|---|---|
+| 10 | multi-trait LMM, indri G and E | 0.986 | 0.0076 / 0.00065 / 0.00007 | 1.04 |
+| 10 | multi-trait LMM, true G and E | 1.005 | 0.0101 / 0.0010 / 0.00013 | 0.99 |
+| 10 | single-trait LMM | 1.006 | 0.0104 / 0.0011 / 0.00012 | |
+| 10 | multi-trait LM | 1.358 | 0.076 / 0.018 / 0.0044 | |
+| 10 | single-trait LM | 1.501 | 0.035 / 0.0074 / 0.0015 | |
+| 30 | multi-trait LMM, indri G and E | 0.976 | 0.0058 / 0.00048 / 0.00005 | 1.06 |
+| 30 | multi-trait LMM, true G and E | 1.004 | 0.0110 / 0.0011 / 0.00010 | 1.00 |
+| 30 | single-trait LMM | 1.008 | 0.0103 / 0.0010 / 0.00011 | |
+| 30 | multi-trait LM | 1.233 | 0.080 / 0.017 / 0.0035 | |
+
+- The mixed models are calibrated (indri's `G` and `E` slightly
+  conservative); the linear models are inflated by the relatedness they
+  ignore. The worst replicate of the multi-trait LMM had 2-3 of 5000 null
+  SNPs at 1e-4 (0.5 expected).
+- **The first run found `E` broken at 30 traits.** With `E` assembled from
+  the blocks, the multi-trait LMM ran at 0.0066 at 1e-4 (66x nominal), worst
+  replicate 0.051, with `delta` 0.30-0.94. The block average of `E` was
+  strongly indefinite (smallest eigenvalue -2.9 on seed 4) and its projection
+  had eigenvalues near 5e-6 against a truth of 0.006-0.08; true `G` with that
+  `E` failed, fitted `G` with true `E` was calibrated. `fit_G()`'s `E` is now
+  the residual covariance after `X` minus `c G` (floored at 1e-3 of the
+  largest eigenvalue), which gives the table above; on a balanced sibship it
+  equals the full-model REML `E` to 5e-4. 10 traits were fine either way.
+
+**Power** at alpha = 1e-5, effect `h` = share of `trace(G + E)` explained by
+the SNP, 200 causal SNPs per cell (multi-trait LMM / best single-trait LMM
+with the effective-tests adjustment):
+
+| pattern | P = 10, h = 0.25% | P = 10, h = 0.5% | P = 30, h = 0.1% | P = 30, h = 0.25% |
+|---|---|---|---|---|
+| one trait | 0.28 / 0.06 | 0.81 / 0.43 | 0.86 / 0.08 | 1.00 / 0.77 |
+| three traits | 0.30 / 0 | 0.79 / 0.05 | 0.72 / 0 | 1.00 / 0.12 |
+| all, same sign | 0.36 / 0 | 0.75 / 0.01 | 0.81 / 0 | 1.00 / 0 |
+| all, random signs | 0.33 / 0 | 0.77 / 0.05 | 0.79 / 0 | 1.00 / 0.01 |
+| against the phenotypic correlation | 0.98 / 0 | 1.00 / 0.08 | 1.00 / 0 | 1.00 / 0.01 |
+| dominance (dominance test) | 0.27 | 0.68 | 0.61 | 0.97 |
+
+- The joint test is the more powerful one in every pattern here, even for an
+  effect on a single trait, and most against the correlation. **That edge is
+  inflated by the simulation:** `random_covariance(method = "partial")` gives
+  a nearly singular `G` at these sizes (smallest eigenvalue ~1e-8 at 30
+  traits), so each trait's genetic value is almost determined by the others
+  and conditioning on them removes most of its noise. The phenotypic
+  correlations are moderate (median |r| 0.16 at 30 traits).
+- Bonferroni and effective-tests adjustment gave nearly the same power.
+- The dominance test finds overdominant SNPs that the additive tests miss
+  (multi-trait additive 0.02-0.32 in the same cells).
+
 ## Changes and fixes
 
 - **indri 0.2.0 (breaking):** `G`, `G_bar`, `G_draws` and `sigma_G` are returned
@@ -223,6 +282,18 @@ draws are unchanged.
    block. Measure before optimising.
 4. **stanimal review**, set aside for later: its own `lkj_prior` default, and
    releasing the Laplace labels.
+5. **GWAS power with a well-conditioned G.** Rerun `gwas_power.R` with a G
+   whose smallest eigenvalue is not near zero (an LKJ or factor G) to measure
+   the joint test's edge without the near-singular `G` of the "partial"
+   generator, and at K closer to N (e.g. 100 traits, N = 300), where the
+   residual covariance behind `E` degrades.
+6. **Shrinkage of G and E** (Schäfer & Strimmer 2005; bending, Hayes & Hill
+   1981; Meyer & Kirkpatrick 2010): rescore the saved 35-trait fits with
+   shrinkage after the projection, intensity from the per-entry variance of
+   the draws, targets diagonal / proportional to P / constant correlation;
+   score error, the strongest 10% and integration (shrinkage towards zero
+   correlation would deepen the integration understatement). Add a shrunk-`E`
+   scan to the calibration study at K close to N.
 
 ## Running the studies
 
