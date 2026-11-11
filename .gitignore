@@ -24,3 +24,5 @@ package/vignettes/precompute.done
 package/vignettes/cache/
 # the vignette site (GitHub Pages)
 !docs/*.html
+jzus.2007.B0815.pdf
+WombatManual.pdf
