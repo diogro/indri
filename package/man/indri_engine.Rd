@@ -28,9 +28,15 @@ which \code{\link[=fit_G]{fit_G()}} draws.
 }
 \details{
 LiMMBo delegates its subset fits to limix; indri delegates to stanimal,
-sommer or ASReml-R, because the right engine depends on the number of
-individuals, on whether the data have gaps, on whether a licence is
-available, and on whether the caller wants a posterior or a likelihood.
+sommer, ASReml-R or the WOMBAT program, because the right engine depends on
+the number of individuals, on whether the data have gaps, on whether a
+licence is available, and on whether the caller wants a posterior or a
+likelihood. WOMBAT is a standalone REML program (Linux and Windows, free
+for academic use); the \code{"wombat"} engine finds it through
+\verb{engine_args = list(wombat = <path>)}, \verb{options(indri.wombat = <path>)} or
+the PATH, \verb{engine_args = list(wombat_dir = <dir>)} keeps a block's
+WOMBAT files for inspection, and \code{engine_args = list(wombat_rank = q)}
+fits G at reduced rank q (the residual stays full rank).
 }
 \examples{
 # Inspect the registry without fitting a model or loading an engine.

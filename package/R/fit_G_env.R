@@ -39,6 +39,8 @@
 #' @param X,A As for [fit_G()].
 #' @param engine Block engine; `"sommer"` by default (the stanimal engine
 #'   imputes every unobserved character state and is much slower here).
+#'   `"wombat"` holds the unidentified residual covariances between
+#'   environments at zero instead of estimating them.
 #' @param ... Passed to [fit_G()].
 #' @return An object of class `indri_fit_env`: `G` and `E` (character states
 #'   by character states, in the units of `Y`), `corr_between` (traits by

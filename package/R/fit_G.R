@@ -40,8 +40,9 @@
 #'   width allows (1 for two-trait blocks).
 #' @param subsets Optional precomputed subset matrix, from [indri_subsets()].
 #' @param engine Block engine: `"stanimal"` (Bayesian, posterior draws, models
-#'   gaps in `Y`), `"sommer"` or `"asreml"` (REML, with uncertainty from each
-#'   block's sampling covariance; much faster for large N).
+#'   gaps in `Y`), `"sommer"`, `"asreml"` or `"wombat"` (REML, with
+#'   uncertainty from each block's sampling covariance; much faster for large
+#'   N). `"wombat"` runs the external WOMBAT program; see [indri_engine()].
 #' @param engine_args List of arguments passed to the engine's fit function.
 #' @param assembly `"ls"` fits the closest positive semi-definite matrix to all
 #'   the subset estimates; `"average"` keeps the plain average, nudged onto the

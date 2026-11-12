@@ -21,6 +21,8 @@ BugReports: https://github.com/diogro/indri/issues
 Encoding: UTF-8
 LazyData: true
 VignetteBuilder: knitr
+SystemRequirements: WOMBAT (optional, for engine = "wombat";
+    https://didgeridoo.une.edu.au/km/wombat.php)
 Depends:
     R (>= 4.0.0)
 Imports:

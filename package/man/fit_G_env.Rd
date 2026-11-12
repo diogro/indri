@@ -16,7 +16,9 @@ column of \code{X}.}
 \item{X, A}{As for \code{\link[=fit_G]{fit_G()}}.}
 
 \item{engine}{Block engine; \code{"sommer"} by default (the stanimal engine
-imputes every unobserved character state and is much slower here).}
+imputes every unobserved character state and is much slower here).
+\code{"wombat"} holds the unidentified residual covariances between
+environments at zero instead of estimating them.}
 
 \item{...}{Passed to \code{\link[=fit_G]{fit_G()}}.}
 }

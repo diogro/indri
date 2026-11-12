@@ -168,6 +168,7 @@ workers load the installed package).
 | `stanimal` | posterior mean (NUTS), `lkj_prior = 1` | posterior draws | eigendecomposition (shared) | modelled | highest |
 | `sommer` | REML (`mmes`, AI with EM recovery) | `vcov` from its natural-scale parameters | dense `A^-1` | missing records skipped | low |
 | `asreml` | REML (AI) | `vcov` = inverse AI matrix | sparse `A^-1` | partly observed rows kept | lowest; licence seats |
+| `wombat` | REML (PX-EM then AI, WOMBAT program) | `vcov` = inverse AI matrix (`AvInfoCovs`) | sparse `A^-1` (`.gin` file) | missing records skipped; unidentified residual covariances held at zero | low; Linux/Windows binary |
 
 Rules:
 
@@ -213,6 +214,26 @@ Rules:
   `maxit` (50) and `updates` (up to 5, only while unconverged): asreml's own
   13 iterations stopped far from the optimum once `X` had covariates. Every
   process needs a licence seat.
+- **wombat** writes `data.dat` (trait number, individual, `mu`, covariables,
+  response; one record per observed trait, sorted by individual then trait),
+  `animal.gin` (lower triangle of `A^-1` as column <= row, after a line with
+  log |A|) with `animal.codes`, and `indri.par`
+  (`FIX mu`, `COV x(1)` for the columns of `X` beyond the constant,
+  `RAN animal GIN`, `SUBJ animal`), runs `wombat --batch --threadsN` in a
+  temporary directory per block, and reads `BestPoint` (header, then E and G
+  as upper triangles), `AvInfoCovs` (information for E then G, inverted and
+  reordered to vech order) and `Iterates` (its "seems to have converged"
+  verdict). A covariance whose starting value is zero stays at zero, so
+  identified covariances start at `0.25 / s` and residual covariances of
+  traits never observed together start, and stay, at zero. WOMBAT runs under
+  `ulimit -s unlimited` (the Linux build segfaults entering AI-REML at about
+  20 traits with an 8 MB stack), a non-zero exit is an error even when a
+  `BestPoint` from an EM round exists, and `OVER MAXTRAIT` / `OVER MAXCOV`
+  lines lift the compiled limits (42 traits, 19 covariables).
+  `engine_args$wombat_rank = q` fits G at reduced rank (`ANAL MUV PC`,
+  `VAR animal s q`); that also needs `animal.matrix` (A itself, inverted
+  from the sparse inverse), and its log L depends on log |A| once per
+  component, which is why the GIN header carries the true value.
 - **Single-trait blocks** are fitted by both REML engines with formulas that
   drop the `trait` factor; `init = list(G =, E =)` sets starting covariances
   for both.

@@ -54,8 +54,9 @@ width allows (1 for two-trait blocks).}
 \item{subsets}{Optional precomputed subset matrix, from \code{\link[=indri_subsets]{indri_subsets()}}.}
 
 \item{engine}{Block engine: \code{"stanimal"} (Bayesian, posterior draws, models
-gaps in \code{Y}), \code{"sommer"} or \code{"asreml"} (REML, with uncertainty from each
-block's sampling covariance; much faster for large N).}
+gaps in \code{Y}), \code{"sommer"}, \code{"asreml"} or \code{"wombat"} (REML, with
+uncertainty from each block's sampling covariance; much faster for large
+N). \code{"wombat"} runs the external WOMBAT program; see \code{\link[=indri_engine]{indri_engine()}}.}
 
 \item{engine_args}{List of arguments passed to the engine's fit function.}
 

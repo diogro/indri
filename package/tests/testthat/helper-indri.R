@@ -71,3 +71,12 @@ simulate_block_data <- function(n_fam = 8, size = 5, K = 3L, G0 = NULL,
   rownames(Y) <- paste0("id", seq_len(N))
   list(Y = Y, A = A, G0 = G0, N = N, K = K)
 }
+
+# The WOMBAT program (Linux/Windows only): on the PATH or in
+# options(indri.wombat =).
+skip_if_no_wombat <- function() {
+  testthat::skip_on_cran()
+  path <- getOption("indri.wombat") %||% unname(Sys.which("wombat"))
+  if (!nzchar(path) || !file.exists(path))
+    testthat::skip("WOMBAT is not installed")
+}

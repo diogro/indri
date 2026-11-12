@@ -5,7 +5,9 @@
 relationship matrix `A`. It fits a multivariate animal model on many small
 trait subsets and reassembles the estimates into one positive semi-definite
 matrix (LiMMBo's idea). The per-subset fit is a **pluggable engine**:
-`stanimal` (Bayesian), `sommer` (REML) or `asreml` (REML, licensed).
+`stanimal` (Bayesian), `sommer` (REML), `asreml` (REML, licensed) or
+`wombat` (REML, the external WOMBAT program; Linux/Windows only, so its fit
+tests skip on macOS).
 The assembled `G`, with a residual covariance `E`, also drives genome-wide
 association scans (`indri_gwas()`, since 0.3.0; design and decisions in
 [`GWAS_PLAN.md`](GWAS_PLAN.md)).
@@ -26,7 +28,7 @@ Rscript -e 'devtools::test("package")'       # the suite (asreml tests skip w/o 
 ```
 
 Run from the repository root. The suite is the spec (~3,300 assertions):
-subsets, assembly, projection, the three engines, parallelism, scale and units,
+subsets, assembly, projection, the four engines, parallelism, scale and units,
 uncertainty, diagnostics, progress, association scans and the shipped data. **Reinstall before running tests that use
 parallel blocks**: PSOCK workers load the installed package.
 
@@ -40,7 +42,7 @@ parallel blocks**: PSOCK workers load the installed package.
 | `package/R/project_psd.R` | `indri_project_psd()`: least-squares PSD fit, analytic gradient |
 | `package/R/a_forms.R` | forms of `A`: dense, inverse, sparse inverse, eigen |
 | `package/R/engines.R` | registry, `init` checks, normal draws from `vcov` |
-| `package/R/engine-stanimal.R`, `engine-sommer.R`, `engine-asreml.R` | the engines |
+| `package/R/engine-stanimal.R`, `engine-sommer.R`, `engine-asreml.R`, `engine-wombat.R` | the engines |
 | `package/R/methods.R` | `print`, `summary`, `plot` for fits |
 | `package/R/gwas.R` | `indri_gwas()`: rotation, REML `delta`, dominance, permutations and q-values; `indri_effective_tests()` |
 | `package/R/gwas-methods.R` | `plot()` (ggplot2 Manhattan/QQ) and `summary()` for scans |
@@ -112,7 +114,21 @@ Each of these cost real debugging time; several are invisible in the code.
     single-trait one), indri fits it by REML. They check the scan, not the
     optimiser; `test-gwas-dense.R` checks indri's `delta` against dense REML.
     LIMIX stays out of user documentation.
-11. **Cap BLAS threads before R starts** for anything forked or parallel:
+11. **wombat**: a covariance whose starting value is zero is held at zero
+   (a bivariate residual covariance stayed 0 until started at 0.05), so
+   identified covariances start away from zero and only the unidentified
+   residual ones start at zero. A GIN effect does not identify the subject
+   (`SUBJ animal`), `--batch` stops WOMBAT pausing for keyboard input after a
+   warning, and `BestPoint` begins with a three-number header. Read
+   `control[["wombat"]]`, never `control$wombat`: `$` partially matches
+   `wombat_dir`. Options do not reach PSOCK workers, so the engine reads
+   `getOption("indri.wombat")` when it is built. The Linux build needs an
+   unlimited stack (it segfaults entering AI-REML at ~20 traits and leaves
+   an EM-round `BestPoint` behind, so a non-zero exit must be an error), has
+   compiled limits lifted by `OVER` lines, and in reduced-rank mode
+   (`wombat_rank`) needs `animal.matrix` and the true log |A| in the GIN
+   header for log L to be comparable across ranks.
+12. **Cap BLAS threads before R starts** for anything forked or parallel:
     `OPENBLAS_NUM_THREADS=1 OMP_NUM_THREADS=1 MKL_NUM_THREADS=1`. Setting them
     inside R is too late for BLAS; 80 forked study workers once ran 28,000
     threads. Count cores as processes x threads (`nlwp` in `ps`).
@@ -166,7 +182,7 @@ done
 
 Traps:
 
-- **Thread caps** (rule 11): launch with
+- **Thread caps** (rule 12): launch with
   `OPENBLAS_NUM_THREADS=1 OMP_NUM_THREADS=1 MKL_NUM_THREADS=1`; the GWAS and
   shrinkage studies warn when the BLAS cap is missing.
 - **Never wait on, or kill by, a process-name pattern from inside

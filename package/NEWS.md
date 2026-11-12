@@ -1,5 +1,16 @@
 # indri (development version)
 
+* A fourth block engine, `"wombat"`, runs Karin Meyer's WOMBAT REML program
+  (Linux and Windows, free for academic use) on each subset. It matches the
+  sommer engine on G, E, standard errors and `vcov` to about 1e-5, takes
+  covariates and gaps in `Y`, and holds residual covariances between traits
+  that no individual has together (character states in `fit_G_env()`) at
+  zero instead of estimating them. Point indri at the binary with
+  `options(indri.wombat = <path>)`, `engine_args = list(wombat = <path>)` or
+  the PATH. `engine_args = list(wombat_rank = q)` fits G at reduced rank
+  (WOMBAT's principal-component analysis), for blocks whose full-rank
+  estimate sits on the positive-definite boundary.
+
 * The LG/SM data sets cite their source: Melo, Marroig and Wolf (2019),
   Journal of Heredity 110, 479-493, doi:10.1093/jhered/esz011.
 

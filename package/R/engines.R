@@ -9,9 +9,15 @@
 #' which [fit_G()] draws.
 #'
 #' LiMMBo delegates its subset fits to limix; indri delegates to stanimal,
-#' sommer or ASReml-R, because the right engine depends on the number of
-#' individuals, on whether the data have gaps, on whether a licence is
-#' available, and on whether the caller wants a posterior or a likelihood.
+#' sommer, ASReml-R or the WOMBAT program, because the right engine depends on
+#' the number of individuals, on whether the data have gaps, on whether a
+#' licence is available, and on whether the caller wants a posterior or a
+#' likelihood. WOMBAT is a standalone REML program (Linux and Windows, free
+#' for academic use); the `"wombat"` engine finds it through
+#' `engine_args = list(wombat = <path>)`, `options(indri.wombat = <path>)` or
+#' the PATH, `engine_args = list(wombat_dir = <dir>)` keeps a block's
+#' WOMBAT files for inspection, and `engine_args = list(wombat_rank = q)`
+#' fits G at reduced rank q (the residual stays full rank).
 #'
 #' @param name Engine name.
 #'
@@ -32,6 +38,7 @@ indri_engine <- function(name = "stanimal") {
     stanimal = .indri_engine_stanimal(),
     sommer = .indri_engine_sommer(),
     asreml = .indri_engine_asreml(),
+    wombat = .indri_engine_wombat(),
     stop("Unknown engine `", name, "`. Implemented: ",
          paste(indri_engines(), collapse = ", "), ".", call. = FALSE)
   )
@@ -41,7 +48,7 @@ indri_engine <- function(name = "stanimal") {
 #' @return `indri_engines()` returns the names of the implemented engines.
 #' @export
 indri_engines <- function() {
-  c("stanimal", "sommer", "asreml")
+  c("stanimal", "sommer", "asreml", "wombat")
 }
 
 # Starting covariances for a block fit, `control$init = list(G =, E =)` on the

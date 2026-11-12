@@ -19,7 +19,7 @@ print.indri_fit <- function(x, ...) {
     cat("  divergent blocks:  ", n_div, " of ", nrow(x$subsets), "\n", sep = "")
   n_bad <- x$diagnostics$n_unconverged
   if (!is.null(n_bad) && n_bad > 0L) {
-    reml <- x$engine %in% c("sommer", "asreml")
+    reml <- x$engine %in% c("sommer", "asreml", "wombat")
     cat("  ", if (reml) "not certified:     " else "not converged:     ",
         n_bad, " of ", nrow(x$subsets), " blocks",
         if (reml) " (at the optimum as far as measured; see $diagnostics)"
