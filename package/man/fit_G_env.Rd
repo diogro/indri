@@ -43,8 +43,13 @@ is not identified at all: it is zero by construction.
 \details{
 The response is reshaped to one column per trait and
 environment (\code{"trait:level"}), each observed only in that environment's
-individuals, and \code{\link[=fit_G]{fit_G()}} fits it with its usual subsets, assembly and
-engines. \code{G} is the assembled genetic covariance of the character states:
+individuals, and \code{\link[=fit_G]{fit_G()}} fits it with its usual assembly and engines.
+Unless \code{subsets}, \code{s} or \code{min_cooccurrence} is given, the subsets are
+trait-paired: one block per pair of traits, holding both traits in every
+environment (\code{P (P - 1) / 2} blocks of \verb{2 L} states for \code{P} traits in \code{L}
+environments; \code{\link[=fit_G]{fit_G()}}'s usual subsets for fewer than three traits).
+Each cross-environment covariance is then estimated in every block that
+holds the trait, next to its own within-environment variances. \code{G} is the assembled genetic covariance of the character states:
 its diagonal blocks are the within-environment \code{G} and its off-diagonal
 blocks the genetic covariance between environments (a cross-environment
 genetic correlation below 1 is genotype-by-environment interaction in the
@@ -58,12 +63,14 @@ of \code{X} must vary within each environment.
 
 This is a trial: the cross-environment covariances rest on relatives in
 different environments only. In simulations (900 sibs of both sexes, 10
-and 30 traits; STATUS.md) the cross-environment genetic correlations
-came out \strong{too low}: 0.67-0.77 where the truth was 1, 0.36-0.45 where it
-was 0.5, more so with more traits. Scans with this covariance
-(\code{\link[=indri_gwas]{indri_gwas()}} with this fit) are then conservative for interaction
-tests (genomic inflation 0.88-0.98), not anti-conservative, but lose
-power. The cause is under investigation.
+and 30 traits; STATUS.md) \code{\link[=fit_G]{fit_G()}}'s usual subsets gave cross-environment
+genetic correlations \strong{too low} (0.67-0.77 where the truth was 1,
+0.38-0.45 where it was 0.5): most blocks held a trait in one environment
+only, and the projection onto a positive semi-definite \code{G} pulled the
+few cross-environment entries towards zero. Trait-paired subsets give
+0.84-0.85 and 0.49-0.50. Scans with this covariance (\code{\link[=indri_gwas]{indri_gwas()}} with
+this fit) remain somewhat conservative for interaction tests (genomic
+inflation 0.91-0.99), not anti-conservative.
 }
 \seealso{
 \code{\link[=fit_G]{fit_G()}}, \code{\link[=indri_gwas]{indri_gwas()}}

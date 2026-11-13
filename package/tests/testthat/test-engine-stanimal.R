@@ -18,7 +18,7 @@ test_that("the stanimal engine returns a covariance and its draws", {
 
 test_that("unknown engines are refused and the registry lists the implemented ones", {
   expect_error(indri_engine("nonsense"), "Unknown engine")
-  expect_equal(indri_engines(), c("stanimal", "sommer", "asreml"))
+  expect_equal(indri_engines(), c("stanimal", "sommer", "asreml", "wombat"))
 })
 
 test_that("stanimal blocks write to their own output directory and clean up", {

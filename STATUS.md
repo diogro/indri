@@ -314,10 +314,61 @@ Single-trait env-specific scans: lambda 0.93-0.99 everywhere.
   the cross-environment genetic correlation**: 0.67-0.77 where the truth is
   1, 0.36-0.45 where it is 0.5, worse with more traits. The background then
   claims GxE the data do not have, and the interaction test loses power
-  (but never runs above its nominal rate). Suspects: the unidentified
-  cross-environment residual covariance inside the character-state blocks
-  (the engines estimate it freely), and the assembly and projection of a
-  2P-dimensional G shrinking its strongest correlations.
+  (but never runs above its nominal rate). Diagnosis below; trait-paired
+  subsets (now the default) fix most of it.
+
+### Why `fit_G_env()` underestimated cross-environment correlations (2026-11-13)
+
+Same populations and scenarios (20 seeds, "none" = cross-sex r_G 1,
+"polygenic" = 0.5), multi-trait interaction test.
+
+- **Not the engine.** WOMBAT blocks, which hold the unidentified
+  cross-environment residual covariance at zero, give the same block
+  estimates as sommer. One full 2P-state fit does not help either: AI-REML
+  stalls on the boundary at 20 states (warm starts included), and
+  reduced-rank fits (`wombat_rank`) trade the bias for overshoot (rank 8 of
+  20: r_G 0.87 for 1, 0.53 for 0.5) and the likelihood-ratio test picks a
+  rank below the polygenic truth.
+- **The oracle is calibrated.** Scanning with the true `G` and `E` gives
+  lambda 1.00 and type-I 0.0099-0.0101 at 1e-2 (P = 10 and 30). The bias is
+  all in the estimate.
+- **The block entries are nearly unbiased; the projection is not.** Slope of
+  block averages on the truth for same-trait cross-sex entries: 0.90-0.91
+  (r_G 1), 0.98-1.00 (r_G 0.5); after the PSD projection 0.78/0.88 at
+  P = 10 and 0.66/0.76 at P = 30. With the usual subsets most blocks hold a
+  trait in one sex only: variances appear in ~6x more blocks than
+  cross-sex pairs, and the unweighted least-squares projection of an
+  indefinite average (smallest eigenvalue -0.5 at P = 10, -1.1 at P = 30)
+  gives the scarce cross-sex entries way. Other assemblies (inverse-variance
+  weights, eigenvalue clipping, nearest correlation) were no better
+  (r_G 0.73-0.78 at P = 10).
+- **Trait-paired subsets** (one block per trait pair, both traits in both
+  sexes; P(P-1)/2 blocks, half the usual number) estimate every cross-sex
+  covariance next to its own within-sex variances:
+
+| P | variant | r_G est. (1) | lambda / type-I 1e-2 | r_G est. (0.5) | lambda / type-I 1e-2 |
+|---|---|---|---|---|---|
+| 10 | usual subsets | 0.77 | 0.927 / 0.0045 | 0.45 | 0.97 / - |
+| 10 | paired, projected (default) | 0.85 | 0.945 / 0.0052 | 0.50 | 0.985 / 0.0082 |
+| 10 | paired, block average | 0.89 | 0.943 / - | 0.53 | 0.969 / - |
+| 30 | usual subsets | 0.67 | 0.88 / 0.0013 | 0.38 | 0.94 / - |
+| 30 | paired, projected (default) | 0.84 | 0.907 / 0.0020 | 0.49 | 0.956 / 0.0038 |
+| 30 | paired, block average | 0.89 | 0.872 / 0.0012 | 0.52 | 0.906 / 0.0020 |
+
+  The block average recovers r_G best but is indefinite (smallest
+  eigenvalue -0.8 to -1.0), and the scan does worse with it.
+- **What remains.** Oracle with the true `G` shrunk where the paired
+  estimate falls short (factor 0.85), interaction lambda (r_G 1 / 0.5):
+
+| P | true G | within-sex covariances x0.85 | cross-sex block x0.85 | both |
+|---|---|---|---|---|
+| 10 | 1.002 / 0.999 | 1.001 / 0.990 | 0.956 / 0.986 | 0.949 / 0.976 |
+| 30 | 1.002 / 1.002 | 1.002 / 0.990 | 0.957 / 0.989 | 0.949 / 0.977 |
+
+  At P = 10 the remaining cross-sex shortfall (about 0.85, a boundary
+  loss within the blocks) explains the paired estimate's lambda fully. At
+  P = 30 it explains 0.95 / 0.98 of the observed 0.91 / 0.96: the rest is
+  estimation noise in a 60-state `G`, not bias.
 
 ## Changes and fixes
 

@@ -11,6 +11,15 @@
   (WOMBAT's principal-component analysis), for blocks whose full-rank
   estimate sits on the positive-definite boundary.
 
+* `fit_G_env()` fits trait-paired subsets by default: one block per pair of
+  traits, holding both traits in every environment. With `fit_G()`'s usual
+  subsets most blocks held a trait in one environment only, and the
+  projection onto a positive semi-definite `G` pulled the cross-environment
+  covariances towards zero. In simulations (10 and 30 traits) the mean
+  cross-sex genetic correlation rose from 0.67-0.77 to 0.84-0.85 for a true
+  1 and from 0.38-0.45 to 0.49-0.50 for a true 0.5, with half the blocks.
+  Pass `subsets`, `s` or `min_cooccurrence` for the old design.
+
 * The LG/SM data sets cite their source: Melo, Marroig and Wolf (2019),
   Journal of Heredity 110, 479-493, doi:10.1093/jhered/esz011.
 

@@ -42,9 +42,9 @@ test_that("character states give G within and between environments", {
                fit$G["t2:f", "t2:m"] / sqrt(fit$G["t2:f", "t2:f"] *
                                               fit$G["t2:m", "t2:m"]))
   # true cross-sex genetic correlation 0.5. At this seed the mean estimate
-  # is 0.496; over seeds 1-8 the means ran 0.31-0.54 (individual traits
-  # 0.18-0.79): the cross-environment part rests on relatives of the other
-  # sex only.
+  # is 0.495 (trait-paired subsets); over seeds 1-8 the means ran 0.31-0.54
+  # (individual traits 0.18-0.79): the cross-environment part rests on
+  # relatives of the other sex only.
   expect_lt(abs(mean(fit$corr_between) - 0.5), 0.1)
   expect_output(print(fit), "between environments")
 })
@@ -93,4 +93,27 @@ test_that("inputs are checked", {
   X <- cbind(intercept = 1, male = as.numeric(d$sex == "m"))
   rownames(X) <- rownames(d$Y)
   expect_error(fit_G_env(d$Y, env = d$sex, X = X, A = d$A), "rank deficient")
+})
+
+test_that("the default subsets pair traits across every environment", {
+  sub <- .indri_env_subsets(4L, 2L)
+  expect_equal(dim(sub), c(6L, 4L))
+  expect_equal(sub[1, ], c(1L, 2L, 5L, 6L))
+  expect_equal(sub[6, ], c(3L, 4L, 7L, 8L))
+  expect_equal(ncol(.indri_env_subsets(3L, 3L)), 6L)
+  expect_null(.indri_env_subsets(2L, 2L))
+  # every state pair is covered, and the cross-environment entries of a
+  # trait in every block that holds it
+  cover <- indri_pair_coverage(sub, 8L)
+  expect_true(all(cover[upper.tri(cover)] > 0))
+  expect_equal(diag(cover[1:4, 5:8]), rep(3L, 4))
+})
+
+test_that("fit_G_env passes trait-paired subsets unless subsets are chosen", {
+  skip_if_not_installed("sommer")
+  d <- sim_env(5, n_fam = 40)
+  fit <- fit_env(d)
+  expect_equal(fit$fit$subsets, .indri_env_subsets(3L, 2L))
+  own <- suppressWarnings(fit_env(d, s = 2L))  # 2-trait blocks may stall
+  expect_false(identical(dim(own$fit$subsets), dim(fit$fit$subsets)))
 })

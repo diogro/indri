@@ -10,8 +10,13 @@
 #'
 #' @details The response is reshaped to one column per trait and
 #' environment (`"trait:level"`), each observed only in that environment's
-#' individuals, and [fit_G()] fits it with its usual subsets, assembly and
-#' engines. `G` is the assembled genetic covariance of the character states:
+#' individuals, and [fit_G()] fits it with its usual assembly and engines.
+#' Unless `subsets`, `s` or `min_cooccurrence` is given, the subsets are
+#' trait-paired: one block per pair of traits, holding both traits in every
+#' environment (`P (P - 1) / 2` blocks of `2 L` states for `P` traits in `L`
+#' environments; [fit_G()]'s usual subsets for fewer than three traits).
+#' Each cross-environment covariance is then estimated in every block that
+#' holds the trait, next to its own within-environment variances. `G` is the assembled genetic covariance of the character states:
 #' its diagonal blocks are the within-environment `G` and its off-diagonal
 #' blocks the genetic covariance between environments (a cross-environment
 #' genetic correlation below 1 is genotype-by-environment interaction in the
@@ -25,12 +30,14 @@
 #'
 #' This is a trial: the cross-environment covariances rest on relatives in
 #' different environments only. In simulations (900 sibs of both sexes, 10
-#' and 30 traits; STATUS.md) the cross-environment genetic correlations
-#' came out **too low**: 0.67-0.77 where the truth was 1, 0.36-0.45 where it
-#' was 0.5, more so with more traits. Scans with this covariance
-#' ([indri_gwas()] with this fit) are then conservative for interaction
-#' tests (genomic inflation 0.88-0.98), not anti-conservative, but lose
-#' power. The cause is under investigation.
+#' and 30 traits; STATUS.md) [fit_G()]'s usual subsets gave cross-environment
+#' genetic correlations **too low** (0.67-0.77 where the truth was 1,
+#' 0.38-0.45 where it was 0.5): most blocks held a trait in one environment
+#' only, and the projection onto a positive semi-definite `G` pulled the
+#' few cross-environment entries towards zero. Trait-paired subsets give
+#' 0.84-0.85 and 0.49-0.50. Scans with this covariance ([indri_gwas()] with
+#' this fit) remain somewhat conservative for interaction tests (genomic
+#' inflation 0.91-0.99), not anti-conservative.
 #'
 #' @param Y Numeric matrix, individuals by traits.
 #' @param env The environment of each individual: a vector or factor with
@@ -97,7 +104,12 @@ fit_G_env <- function(Y, env, X = NULL, A, engine = "sommer", ...) {
     rows <- env == l
     Ys[rows, paste(traits, l, sep = ":")] <- Y[rows, ]
   }
-  fit <- fit_G(Ys, X = X, A = A, engine = engine, missing = "model", ...)
+  dots <- list(...)
+  # exact names: `$` would match `s` to `seed`
+  if (!any(c("subsets", "s", "min_cooccurrence") %in% names(dots)))
+    dots[["subsets"]] <- .indri_env_subsets(length(traits), length(levels))
+  fit <- do.call(fit_G, c(list(Ys, X = X, A = A, engine = engine,
+                               missing = "model"), dots))
   G <- fit$G
 
   # block-diagonal E: within each environment, residual covariance minus
@@ -129,6 +141,18 @@ fit_G_env <- function(Y, env, X = NULL, A, engine = "sommer", ...) {
                  traits = traits, states = states,
                  env = stats::setNames(env, rownames(Y)), fit = fit),
             class = "indri_fit_env")
+}
+
+# Trait-paired subsets of the character states: one block per pair of
+# traits, holding both traits in every environment, so each cross-environment
+# covariance is estimated next to its own within-environment variances (see
+# fit_G_env()). States are ordered trait within environment, as in
+# fit_G_env(). NULL (fit_G()'s usual subsets) when a block would hold every
+# state.
+.indri_env_subsets <- function(P, L) {
+  if (P < 3L) return(NULL)
+  pairs <- t(utils::combn(P, 2L))
+  do.call(cbind, lapply(seq_len(L) - 1L, function(l) pairs + l * P))
 }
 
 #' @export
