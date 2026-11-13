@@ -41,6 +41,8 @@ test_that("the number of blocks caps the number of workers", {
 })
 
 test_that("parallel blocks give the same answer as sequential ones", {
+  # R CMD check allows two worker processes; this test needs four
+  skip_if(nzchar(Sys.getenv("_R_CHECK_LIMIT_CORES_")), "check limits cores")
   skip_if_no_cmdstan()
   skip_if_no_stanimal()
   data <- simulate_block_data(n_fam = 8, size = 5, K = 4L)

@@ -14,8 +14,9 @@ covariance of `Y` after `X` minus `G`), then drives **genome-wide association sc
 across all the traits, or trait-by-trait tests, in a linear mixed model, with
 optional dominance effects (`indri_gwas()`, [below](#association-scans)).
 
-> **Status (0.3.0):** working and validated on simulations of up to 35 traits;
-> association scans calibrated at 10 and 30 traits.
+> **Status (0.4.0):** working and validated on simulations of up to 35 traits;
+> association scans calibrated at 10 and 30 traits; genotype-by-environment
+> scans (experimental) mildly conservative.
 > The assembled `G` is as accurate as the full model where the full model can
 > be fitted; the 95% bands cover the true correlations about 95-97% of the
 > time. See [STATUS.md](STATUS.md) for the numbers.

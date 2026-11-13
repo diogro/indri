@@ -1,4 +1,7 @@
-# indri (development version)
+# indri 0.4.0
+
+Genotype-by-environment scans, environment-specific genetic covariance
+(experimental), a WOMBAT engine, four vignettes on the LG/SM F3 mice.
 
 * A fourth block engine, `"wombat"`, runs Karin Meyer's WOMBAT REML program
   (Linux and Windows, free for academic use) on each subset. It matches the

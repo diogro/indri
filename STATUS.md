@@ -7,7 +7,7 @@ where the work stands, what has been measured, and what to do next.
 
 | repo | branch | remote | state |
 |---|---|---|---|
-| `indri` | `main` | `diogro/indri` (public; vignettes at <https://diogro.github.io/indri/>) | **0.3.0**: three engines, uncertainty for all of them, `G` and `E` in the units of `Y`; `indri_gwas()` (multi- and single-trait, dominance, permutations, plots); the LG/SM F3 data |
+| `indri` | `main` | `diogro/indri` (public; vignettes at <https://diogro.github.io/indri/>) | **0.4.0**: four engines (stanimal, sommer, asreml, wombat), uncertainty for all of them, `G` and `E` in the units of `Y`; `indri_gwas()` (multi- and single-trait, dominance, GxE, permutations, plots); `fit_G_env()` (experimental); the LG/SM F3 data and vignettes |
 | `stanimal` | `master` | `diogro/stanimal` | **0.8.1** (`eigen_A`, CmdStan output fix); Laplace labels on `master` as development, unreleased |
 | `limmbo` | `indri-session-fixes` | `diogro/limmbo` (fork of `meyer-lab-cshl/limmbo`) | pipeline fixes and a pixi environment; reference only |
 
@@ -372,6 +372,9 @@ Same populations and scenarios (20 seeds, "none" = cross-sex r_G 1,
 
 ## Changes and fixes
 
+- **indri 0.4.0:** `fit_G_env()` and `indri_gwas(gxe = )`, the wombat
+  engine, and trait-paired subsets as `fit_G_env()`'s default. Nothing
+  returned by 0.3.0 changed.
 - **indri 0.3.0:** `fit_G()` returns `E` (the residual covariance after `X`
   minus `c G`, floored) and `E_bar` (the block average); `indri_gwas()` and
   the LG/SM data are new. Nothing returned by 0.2.0 changed.
