@@ -19,10 +19,11 @@ backgrounds. It builds on the vignettes *Estimating G for many traits* and
 *Genome scans for many traits*, and was precomputed.
 
 **Two features here are experimental.** `fit_G_env()` estimates the genetic
-covariance between environments, and in simulations it estimated
-cross-environment genetic correlations too low (0.67-0.77 where the truth was
-1). Scans that use it are conservative for interactions: they do not report
-too many interactions, but they miss some.
+covariance between environments, and in simulations it still estimates
+cross-environment genetic correlations somewhat low (about 0.85 where the
+truth is 1; about right where it is 0.5). Scans that use it are mildly
+conservative for interactions: they do not report too many interactions, but
+they miss a few.
 
 ## Setup
 
@@ -49,19 +50,52 @@ environment's main effect is in the states' own means, so the sex column of
 `X` is left out:
 
 ```{r fit-env}
-fit_env <- fit_G_env(Y, env = d$SEX, X = X[, colnames(X) != "SEXM"], A = A,
-                     cores = cores, seed = 1L, progress = FALSE)
+X_env <- X[, colnames(X) != "SEXM"]
+fit_env <- fit_G_env(Y, env = d$SEX, X = X_env, A = A, cores = cores,
+                     seed = 1L, progress = FALSE)
 fit_env
 ```
+
+Like `fit_G()`, `fit_G_env()` fits many small blocks and assembles them, but
+its blocks are trait-paired: one per pair of traits, each holding both traits
+in both sexes. With nine traits that is 36 blocks of four character states:
+
+```{r subsets}
+dim(fit_env$fit$subsets)
+fit_env$states[fit_env$fit$subsets[1, ]]
+```
+
+Each cross-sex covariance is then estimated in every block that holds its
+trait, next to the trait's own variance in each sex. `fit_G()`'s usual
+subsets (`min_cooccurrence = 1` brings them back) mix the eighteen states
+freely, so most blocks hold a trait in one sex only. The few cross-sex
+entries are then outnumbered in the assembly, and the projection onto a
+positive semi-definite `G` pulls them towards zero. In simulations
+(STATUS.md) the usual subsets gave cross-sex correlations of 0.67-0.77 where
+the truth was 1, the paired ones 0.84-0.85. Here the two designs give:
+
+```{r subsets-compare}
+fit_usual_subsets <- fit_G_env(Y, env = d$SEX, X = X_env, A = A,
+                               min_cooccurrence = 1L, cores = cores,
+                               seed = 1L, progress = FALSE)
+round(cbind(paired = fit_env$corr_between[, 1],
+            usual = fit_usual_subsets$corr_between[, 1]), 2)
+```
+
+With nine traits the two designs differ here by at most 0.05, the paired
+estimates mostly higher where the correlations are highest. The loss to the
+usual subsets grows with the number of traits (in simulations 0.77 at 10
+traits, 0.67 at 30, for a true 1), so the design matters more for larger
+sets of traits.
 
 `corr_between` is each trait's genetic correlation between the sexes. A value
 of 1 means the same genes act in both sexes in the same way; below 1, the
 genetic effects differ between the sexes: genotype-by-sex interaction in the
 polygenic background. Here they run from
 `r round(min(fit_env$corr_between), 2)` to
-`r round(max(fit_env$corr_between), 2)`. Given the downward bias above,
-values somewhat below 1 are not by themselves evidence of interaction; the
-lowest ones are the most suggestive.
+`r round(max(fit_env$corr_between), 2)`. Given the remaining downward bias
+(about 15% at a true correlation of 1), values around 0.85 are consistent
+with no interaction at all; the lowest ones are the most suggestive.
 
 ```{r within}
 round(sqrt(diag(fit_env$G)), 2)
@@ -75,7 +109,12 @@ the scan's covariance ignores it, markers that track the relatedness of the
 mice pick some of it up, and the interaction test reports too many hits. In
 simulations (STATUS.md) a cross-sex genetic correlation of 0.5 raised the
 genomic inflation of the interaction test to about 1.14; scanning with the
-environment-specific covariance from `fit_G_env()` brought it to 0.94-0.98.
+environment-specific covariance from `fit_G_env()` brought it to 0.96-0.99
+(10 and 30 traits). Where the background had no interaction, the
+environment-specific scan had inflation 0.91-0.95: conservative, because
+`fit_G_env()` still underestimates cross-sex covariances a little and, with
+many traits, because a large estimated `G` is noisy. Scans with the true
+covariance were calibrated.
 
 ## Two scans
 
@@ -159,9 +198,10 @@ dense genomic relationship matrix.
 
 ## Summary
 
-- `fit_G_env()` estimates genetic covariance within and between the sexes;
-  its cross-sex correlations are currently biased low.
+- `fit_G_env()` estimates genetic covariance within and between the sexes
+  from trait-paired blocks; its cross-sex correlations are still somewhat
+  low (about 0.85 for a true 1).
 - Interaction scans need a background that allows genotype-by-sex
   interaction, or they report too many interactions; with `fit_G_env()`'s
-  covariance they are conservative instead.
+  covariance they are mildly conservative instead.
 - Dominance enters such scans as a main effect only.
