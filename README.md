@@ -1,3 +1,7 @@
+<p align="left">
+  <img src="package/man/figures/logo.png" width="200" alt="indri logo: an indri and a haloed lamb doing the limbo inside a hexagon">
+</p>
+
 # indri
 
 Estimates the **additive genetic covariance matrix G** (traits × traits) for
@@ -233,21 +237,21 @@ Four worked analyses of the nine weekly weight gains of the LG/SM F3 mice
 (`lgsm_f3`), precomputed (the fits take up to half an hour), and online at
 <https://diogro.github.io/indri/>:
 
-- [**Estimating G for many traits: engines and priors**](https://diogro.github.io/indri/indri-G.html):
+- [**Estimating G for many traits: engines and priors**](https://diogro.github.io/indri/articles/indri-G.html):
   sommer, asreml and stanimal on the same data, reading a fit, choosing the
   LKJ prior, and `G` against `P`.
-- [**Genome scans for many traits**](https://diogro.github.io/indri/indri-gwas.html):
+- [**Genome scans for many traits**](https://diogro.github.io/indri/articles/indri-gwas.html):
   multi- and single-trait scans, thresholds and permutations, dominance,
   effects across the growth curve.
-- [**G from locus effects**](https://diogro.github.io/indri/indri-locus-G.html):
+- [**G from locus effects**](https://diogro.github.io/indri/articles/indri-locus-G.html):
   `indri_locus_G()` on the mapped loci, compared with the polygenic `G`.
-- [**Genotype-by-environment scans**](https://diogro.github.io/indri/indri-gxe.html):
+- [**Genotype-by-environment scans**](https://diogro.github.io/indri/articles/indri-gxe.html):
   genetic covariance within and between the sexes, and interaction scans
   with two backgrounds.
 
 `browseVignettes("indri")` lists them once the package is installed with
-its vignettes. The site is `docs/`: a hand-written landing page (`docs/index.html`) and
-the vignettes, rendered by `package/vignettes/render_site.R` after
+its vignettes. The site is a pkgdown site in `docs/`, with this README as its
+home page: rebuild it with `Rscript package/pkgdown/build_site.R` after
 `precompute.R`.
 
 ## Repository map

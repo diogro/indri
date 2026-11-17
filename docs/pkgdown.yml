@@ -1,0 +1,12 @@
+pandoc: '3.10'
+pkgdown: 2.2.0
+pkgdown_sha: ~
+articles:
+  indri-G: indri-G.html
+  indri-gwas: indri-gwas.html
+  indri-gxe: indri-gxe.html
+  indri-locus-G: indri-locus-G.html
+last_built: 2026-11-17T20:12Z
+urls:
+  reference: https://diogro.github.io/indri/reference
+  article: https://diogro.github.io/indri/articles

@@ -17,7 +17,7 @@ Description: Estimates the additive genetic covariance matrix of
     effects, permutation p-values and genotype-by-environment tests with an
     environment-specific polygenic background.
 License: GPL (>= 3)
-URL: https://github.com/diogro/indri
+URL: https://diogro.github.io/indri/, https://github.com/diogro/indri
 BugReports: https://github.com/diogro/indri/issues
 Encoding: UTF-8
 LazyData: true

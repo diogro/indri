@@ -1,0 +1,89 @@
+# Assemble block draws into one array
+
+Combines the per-block draws (posterior draws, or the REML engines'
+normal draws) into a `K` by `K` by `D` array.
+[`fit_G()`](https://diogro.github.io/indri/reference/fit_G.md) uses
+`"mixture"`; the default here is `"average"` only for backward
+compatibility. Either way the result carries block-level uncertainty
+through; it is **not** a posterior over the joint matrix, because
+subsets share traits and data and are therefore dependent. See
+`NOTES.md`.
+
+## Usage
+
+``` r
+indri_assemble_draws(
+  draws,
+  subsets,
+  K = NULL,
+  method = c("average", "mixture"),
+  seed = NULL
+)
+```
+
+## Arguments
+
+- draws:
+
+  List of `s` by `s` by `D` arrays, one per subset.
+
+- subsets:
+
+  Integer matrix of trait indices, one subset per row.
+
+- K:
+
+  Number of traits; inferred from `subsets` when `NULL`, which is only
+  right when the subsets happen to reach the last trait.
+
+- method:
+
+  `"average"` or `"mixture"`; see Details. Use `"mixture"` for
+  intervals: `"average"` is overconfident.
+
+- seed:
+
+  Optional seed for the block choice in `"mixture"`. The caller's random
+  state is left untouched.
+
+## Value
+
+A `K` by `K` by `D` array. Entries no subset covers are 0 for
+`"average"` and `NA` for `"mixture"`.
+
+## Details
+
+`method = "average"` averages draw `d` across every block that covers an
+entry, exactly as the means are averaged. Because the block chains are
+independent, this shrinks the spread of an entry covered `c` times by
+about `1 / sqrt(c)`, while the block estimates themselves, fitted to the
+same individuals, have nearly perfectly correlated errors: the band is
+too narrow and gets narrower the better a pair is covered.
+
+`method = "mixture"` instead takes each entry of draw `d` from one
+covering block chosen at random, so an entry's draws are a mixture of
+its block posteriors: the spread is the average within-block spread plus
+the spread between blocks. Entries are drawn independently of one
+another, so a mixed covariance draw need not be positive semi-definite;
+mix per-block correlation draws (pass them as `draws`) when correlations
+are the target.
+
+## Examples
+
+``` r
+# Illustrative draws for the same two-trait subset from two block fits.
+subsets <- rbind(c(1, 2), c(1, 2))
+make_draws <- function(correlations) {
+  array(unlist(lapply(correlations, function(r)
+    matrix(c(1, r, r, 1), 2))), dim = c(2, 2, length(correlations)))
+}
+draws <- list(make_draws(c(0.1, 0.2, 0.3, 0.4)),
+              make_draws(c(0.5, 0.6, 0.7, 0.8)))
+averaged <- indri_assemble_draws(draws, subsets)
+mixed <- indri_assemble_draws(draws, subsets, method = "mixture")
+averaged[1, 2, ]
+#> [1] 0.3 0.4 0.5 0.6
+mixed[1, 2, ]
+#> [1] 0.5 0.2 0.3 0.8
+# Mixture entries are pointwise draws, not a joint PSD matrix posterior.
+```

@@ -1,0 +1,75 @@
+url: https://diogro.github.io/indri/
+destination: ../docs
+
+# Shared site layout (same in stanimal, indri, grnland, evomod2): build with
+# `Rscript pkgdown/build_site.R`; the look is in pkgdown/extra.scss and only
+# the accent colour below is per package. The home page is the README.
+template:
+  bootstrap: 5
+  light-switch: true
+  math-rendering: mathjax
+  bslib:
+    primary: "#8a4b0f"
+
+home:
+  title: "indri: scalable additive genetic covariance estimation"
+  links:
+  - text: Validation status (STATUS.md)
+    href: https://github.com/diogro/indri/blob/main/STATUS.md
+  - text: Guide for agents (AGENTS.md)
+    href: https://github.com/diogro/indri/blob/main/AGENTS.md
+
+navbar:
+  structure:
+    left: [intro, articles, reference, news]
+    right: [search, github, lightswitch]
+
+reference:
+- title: Estimating G
+  desc: Split the traits into overlapping subsets, fit each, reassemble.
+  contents:
+  - fit_G
+  - fit_G_env
+  - indri_engine
+  - indri_locus_G
+- title: Genome scans
+  contents:
+  - indri_gwas
+  - summary.indri_gwas
+  - plot.indri_gwas
+  - indri_effective_tests
+- title: Building blocks
+  desc: The steps fit_G() runs, for custom pipelines.
+  contents:
+  - indri_subsets
+  - indri_a_forms
+  - indri_inflate
+  - indri_assemble
+  - indri_assemble_draws
+  - indri_project_psd
+- title: Data
+  desc: The LG/SM F3 mouse intercross.
+  contents:
+  - starts_with("lgsm_")
+- title: Package
+  contents:
+  - indri-package
+
+articles:
+- title: Covariance matrices
+  navbar: Covariance matrices
+  contents:
+  - indri-G
+  - indri-locus-G
+- title: Genome scans
+  navbar: Genome scans
+  contents:
+  - indri-gwas
+  - indri-gxe
+
+# The vignettes used to be served at the top of the site.
+redirects:
+- ["indri-G.html", "articles/indri-G.html"]
+- ["indri-gwas.html", "articles/indri-gwas.html"]
+- ["indri-gxe.html", "articles/indri-gxe.html"]
+- ["indri-locus-G.html", "articles/indri-locus-G.html"]

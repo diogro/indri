@@ -1,0 +1,55 @@
+# LG/SM F3 intercross: genotypes
+
+Genotypes of the LG/SM intercross mice at 353 markers, in the additive,
+dominance and imprinting design of the original QTL analyses.
+
+## Usage
+
+``` r
+lgsm_genotypes
+```
+
+## Format
+
+A list of three integer matrices, mice by markers, with mouse IDs as row
+names and marker names (see
+[lgsm_markers](https://diogro.github.io/indri/reference/lgsm_markers.md))
+as column names:
+
+- A:
+
+  additive: -1 and 1 for the two homozygotes, 0 for heterozygotes.
+  `A + 1` is a 0/1/2 dosage, as
+  [`indri_gwas()`](https://diogro.github.io/indri/reference/indri_gwas.md)
+  expects.
+
+- D:
+
+  dominance: 1 for heterozygotes, 0 for homozygotes (equal to `A == 0`).
+
+- I:
+
+  imprinting: -1 or 1 for heterozygotes by the parent of origin of the
+  alleles, 0 for homozygotes.
+
+The 1934 mice are the 1552 genotyped F3 mice of
+[lgsm_f3](https://diogro.github.io/indri/reference/lgsm_f3.md) and 382
+of their F2 parents. Which strain's allele is coded `+1` is as in the
+source.
+
+## Source
+
+Melo, D., Marroig, G. and Wolf, J. B. (2019). Genomic perspective on
+multivariate variation, pleiotropy, and evolution. Journal of Heredity
+110, 479-493.
+[doi:10.1093/jhered/esz011](https://doi.org/10.1093/jhered/esz011) .
+Built by `data-raw/lgsm.R` from that study's analysis files.
+
+## Examples
+
+``` r
+dosage <- lgsm_genotypes$A + 1
+f3 <- rownames(dosage) %in% lgsm_f3$ID
+dim(dosage[f3, ])
+#> [1] 1552  353
+```
