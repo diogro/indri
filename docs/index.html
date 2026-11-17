@@ -2,17 +2,152 @@
 <html lang="en">
 <head>
 <meta charset="utf-8">
-<title>indri vignettes</title>
-<style>body { font-family: sans-serif; max-width: 42em; margin: 3em auto; line-height: 1.5; padding: 0 1em; }</style>
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>indri</title>
+<meta name="description" content="indri: scalable additive genetic covariance (G) estimation and multi-trait genome scans in R.">
+<!-- Hand-written landing page. render_site.R renders the vignettes next to
+     it but does not touch this file: add a card below when adding a
+     vignette. -->
+<style>
+:root {
+  --bg: #fdfcfa; --fg: #1f2328; --muted: #5d6670; --line: #e3e0da;
+  --card: #ffffff; --accent: #8a4b0f; --code-bg: #f3f1ec;
+}
+@media (prefers-color-scheme: dark) {
+  :root {
+    --bg: #16181b; --fg: #e6e4df; --muted: #9aa2ab; --line: #2d3136;
+    --card: #1d2024; --accent: #e3a35f; --code-bg: #23272c;
+  }
+}
+* { box-sizing: border-box; }
+body {
+  margin: 0; background: var(--bg); color: var(--fg);
+  font: 17px/1.6 -apple-system, BlinkMacSystemFont, "Segoe UI", Helvetica, Arial, sans-serif;
+}
+main { max-width: 46rem; margin: 0 auto; padding: 3rem 1rem 4rem; }
+a { color: var(--accent); }
+h1 { font-size: 2.6rem; margin: 0 0 .25rem; letter-spacing: -.02em; }
+h2 { font-size: 1.25rem; margin: 2.75rem 0 .75rem; padding-bottom: .3rem; border-bottom: 1px solid var(--line); }
+.tagline { font-size: 1.15rem; color: var(--muted); margin: 0 0 1.5rem; }
+.links { display: flex; flex-wrap: wrap; gap: .5rem 1.25rem; font-size: .95rem; margin-bottom: 1rem; }
+code, pre { font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace; font-size: .88em; }
+code { background: var(--code-bg); padding: .1em .3em; border-radius: 4px; }
+pre { background: var(--code-bg); padding: .9rem 1rem; border-radius: 6px; overflow-x: auto; line-height: 1.45; }
+pre code { background: none; padding: 0; }
+.cards { display: grid; gap: .9rem; }
+.card {
+  display: block; text-decoration: none; color: inherit;
+  background: var(--card); border: 1px solid var(--line); border-radius: 8px;
+  padding: 1rem 1.15rem; transition: border-color .15s;
+}
+.card:hover, .card:focus-visible { border-color: var(--accent); }
+.card h3 { margin: 0 0 .3rem; font-size: 1.05rem; color: var(--accent); }
+.card p { margin: 0; color: var(--muted); font-size: .95rem; }
+table { border-collapse: collapse; width: 100%; font-size: .93rem; }
+th, td { text-align: left; padding: .45rem .6rem; border-bottom: 1px solid var(--line); vertical-align: top; }
+th { font-weight: 600; }
+.table-wrap { overflow-x: auto; }
+footer { margin-top: 3rem; color: var(--muted); font-size: .88rem; }
+</style>
 </head>
 <body>
-<h1>indri vignettes</h1>
-<p>Worked analyses of the nine weekly weight gains of the LG/SM F3 mice that ship with <a href="https://github.com/diogro/indri">indri</a>.</p>
-<ul>
-  <li><a href="indri-G.html">Estimating G for many traits: engines and priors</a></li>
-  <li><a href="indri-gwas.html">Genome scans for many traits: additive and dominance effects</a></li>
-  <li><a href="indri-locus-G.html">G from locus effects</a></li>
-  <li><a href="indri-gxe.html">Genotype-by-environment scans: loci acting differently in each sex</a></li>
-</ul>
+<main>
+
+<h1>indri</h1>
+<p class="tagline">Additive genetic covariance matrices for large trait sets,
+and the genome scans they drive, in R.</p>
+<div class="links">
+  <a href="https://github.com/diogro/indri">Source on GitHub</a>
+  <a href="https://github.com/diogro/indri/blob/main/package/NEWS.md">Changelog</a>
+  <a href="https://github.com/diogro/indri/blob/main/STATUS.md">Validation status</a>
+  <a href="https://github.com/diogro/indri/issues">Issues</a>
+</div>
+
+<p>indri estimates the additive genetic covariance matrix <strong>G</strong>
+(traits &times; traits) without fitting one giant multivariate animal model.
+It splits the traits into many small, overlapping subsets, fits a small animal
+model on each, and reassembles the estimates into a single positive
+semi-definite matrix, following
+<a href="https://www.biorxiv.org/content/10.1101/255497v1">LiMMBo</a>. The
+per-subset fit is pluggable (a Bayesian sampler or a REML engine), and every
+engine gives per-entry uncertainty.</p>
+
+<p>The assembled <code>G</code> and residual covariance <code>E</code> then
+drive genome-wide association scans: one multi-trait test per SNP across all
+traits, or trait-by-trait tests, in a linear mixed model, with optional
+dominance effects, permutation p-values and genotype-by-environment tests.</p>
+
+<h2>Vignettes</h2>
+<p>Four worked analyses of the nine weekly weight gains of the LG/SM F3 mice
+(<code>lgsm_f3</code>) that ship with the package. They were precomputed,
+because the fits take up to half an hour.</p>
+<div class="cards">
+  <a class="card" href="indri-G.html">
+    <h3>Estimating G for many traits: engines and priors</h3>
+    <p>sommer, asreml and stanimal on the same data, reading a fit, choosing
+    the LKJ prior, and <code>G</code> against <code>P</code>.</p>
+  </a>
+  <a class="card" href="indri-gwas.html">
+    <h3>Genome scans for many traits: additive and dominance effects</h3>
+    <p>Multi- and single-trait scans, thresholds and permutations, dominance,
+    and effects across the growth curve.</p>
+  </a>
+  <a class="card" href="indri-locus-G.html">
+    <h3>G from locus effects</h3>
+    <p><code>indri_locus_G()</code> on the mapped loci, compared with the
+    polygenic <code>G</code>.</p>
+  </a>
+  <a class="card" href="indri-gxe.html">
+    <h3>Genotype-by-environment scans: loci acting differently in each sex</h3>
+    <p>Genetic covariance within and between the sexes, and interaction scans
+    with two backgrounds.</p>
+  </a>
+</div>
+
+<h2>Install</h2>
+<pre><code>remotes::install_github("diogro/indri", subdir = "package")</code></pre>
+<p>You also need at least one block engine:</p>
+<div class="table-wrap">
+<table>
+  <thead><tr><th>Engine</th><th>Package</th><th>Needs</th><th>Uncertainty</th></tr></thead>
+  <tbody>
+    <tr><td><code>"stanimal"</code> (default)</td><td><a href="https://github.com/diogro/stanimal">stanimal</a> (&ge; 0.8.0)</td><td>CmdStan</td><td>posterior draws</td></tr>
+    <tr><td><code>"sommer"</code></td><td><a href="https://cran.r-project.org/package=sommer">sommer</a></td><td></td><td>REML sampling distribution</td></tr>
+    <tr><td><code>"asreml"</code></td><td><a href="https://vsni.co.uk/software/asreml-r/">ASReml-R</a></td><td>a licence (one seat per worker)</td><td>REML sampling distribution</td></tr>
+    <tr><td><code>"wombat"</code></td><td><a href="https://didgeridoo.une.edu.au/km/wombat.php">WOMBAT</a></td><td>the WOMBAT binary</td><td>REML sampling distribution</td></tr>
+  </tbody>
+</table>
+</div>
+
+<h2>Quick start</h2>
+<pre><code>library(indri)
+
+# The nine weekly weight gains of the LG/SM F3 mice, with sex, cohort and
+# litter sizes as fixed effects.
+traits &lt;- lgsm_traits$growth
+d &lt;- lgsm_f3[stats::complete.cases(lgsm_f3[c(traits, "LSB", "LSW")]), ]
+Y &lt;- as.matrix(d[traits]); rownames(Y) &lt;- d$ID
+X &lt;- model.matrix(~ SEX + factor(COHORT) + LSB + LSW, d); rownames(X) &lt;- d$ID
+A &lt;- lgsm_A[rownames(Y), rownames(Y)]
+
+fit &lt;- fit_G(Y, X = X, A = A, engine = "sommer")
+
+fit          # summary
+fit$G        # G, in the units of Y
+fit$corrG    # genetic correlations</code></pre>
+<p>The <a href="indri-G.html">first vignette</a> walks through this fit with
+all three engines; the
+<a href="https://github.com/diogro/indri#quick-start">README</a> has a
+self-contained simulated example.</p>
+
+<h2>Reference</h2>
+<p>Meyer, H. V., Casale, F. P., Stegle, O., and Birney, E. (2018). LiMMBo: a
+simple, scalable approach for linear mixed models in high-dimensional genetic
+association studies. <em>bioRxiv</em>.
+<a href="https://www.biorxiv.org/content/10.1101/255497v1">doi:10.1101/255497</a></p>
+
+<footer>indri is released under the GPL (&ge; 3).</footer>
+
+</main>
 </body>
 </html>

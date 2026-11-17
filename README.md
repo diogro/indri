@@ -24,7 +24,7 @@ optional dominance effects (`indri_gwas()`, [below](#association-scans)).
 ## Install
 
 ```r
-remotes::install_github("diogro/indri")
+remotes::install_github("diogro/indri", subdir = "package")
 ```
 
 You also need at least one block engine:
@@ -246,8 +246,9 @@ Four worked analyses of the nine weekly weight gains of the LG/SM F3 mice
   with two backgrounds.
 
 `browseVignettes("indri")` lists them once the package is installed with
-its vignettes. The site is `docs/`, rendered by
-`package/vignettes/render_site.R` after `precompute.R`.
+its vignettes. The site is `docs/`: a hand-written landing page (`docs/index.html`) and
+the vignettes, rendered by `package/vignettes/render_site.R` after
+`precompute.R`.
 
 ## Repository map
 
