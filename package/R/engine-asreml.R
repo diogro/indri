@@ -22,6 +22,8 @@
       # .indri_engine_defaults()
       default_s = 3L,
       default_cooccurrence = 1L,
+      # extra random effects (fit_G(random = ))
+      random = TRUE,
       # each worker checks out a licence seat; a standard licence has two
       default_cores = 2L
     ),
@@ -59,6 +61,10 @@
     for (j in covars) dat[[x_names[j]]] <- X[, j]
   }
   for (k in seq_len(s)) dat[[traits[k]]] <- Y[, k]
+  # extra random effects (fit_G(random = )), each with its own us(trait)
+  extra <- control$random
+  extra_cols <- if (length(extra)) paste0("indri_r_", make.names(names(extra), unique = TRUE)) else character(0)
+  for (r in seq_along(extra)) dat[[extra_cols[r]]] <- factor(as.character(extra[[r]]))
 
   # A single trait is an ordinary univariate animal model: no `trait` factor,
   # no us() structures, and asreml's default `units` residual.
@@ -84,10 +90,13 @@
   init <- .indri_check_init(control$init, s)
   init_G <- .indri_asreml_us_init(s, init$G)
   init_E <- .indri_asreml_us_init(s, init$E)
+  extra_terms <- paste(if (single) paste0(" + ", extra_cols) else
+    paste0(" + ", extra_cols, ":us(trait)"), collapse = "")
+  if (!length(extra)) extra_terms <- ""
   random <- stats::as.formula(
-    if (single) "~ vm(id, Ainv)" else
+    paste0(if (single) "~ vm(id, Ainv)" else
       paste("~ vm(id, Ainv):us(trait, init = c(",
-            paste(init_G, collapse = ", "), "))"),
+            paste(init_G, collapse = ", "), "))"), extra_terms),
     env = environment()
   )
   rcov <- stats::as.formula(
@@ -121,11 +130,17 @@
 
   vc <- summary(fit)$varcomp
   gi <- grep("^vm\\(", rownames(vc))
+  R_extra <- lapply(extra_cols, function(col) {
+    ri <- grep(paste0("^", col, if (single) "$" else ":trait!"), rownames(vc))
+    .indri_lower2mat(vc[ri, "component"], s)
+  })
+  names(R_extra) <- names(extra)
   ei <- grep(if (single) "^units" else "^units.*trait!trait", rownames(vc))
 
   list(
     G = .indri_lower2mat(vc[gi, "component"], s),
     E = .indri_lower2mat(vc[ei, "component"], s),
+    random = if (length(extra)) R_extra,
     draws = NULL,
     se = .indri_lower2mat(vc[gi, "std.error"], s),
     # inverse AI matrix rows for the G components: already in the lower-

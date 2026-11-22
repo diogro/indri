@@ -39,6 +39,12 @@
 #'   same trait context adds nothing, so the value is capped at what the block
 #'   width allows (1 for two-trait blocks).
 #' @param subsets Optional precomputed subset matrix, from [indri_subsets()].
+#' @param random Optional extra random effects: a named list of factors (or
+#'   vectors coerced to factors), one value per individual in the order of
+#'   `Y`, such as `list(nurse = nurse_id, dam = mother_id)`. Each term gets
+#'   its own unstructured trait covariance, `C_r (x) Z_r Z_r'`, next to
+#'   `G (x) A` and the residual. Missing levels count as unshared (one level
+#'   per individual). Needs the `"sommer"` or `"asreml"` engine.
 #' @param engine Block engine: `"stanimal"` (Bayesian, posterior draws, models
 #'   gaps in `Y`), `"sommer"`, `"asreml"` or `"wombat"` (REML, with
 #'   uncertainty from each block's sampling covariance; much faster for large
@@ -102,7 +108,10 @@
 #'   `A`), with eigenvalues floored at 1e-3 of the largest. `E_bar` is the
 #'   average of the block residual covariances, for reference: at many traits
 #'   it is not a covariance matrix, and a projection of it miscalibrates the
-#'   association tests. `blocks`
+#'   association tests. With `random`, `E` also has each random term's
+#'   covariance removed, and `random` holds those covariances (traits x
+#'   traits, units of `Y`, assembled from the blocks like `E_bar` and
+#'   projected onto the positive semi-definite cone). `blocks`
 #'   holds the raw standardised-scale block fits. `G_draws` and `corrG_draws`
 #'   (traits x traits x draws) carry the assembled block uncertainty, from
 #'   the posterior draws of `"stanimal"` blocks or from the normal sampling
@@ -162,6 +171,7 @@
 #' @export
 fit_G <- function(Y, X = NULL, A, s = NULL, min_cooccurrence = NULL,
                   subsets = NULL, engine = "stanimal", engine_args = list(),
+                  random = NULL,
                   assembly = c("ls", "average"),
                   weights = c("none", "inverse_variance"),
                   missing = c("model", "complete_block"),
@@ -188,6 +198,7 @@ fit_G <- function(Y, X = NULL, A, s = NULL, min_cooccurrence = NULL,
 
   A <- .indri_match_A(A, rownames(Y))
   X <- .indri_design(X, nrow(Y), rownames(Y))
+  random <- .indri_random_terms(random, nrow(Y), engine)
 
   if (anyNA(Y)) {
     if (missing == "model" && isTRUE(engine$capabilities$missing)) {
@@ -204,6 +215,7 @@ fit_G <- function(Y, X = NULL, A, s = NULL, min_cooccurrence = NULL,
       Y <- Y[complete, , drop = FALSE]
       X <- X[complete, , drop = FALSE]
       A <- A[complete, complete, drop = FALSE]
+      random <- lapply(random, function(f) droplevels(f[complete]))
     }
   }
 
@@ -238,6 +250,7 @@ fit_G <- function(Y, X = NULL, A, s = NULL, min_cooccurrence = NULL,
          call. = FALSE)
 
   a_forms <- indri_a_forms(A, need = engine$capabilities$a_form)
+  if (length(random)) engine_args$random <- random
 
   indices <- seq_len(nrow(subsets))
   plan <- .indri_core_plan(cores, engine_args, engine, length(indices))
@@ -322,8 +335,13 @@ fit_G <- function(Y, X = NULL, A, s = NULL, min_cooccurrence = NULL,
   # association tests (30 traits: 66x the nominal rate at 1e-4). E is the
   # residual covariance of Y after X minus the assembled G instead; the
   # block average is kept as E_bar.
+  R_terms <- lapply(stats::setNames(names(random), names(random)), function(nm) {
+    m <- indri_assemble(lapply(blocks, function(b) list(G = b$random[[nm]])), subsets, K)$G
+    e <- eigen((m + t(m)) / 2, symmetric = TRUE)
+    e$vectors %*% (pmax(e$values, 0) * t(e$vectors))
+  })
   E_parts <- list(
-    E = .indri_residual_E(Y_std, X, G, A),
+    E = .indri_residual_E(Y_std, X, G, A, R_terms, random),
     E_bar = indri_assemble(lapply(blocks, function(b) list(G = b$E)),
                            subsets, K)$G)
 
@@ -380,6 +398,8 @@ fit_G <- function(Y, X = NULL, A, s = NULL, min_cooccurrence = NULL,
   G_draws <- .indri_to_original(G_draws, y_sd)
   E <- .indri_to_original(E_parts$E, y_sd)
   E_bar <- .indri_to_original(E_parts$E_bar, y_sd)
+  R_terms <- lapply(R_terms, function(m) {
+    m <- .indri_to_original(m, y_sd); dimnames(m) <- list(trait_names, trait_names); m })
   dimnames(G) <- dimnames(G_bar) <- list(trait_names, trait_names)
   dimnames(E) <- dimnames(E_bar) <- list(trait_names, trait_names)
   if (!is.null(G_draws)) {
@@ -396,6 +416,7 @@ fit_G <- function(Y, X = NULL, A, s = NULL, min_cooccurrence = NULL,
     sigma_G = sqrt(pmax(diag(G), 0)),
     E = E,
     E_bar = E_bar,
+    random = if (length(R_terms)) R_terms,
     counts = .indri_named(assembled$counts, trait_names),
     coverage = .indri_named(indri_pair_coverage(subsets, K), trait_names),
     subsets = subsets,
@@ -427,7 +448,7 @@ fit_G <- function(Y, X = NULL, A, s = NULL, min_cooccurrence = NULL,
 # both traits have. The eigenvalues are floored at 1e-3 of the largest, so E
 # is positive definite and well conditioned for the whitening in
 # indri_gwas().
-.indri_residual_E <- function(Y, X, G, A) {
+.indri_residual_E <- function(Y, X, G, A, R_terms = list(), random = list()) {
   N <- nrow(Y)
   J <- ncol(X)
   R <- matrix(NA_real_, N, ncol(Y))
@@ -443,6 +464,12 @@ fit_G <- function(Y, X = NULL, A, s = NULL, min_cooccurrence = NULL,
   c_A <- (sum(diag(A)) - sum(diag(XtX_inv %*% crossprod(X, A %*% X)))) /
     (N - J)
   E <- P - c_A * G
+  # extra random terms: Z Z' has trace N; the same correction for X
+  for (nm in names(R_terms)) {
+    ZtX <- rowsum(X, random[[nm]], reorder = FALSE)            # levels x J
+    c_Z <- (N - sum(diag(XtX_inv %*% crossprod(ZtX)))) / (N - J)
+    E <- E - c_Z * R_terms[[nm]]
+  }
   e <- eigen((E + t(E)) / 2, symmetric = TRUE)
   floor <- 1e-3 * max(e$values[1L], .Machine$double.eps)
   E <- e$vectors %*% (pmax(e$values, floor) * t(e$vectors))
@@ -768,3 +795,27 @@ fit_G <- function(Y, X = NULL, A, s = NULL, min_cooccurrence = NULL,
 }
 
 `%||%` <- function(x, y) if (is.null(x)) y else x
+
+# fit_G(random = ): a named list of factors, one value per individual; NA
+# becomes a level of its own for each individual (unshared).
+.indri_random_terms <- function(random, N, engine) {
+  if (is.null(random) || !length(random)) return(list())
+  if (!is.list(random) || is.null(names(random)) || any(names(random) == "") ||
+      anyDuplicated(names(random)))
+    stop("`random` must be a named list of factors, one per random term.", call. = FALSE)
+  if (!isTRUE(engine$capabilities$random))
+    stop("Extra random effects (`random`) need the sommer or asreml engine, not ",
+         engine$name, ".", call. = FALSE)
+  lapply(stats::setNames(names(random), names(random)), function(nm) {
+    f <- random[[nm]]
+    if (length(f) != N)
+      stop("`random$", nm, "` has ", length(f), " values; `Y` has ", N, " individuals.",
+           call. = FALSE)
+    f <- as.character(f)
+    miss <- is.na(f)
+    if (any(miss)) f[miss] <- paste0(".unshared_", which(miss))
+    if (length(unique(f)) == N)
+      warning("`random$", nm, "` has no level shared by two individuals.", call. = FALSE)
+    factor(f)
+  })
+}

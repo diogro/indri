@@ -22,6 +22,8 @@
 }
 
 .indri_stanimal_fit <- function(Y, X, a_forms, control = list()) {
+  if (length(control$random))
+    stop("Extra random effects (`random`) need the sommer or asreml engine.", call. = FALSE)
   if (!requireNamespace("stanimal", quietly = TRUE))
     stop("The `stanimal` engine needs the stanimal package. Install it, or ",
          "choose a different engine.", call. = FALSE)

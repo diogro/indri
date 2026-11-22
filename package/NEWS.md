@@ -1,3 +1,14 @@
+# indri 0.8.0
+
+Extra random effects in `fit_G()`.
+
+* `fit_G(random = list(nurse = ..., dam = ...))` fits extra random effects,
+  each a factor over the individuals with its own unstructured trait
+  covariance, next to `G` and the residual (sommer and asreml engines). The
+  covariances are assembled from the blocks and returned in `random`, in the
+  units of `Y`; `E` has them removed. For maternal effects in cross-fostered
+  designs (birth mother and nurse), litters, cages.
+
 # indri 0.7.0
 
 G from founder haplotype effects.

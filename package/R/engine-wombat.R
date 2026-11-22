@@ -52,6 +52,8 @@
 }
 
 .indri_wombat_fit <- function(Y, X, a_forms, control = list()) {
+  if (length(control$random))
+    stop("Extra random effects (`random`) need the sommer or asreml engine.", call. = FALSE)
   binary <- .indri_wombat_binary(control[["wombat"]])
 
   N <- nrow(Y)

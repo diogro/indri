@@ -13,6 +13,7 @@ fit_G(
   subsets = NULL,
   engine = "stanimal",
   engine_args = list(),
+  random = NULL,
   assembly = c("ls", "average"),
   weights = c("none", "inverse_variance"),
   missing = c("model", "complete_block"),
@@ -59,6 +60,13 @@ uncertainty from each block's sampling covariance; much faster for large
 N). \code{"wombat"} runs the external WOMBAT program; see \code{\link[=indri_engine]{indri_engine()}}.}
 
 \item{engine_args}{List of arguments passed to the engine's fit function.}
+
+\item{random}{Optional extra random effects: a named list of factors (or
+vectors coerced to factors), one value per individual in the order of
+\code{Y}, such as \code{list(nurse = nurse_id, dam = mother_id)}. Each term gets
+its own unstructured trait covariance, \verb{C_r (x) Z_r Z_r'}, next to
+\verb{G (x) A} and the residual. Missing levels count as unshared (one level
+per individual). Needs the \code{"sommer"} or \code{"asreml"} engine.}
 
 \item{assembly}{\code{"ls"} fits the closest positive semi-definite matrix to all
 the subset estimates; \code{"average"} keeps the plain average, nudged onto the
@@ -126,7 +134,10 @@ of \code{Y} on \code{X} minus the assembled \code{G} (scaled for the relatedness
 \code{A}), with eigenvalues floored at 1e-3 of the largest. \code{E_bar} is the
 average of the block residual covariances, for reference: at many traits
 it is not a covariance matrix, and a projection of it miscalibrates the
-association tests. \code{blocks}
+association tests. With \code{random}, \code{E} also has each random term's
+covariance removed, and \code{random} holds those covariances (traits x
+traits, units of \code{Y}, assembled from the blocks like \code{E_bar} and
+projected onto the positive semi-definite cone). \code{blocks}
 holds the raw standardised-scale block fits. \code{G_draws} and \code{corrG_draws}
 (traits x traits x draws) carry the assembled block uncertainty, from
 the posterior draws of \code{"stanimal"} blocks or from the normal sampling

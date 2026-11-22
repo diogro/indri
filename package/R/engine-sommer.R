@@ -18,7 +18,9 @@
       # 4-trait blocks, each pair in at least one; see
       # .indri_engine_defaults()
       default_s = 3L,
-      default_cooccurrence = 1L
+      default_cooccurrence = 1L,
+      # extra random effects (fit_G(random = ))
+      random = TRUE
     ),
     fit = .indri_sommer_fit
   )
@@ -59,6 +61,11 @@
   if (length(covars)) {
     for (j in covars) long[[x_names[j]]] <- rep(X[, j], K)
   }
+  # extra random effects: one factor per term, each with its own trait
+  # covariance (fit_G(random = ))
+  extra <- control$random
+  extra_cols <- if (length(extra)) paste0("indri_r_", make.names(names(extra), unique = TRUE)) else character(0)
+  for (r in seq_along(extra)) long[[extra_cols[r]]] <- factor(rep(as.character(extra[[r]]), K))
 
   # A single trait is an ordinary univariate animal model: the formulas drop
   # the `trait` factor (and its usm() structure) altogether.
@@ -90,13 +97,16 @@
   init <- .indri_check_init(control$init, K)
   .env$G0 <- init$G
   .env$E0 <- init$E
+  extra_terms <- if (single) paste0(" + vsm(ism(", extra_cols, "))") else
+    paste0(" + vsm(usm(trait), ism(", extra_cols, "))")
+  extra_terms <- if (length(extra)) paste(extra_terms, collapse = "") else ""
   if (single) {
-    random <- stats::as.formula("~ vsm(ism(id), Gu = Ainv)", env = .env)
+    random <- stats::as.formula(paste0("~ vsm(ism(id), Gu = Ainv)", extra_terms), env = .env)
     rcov <- stats::as.formula("~ vsm(ism(record))", env = .env)
   } else {
     random <- stats::as.formula(paste0(
       "~ vsm(usm(trait", if (!is.null(init$G)) ", theta = G0", "), ism(id), ",
-      "Gu = Ainv)"), env = .env)
+      "Gu = Ainv)", extra_terms), env = .env)
     rcov <- stats::as.formula(paste0(
       "~ vsm(usm(trait", if (!is.null(init$E)) ", theta = E0", "), ",
       "ism(record))"), env = .env)
@@ -116,9 +126,13 @@
                       control = mmes_control)
   elapsed <- proc.time()[["elapsed"]] - started
 
-  # covmatrix_mmes() term 1 is the animal effect (G), term 2 the residual (E).
+  # covmatrix_mmes() term 1 is the animal effect (G), then the extra random
+  # terms, then the residual (E).
   G <- sommer::covmatrix_mmes(fit, 1, se = TRUE)
-  E <- sommer::covmatrix_mmes(fit, 2)
+  E <- sommer::covmatrix_mmes(fit, 2 + length(extra))
+  R_extra <- lapply(seq_along(extra), function(r)
+    as.matrix(sommer::covmatrix_mmes(fit, 1 + r, se = FALSE)$covariance))
+  names(R_extra) <- names(extra)
 
   vcov <- .indri_sommer_vcov(fit, traits, single)
 
@@ -136,6 +150,7 @@
   list(
     G = in_order(G$covariance),
     E = in_order(E$covariance),
+    random = if (length(extra)) lapply(R_extra, in_order),
     draws = NULL,
     se = in_order(G$covariance.se),
     vcov = vcov,
