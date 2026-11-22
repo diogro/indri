@@ -1184,6 +1184,8 @@ indri_effective_tests <- function(Y, X = NULL) {
 print.indri_gwas <- function(x, ...) {
   what <- if (x$mode == "multi_trait") "multi-trait" else "single-trait"
   cat("indri association scan:", what, toupper(x$model),
+      if (isTRUE(x$haplotypes))
+        sprintf("of founder haplotypes (%d founders)", length(x$founders)),
       if (isTRUE(x$dominance)) "with additive and dominance effects",
       if (!is.null(x$gxe_terms))
         paste0("with interactions with ", paste(x$gxe_terms, collapse = ", ")),

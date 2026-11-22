@@ -105,6 +105,7 @@ summary.indri_gwas <- function(object, n = 10L, ...) {
   df_test <- if (object$mode == "multi_trait") length(object$traits) else 1L
   df_test <- df_test * (1L + isTRUE(object$dominance) +
                           length(object$gxe_terms))
+  if (!is.null(object$df)) df_test <- object$df       # haplotype scans
   lambda <- function(p) {
     p <- p[!is.na(p)]
     stats::qchisq(stats::median(p), df_test, lower.tail = FALSE) /
