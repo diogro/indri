@@ -35,6 +35,8 @@ reference:
 - title: Genome scans
   contents:
   - indri_gwas
+  - indri_gemma
+  - indri_gemma_kinship
   - summary.indri_gwas
   - plot.indri_gwas
   - indri_effective_tests

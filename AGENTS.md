@@ -47,6 +47,7 @@ parallel blocks**: PSOCK workers load the installed package.
 | `package/R/gwas.R` | `indri_gwas()`: rotation, REML `delta`, dominance, permutations and q-values; `indri_effective_tests()` |
 | `package/R/gwas-methods.R` | `plot()` (ggplot2 Manhattan/QQ) and `summary()` for scans |
 | `package/R/locus_G.R` | `indri_locus_G()`: G and D from per-locus effects, frequencies and LD (Melo, Marroig and Wolf 2019) |
+| `package/R/gemma.R` | `indri_gemma()`: GEMMA LMM scans from R (BIMBAM files per run, LOCO), returned as `indri_gwas`; `indri_gemma_kinship()` |
 | `package/R/data.R`, `package/data-raw/lgsm.R` | the LG/SM F3 data sets and the script that builds them from `../mouseGrowthQTLs` |
 | `package/tests/testthat/fixtures/limmbo/` | limmbo's association results on its test data, with the script that made them |
 | `examples/` | studies and worked examples; see `examples/README.md` |
