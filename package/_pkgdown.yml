@@ -35,6 +35,7 @@ reference:
 - title: Genome scans
   contents:
   - indri_gwas
+  - indri_gwas_haplotypes
   - indri_gemma
   - indri_gemma_kinship
   - summary.indri_gwas

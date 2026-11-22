@@ -1,3 +1,19 @@
+# indri 0.6.0
+
+Founder haplotype scans.
+
+* `indri_gwas_haplotypes()` tests the founder dosages of multi-parent crosses
+  (advanced intercrosses, Diversity Outbred, MAGIC, heterogeneous stocks) at
+  each position jointly, in the multi-trait or single-trait LMM of
+  `indri_gwas()`: same rotation, REML variance ratio and fixed `G` and `E`,
+  with `F - 1` degrees of freedom per trait for `F` founders. It returns an
+  `indri_gwas` scan with the founder effects (centred on the mean founder) and
+  their spread per trait, so `plot()`, `summary()` and `as.data.frame()` work
+  on it. Checked against dense GLS references.
+
+* `summary()` of a scan uses the degrees of freedom of its test for the
+  genomic inflation factor.
+
 # indri 0.5.0
 
 GEMMA from R.
