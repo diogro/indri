@@ -1,3 +1,21 @@
+# indri 0.7.0
+
+G from founder haplotype effects.
+
+* `indri_locus_G()` takes multi-allelic loci: founder effects (an array, loci
+  by founders by traits, or an `indri_gwas_haplotypes()` scan) with the
+  founder dosages (`haplotypes`) or frequencies (`p`, loci by founders). A
+  locus contributes `beta' Cov(h) beta`, `2 sum_f p_f (beta_f - beta.)(beta_f
+  - beta.)'` under Hardy-Weinberg, which reduces to `2 p q alpha alpha'` for
+  two alleles; LD between loci comes from the cross-covariances of the
+  dosages.
+* `indri_locus_G()` also returns the genic and LD parts of `G` (`genic`,
+  `ld`) and each locus's contribution (`contributions`, traits by traits by
+  loci), and selects loci by name with `loci`.
+* Before, passing an `indri_gwas_haplotypes()` scan used the spread of the
+  founder effects as if it were a biallelic effect; it now uses the founder
+  effects.
+
 # indri 0.6.0
 
 Founder haplotype scans.

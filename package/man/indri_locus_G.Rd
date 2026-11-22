@@ -11,14 +11,18 @@ indri_locus_G(
   p = NULL,
   lambda = NULL,
   ld = TRUE,
-  traits_in = c("columns", "rows")
+  traits_in = c("columns", "rows"),
+  haplotypes = NULL,
+  loci = NULL
 )
 }
 \arguments{
 \item{a}{Additive effects, loci by traits (a matrix, a numeric data
 frame, or a data frame with one column of locus names; a vector for one
 trait), or an \code{indri_gwas} scan (whose \code{a}, and \code{d} with
-\code{dominance = TRUE}, are used). Loci without an estimate are dropped.}
+\code{dominance = TRUE}, are used). For multi-allelic loci, an array, loci by
+founders by traits, or an \code{\link[=indri_gwas_haplotypes]{indri_gwas_haplotypes()}} scan (whose
+\code{effects} are used). Loci without an estimate are dropped.}
 
 \item{d}{Dominance effects, in the same layout as \code{a}; \code{NULL} for none.}
 
@@ -26,7 +30,9 @@ trait), or an \code{indri_gwas} scan (whose \code{a}, and \code{d} with
 effects refer to, for the allele frequencies and the linkage
 disequilibrium. May have more loci than \code{a}.}
 
-\item{p}{Allele frequencies, one per locus, instead of \code{genotypes}.}
+\item{p}{Allele frequencies, one per locus, instead of \code{genotypes}; for
+multi-allelic loci, founder frequencies, loci by founders, instead of
+\code{haplotypes} (no LD).}
 
 \item{lambda}{Linkage disequilibrium between the loci (loci by loci; the
 diagonal is ignored), instead of the estimate from \code{genotypes}.}
@@ -36,10 +42,20 @@ sums).}
 
 \item{traits_in}{Where the traits are in \code{a} and \code{d}: \code{"columns"} (the
 default: one row per locus, one column per trait) or \code{"rows"}.}
+
+\item{haplotypes}{For multi-allelic loci: founder dosages, individuals by
+founders by loci (as for \code{\link[=indri_gwas_haplotypes]{indri_gwas_haplotypes()}}), for the founder
+frequencies and the LD. May have more loci than the effects.}
+
+\item{loci}{Names of the loci to use (for example the QTL of a scan);
+\code{NULL} for all.}
 }
 \value{
-A list with \code{G} and \code{D} (traits by traits), \code{alpha} (the average
-effects, loci by traits), \code{p} and \code{loci} (the loci used).
+A list with \code{G} and \code{D} (traits by traits), \code{genic} and \code{ld} (the
+two parts of \code{G}), \code{contributions} (traits by traits by loci, the genic
+term \code{C_j} of each locus), \code{p} and \code{loci} (the loci used), and \code{alpha}
+(the average effects, loci by traits) for biallelic loci or \code{effects}
+(loci by founders by traits) for multi-allelic loci.
 }
 \description{
 The additive (\code{G}) and dominance (\code{D}) covariance matrices of a set of
@@ -64,7 +80,34 @@ dominance effects \code{d_j} (vectors over the traits), the average effect is
 where \code{lambda_jx} is the linkage disequilibrium between loci \code{j} and \code{x}.
 From an unphased genotype matrix it is the composite estimate
 \code{lambda_jx = Cov(g_j, g_x) / 2} of the dosages.
+
+The first sum is the genic part of \code{G} (returned as \code{genic}, with each
+locus's term \verb{C_j = 2 p_j q_j alpha_j alpha_j'} in \code{contributions}); the
+second is the part due to linkage disequilibrium (\code{ld}).
 }
+\section{Multi-allelic loci (founder haplotypes)}{
+
+For loci with more than two alleles, such as the founder haplotypes of a
+multi-parent cross, give the effects as an array, loci by founders by traits
+(\code{beta_jf}, the effect of one copy of founder \code{f}'s haplotype at locus \code{j}),
+or an \code{\link[=indri_gwas_haplotypes]{indri_gwas_haplotypes()}} scan, together with the founder dosages
+(\code{haplotypes}, individuals by founders by loci) or the founder frequencies
+(\code{p}, loci by founders). With \code{h_j} the dosages at locus \code{j},
+\itemize{
+\item \verb{G = sum_j beta_j' Cov(h_j) beta_j + sum_\{j != x\} beta_j' Cov(h_j, h_x) beta_x}.
+}
+
+The genic term uses the Hardy-Weinberg covariance of the dosages,
+\verb{Cov(h_j) = 2 (diag(p_j) - p_j p_j')}, so a locus contributes
+\verb{C_j = 2 sum_f p_jf (beta_jf - beta_j.)(beta_jf - beta_j.)'}, with
+\verb{beta_j. = sum_f p_jf beta_jf} the mean effect (with two alleles this is
+\verb{2 p q alpha alpha'}). The LD term uses the cross-covariances of the
+dosages, \code{Cov(h_j, h_x)}, estimated from \code{haplotypes}. Effects can be
+centred in any way: adding a constant to every founder's effect changes
+nothing. A locus contributes up to \code{F - 1} directions of variation, one for
+each eigenvector of \code{C_j}. Dominance is not available for these loci.
+}
+
 \section{Conventions for effects from other software}{
 
 The formulas assume one convention for the effects; estimates from other
@@ -103,6 +146,10 @@ is named.
 # one locus with effects on three traits
 indri_locus_G(matrix(c(0.5, -0.2, 0.1), 1), d = matrix(c(0.3, 0, 0), 1),
               p = 0.4)$G
+# a locus with three founder alleles and two traits: founder 1 raises
+# trait 1, founder 3 lowers trait 2
+b <- array(c(1, 0, 0, 0, 0, -1), c(1, 3, 2))
+indri_locus_G(b, p = matrix(c(0.2, 0.5, 0.3), 1))$G
 }
 \references{
 Melo, D., Marroig, G. and Wolf, J. B. (2019). Genomic

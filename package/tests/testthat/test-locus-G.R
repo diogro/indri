@@ -206,3 +206,82 @@ test_that("d, p and lambda are matched to the loci by name", {
   names(p_wrong)[1] <- "nope"
   expect_error(indri_locus_G(x$a, p = p_wrong), "`p`")
 })
+
+# ---- per-locus contributions and multi-allelic (founder) loci ---------------
+
+test_that("biallelic contributions add up to the genic part, and G = genic + ld", {
+  set.seed(11)
+  g <- matrix(rbinom(300 * 4, 2, 0.4), 300, 4, dimnames = list(NULL, paste0("s", 1:4)))
+  g[, 2] <- pmin(2, g[, 1] + rbinom(300, 1, 0.2))                    # LD with s1
+  a <- matrix(rnorm(8), 4, 2, dimnames = list(paste0("s", 1:4), c("t1", "t2")))
+  r <- indri_locus_G(a, genotypes = g)
+  expect_equal(apply(r$contributions, c(1, 2), sum), r$genic)
+  expect_equal(r$G, r$genic + r$ld)
+  expect_gt(max(abs(r$ld)), 0)
+  expect_equal(indri_locus_G(a, genotypes = g, ld = FALSE)$G, r$genic)
+  expect_equal(dimnames(r$contributions)[[3]], rownames(a))
+  sub <- indri_locus_G(a, genotypes = g, loci = c("s1", "s3"))
+  expect_equal(sub$loci, c("s1", "s3"))
+})
+
+test_that("two founders give the biallelic G, LD included", {
+  set.seed(12)
+  g <- matrix(rbinom(400 * 3, 2, 0.3), 400, 3, dimnames = list(NULL, c("l1", "l2", "l3")))
+  g[, 3] <- pmin(2, g[, 2] + rbinom(400, 1, 0.3))
+  H <- array(0, c(400, 2, 3), dimnames = list(NULL, c("A", "B"), colnames(g)))
+  H[, "A", ] <- g; H[, "B", ] <- 2 - g
+  beta <- array(rnorm(3 * 2 * 2), c(3, 2, 2), dimnames = list(colnames(g), c("A", "B"), c("t1", "t2")))
+  alpha <- beta[, "A", ] - beta[, "B", ]
+  bi <- indri_locus_G(alpha, genotypes = g)
+  fo <- indri_locus_G(beta, haplotypes = H)
+  expect_equal(fo$G, bi$G)
+  expect_equal(fo$genic, bi$genic)
+  expect_equal(unname(fo$contributions), unname(bi$contributions))
+  # adding a constant to every founder's effect changes nothing
+  shifted <- beta; for (j in 1:3) shifted[j, , ] <- sweep(beta[j, , ], 2, rnorm(2), "+")
+  expect_equal(indri_locus_G(shifted, haplotypes = H)$G, fo$G)
+})
+
+test_that("founder G matches the variance of genotypic values in a large sample", {
+  set.seed(13)
+  N <- 20000; Fn <- 4; M <- 3
+  p <- rbind(c(0.1, 0.2, 0.3, 0.4), c(0.25, 0.25, 0.25, 0.25), c(0.5, 0.3, 0.1, 0.1))
+  H <- array(0, c(N, Fn, M), dimnames = list(NULL, paste0("F", 1:Fn), paste0("q", 1:M)))
+  for (m in 1:M) for (k in 1:2) {
+    f <- sample(Fn, N, replace = TRUE, prob = p[m, ])
+    H[cbind(seq_len(N), f, m)] <- H[cbind(seq_len(N), f, m)] + 1
+  }
+  beta <- array(rnorm(M * Fn * 3), c(M, Fn, 3), dimnames = list(paste0("q", 1:M), paste0("F", 1:Fn), paste0("t", 1:3)))
+  x <- Reduce(`+`, lapply(1:M, function(m) H[, , m] %*% beta[m, , ]))
+  r <- indri_locus_G(beta, haplotypes = H)
+  # the genic part uses the Hardy-Weinberg covariance of the dosages, the LD
+  # part the sample cross-covariances: close to the sample variance
+  expect_equal(unname(r$G), unname(cov(x)), tolerance = 0.02)
+  expect_equal(unname(r$genic), unname(cov(x)), tolerance = 0.05)    # loci independent: genic ~ G
+  # the known frequencies give the same genic part
+  dimnames(p) <- list(paste0("q", 1:M), paste0("F", 1:Fn))
+  expect_equal(indri_locus_G(beta, p = p)$G, r$genic, tolerance = 0.05)
+  # each contribution is 2 sum_f p_f (b_f - bbar)(b_f - bbar)'
+  b <- beta[2, , ]; bbar <- colSums(p[2, ] * b)
+  C2 <- 2 * crossprod(sweep(b, 2, bbar) * sqrt(p[2, ]))
+  expect_equal(unname(indri_locus_G(beta, p = p)$contributions[, , 2]), unname(C2))
+})
+
+test_that("a founder haplotype scan goes straight in, and inputs are checked", {
+  set.seed(14)
+  N <- 80; Fn <- 3; M <- 5
+  H <- array(0, c(N, Fn, M), dimnames = list(paste0("i", 1:N), paste0("F", 1:Fn), paste0("pos", 1:M)))
+  for (m in 1:M) for (i in 1:N) { a <- sample(Fn, 2, TRUE); H[i, a[1], m] <- H[i, a[1], m] + 1; H[i, a[2], m] <- H[i, a[2], m] + 1 }
+  A <- diag(N); dimnames(A) <- list(dimnames(H)[[1]], dimnames(H)[[1]])
+  Y <- matrix(rnorm(N * 2), N, 2, dimnames = list(dimnames(H)[[1]], c("t1", "t2"))) + H[, , 2] %*% matrix(c(1, 0, -1, 0, 1, 0), 3)
+  G0 <- diag(2) * 0.1; E0 <- diag(2); dimnames(G0) <- dimnames(E0) <- list(c("t1", "t2"), c("t1", "t2"))
+  s <- indri_gwas_haplotypes(Y, H, G = G0, E = E0, A = A, delta = 1)
+  r <- indri_locus_G(s, haplotypes = H, loci = c("pos2", "pos4"))
+  expect_equal(r$loci, c("pos2", "pos4"))
+  expect_equal(dim(r$contributions), c(2L, 2L, 2L))
+  expect_gt(sum(diag(r$contributions[, , "pos2"])), sum(diag(r$contributions[, , "pos4"])))
+  expect_error(indri_locus_G(s), "haplotypes")
+  expect_error(indri_locus_G(s$effects, d = s$effects, haplotypes = H), "Dominance")
+  expect_error(indri_locus_G(matrix(1, 2, 2), haplotypes = H), "founder")
+  expect_error(indri_locus_G(s, p = matrix(0.5, 2, 2)), "loci by founders")
+})

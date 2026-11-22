@@ -22,6 +22,30 @@
 #' From an unphased genotype matrix it is the composite estimate
 #' `lambda_jx = Cov(g_j, g_x) / 2` of the dosages.
 #'
+#' The first sum is the genic part of `G` (returned as `genic`, with each
+#' locus's term `C_j = 2 p_j q_j alpha_j alpha_j'` in `contributions`); the
+#' second is the part due to linkage disequilibrium (`ld`).
+#'
+#' @section Multi-allelic loci (founder haplotypes):
+#' For loci with more than two alleles, such as the founder haplotypes of a
+#' multi-parent cross, give the effects as an array, loci by founders by traits
+#' (`beta_jf`, the effect of one copy of founder `f`'s haplotype at locus `j`),
+#' or an [indri_gwas_haplotypes()] scan, together with the founder dosages
+#' (`haplotypes`, individuals by founders by loci) or the founder frequencies
+#' (`p`, loci by founders). With `h_j` the dosages at locus `j`,
+#'
+#' * `G = sum_j beta_j' Cov(h_j) beta_j + sum_{j != x} beta_j' Cov(h_j, h_x) beta_x`.
+#'
+#' The genic term uses the Hardy-Weinberg covariance of the dosages,
+#' `Cov(h_j) = 2 (diag(p_j) - p_j p_j')`, so a locus contributes
+#' `C_j = 2 sum_f p_jf (beta_jf - beta_j.)(beta_jf - beta_j.)'`, with
+#' `beta_j. = sum_f p_jf beta_jf` the mean effect (with two alleles this is
+#' `2 p q alpha alpha'`). The LD term uses the cross-covariances of the
+#' dosages, `Cov(h_j, h_x)`, estimated from `haplotypes`. Effects can be
+#' centred in any way: adding a constant to every founder's effect changes
+#' nothing. A locus contributes up to `F - 1` directions of variation, one for
+#' each eigenvector of `C_j`. Dominance is not available for these loci.
+#'
 #' @section Conventions for effects from other software:
 #' The formulas assume one convention for the effects; estimates from other
 #' packages have to be put on it, or `G` and `D` are wrong without any error.
@@ -56,20 +80,32 @@
 #' @param a Additive effects, loci by traits (a matrix, a numeric data
 #'   frame, or a data frame with one column of locus names; a vector for one
 #'   trait), or an `indri_gwas` scan (whose `a`, and `d` with
-#'   `dominance = TRUE`, are used). Loci without an estimate are dropped.
+#'   `dominance = TRUE`, are used). For multi-allelic loci, an array, loci by
+#'   founders by traits, or an [indri_gwas_haplotypes()] scan (whose
+#'   `effects` are used). Loci without an estimate are dropped.
 #' @param d Dominance effects, in the same layout as `a`; `NULL` for none.
 #' @param genotypes Individuals by loci, 0/1/2 dosages of the allele the
 #'   effects refer to, for the allele frequencies and the linkage
 #'   disequilibrium. May have more loci than `a`.
-#' @param p Allele frequencies, one per locus, instead of `genotypes`.
+#' @param p Allele frequencies, one per locus, instead of `genotypes`; for
+#'   multi-allelic loci, founder frequencies, loci by founders, instead of
+#'   `haplotypes` (no LD).
+#' @param haplotypes For multi-allelic loci: founder dosages, individuals by
+#'   founders by loci (as for [indri_gwas_haplotypes()]), for the founder
+#'   frequencies and the LD. May have more loci than the effects.
+#' @param loci Names of the loci to use (for example the QTL of a scan);
+#'   `NULL` for all.
 #' @param lambda Linkage disequilibrium between the loci (loci by loci; the
 #'   diagonal is ignored), instead of the estimate from `genotypes`.
 #' @param ld If `FALSE`, ignore linkage disequilibrium (only the per-locus
 #'   sums).
 #' @param traits_in Where the traits are in `a` and `d`: `"columns"` (the
 #'   default: one row per locus, one column per trait) or `"rows"`.
-#' @return A list with `G` and `D` (traits by traits), `alpha` (the average
-#'   effects, loci by traits), `p` and `loci` (the loci used).
+#' @return A list with `G` and `D` (traits by traits), `genic` and `ld` (the
+#'   two parts of `G`), `contributions` (traits by traits by loci, the genic
+#'   term `C_j` of each locus), `p` and `loci` (the loci used), and `alpha`
+#'   (the average effects, loci by traits) for biallelic loci or `effects`
+#'   (loci by founders by traits) for multi-allelic loci.
 #' @references Melo, D., Marroig, G. and Wolf, J. B. (2019). Genomic
 #'   perspective on multivariate variation, pleiotropy, and evolution.
 #'   Journal of Heredity 110, 479-493. \doi{10.1093/jhered/esz011}
@@ -78,17 +114,39 @@
 #' # one locus with effects on three traits
 #' indri_locus_G(matrix(c(0.5, -0.2, 0.1), 1), d = matrix(c(0.3, 0, 0), 1),
 #'               p = 0.4)$G
+#' # a locus with three founder alleles and two traits: founder 1 raises
+#' # trait 1, founder 3 lowers trait 2
+#' b <- array(c(1, 0, 0, 0, 0, -1), c(1, 3, 2))
+#' indri_locus_G(b, p = matrix(c(0.2, 0.5, 0.3), 1))$G
 #' @export
 indri_locus_G <- function(a, d = NULL, genotypes = NULL, p = NULL,
                           lambda = NULL, ld = TRUE,
-                          traits_in = c("columns", "rows")) {
+                          traits_in = c("columns", "rows"),
+                          haplotypes = NULL, loci = NULL) {
   traits_in <- match.arg(traits_in)
+  if (inherits(a, "indri_gwas") && isTRUE(a$haplotypes)) a <- a$effects
+  if (is.array(a) && length(dim(a)) == 3L) {
+    if (!is.null(d)) stop("Dominance is not available for multi-allelic loci.", call. = FALSE)
+    return(.indri_locus_G_founders(a, haplotypes, p, ld, loci))
+  }
+  if (!is.null(haplotypes))
+    stop("`haplotypes` needs effects for each founder: an array, loci by ",
+         "founders by traits, or an indri_gwas_haplotypes() scan.", call. = FALSE)
   if (inherits(a, "indri_gwas")) {
     scan <- a
     a <- scan$a
     d <- if (isTRUE(scan$dominance)) scan$d else NULL
   }
   a <- .indri_effects(a, "a", traits_in)
+  if (!is.null(loci)) {
+    if (is.null(rownames(a))) stop("`loci` needs named effects.", call. = FALSE)
+    miss <- setdiff(loci, rownames(a))
+    if (length(miss)) stop("`loci` not in the effects: ", paste(utils::head(miss, 5L), collapse = ", "),
+                           call. = FALSE)
+    a <- a[loci, , drop = FALSE]
+    if (!is.null(d) && !is.null(rownames(.indri_effects(d, "d", traits_in))))
+      d <- .indri_effects(d, "d", traits_in)[loci, , drop = FALSE]
+  }
   d <- if (is.null(d)) NULL else .indri_effects(d, "d", traits_in)
   a_named <- !is.null(rownames(a))
   M <- nrow(a)
@@ -156,6 +214,10 @@ indri_locus_G <- function(a, d = NULL, genotypes = NULL, p = NULL,
   S <- 2 * lambda
   diag(S) <- het
   G <- crossprod(alpha, S %*% alpha)
+  genic <- crossprod(alpha * het, alpha)
+  contributions <- array(vapply(seq_len(nrow(alpha)), function(j)
+    het[j] * tcrossprod(alpha[j, ]), matrix(0, ncol(a), ncol(a))),
+    c(ncol(a), ncol(a), nrow(alpha)))
   D <- if (is.null(d)) {
     matrix(0, ncol(a), ncol(a))
   } else {
@@ -166,9 +228,104 @@ indri_locus_G <- function(a, d = NULL, genotypes = NULL, p = NULL,
   traits <- colnames(a)
   G <- (G + t(G)) / 2
   D <- (D + t(D)) / 2
-  dimnames(G) <- dimnames(D) <- list(traits, traits)
-  list(G = G, D = D, alpha = alpha,
-       p = stats::setNames(p, rownames(a)), loci = rownames(a))
+  genic <- (genic + t(genic)) / 2
+  dimnames(G) <- dimnames(D) <- dimnames(genic) <- list(traits, traits)
+  dimnames(contributions) <- list(traits, traits, rownames(a))
+  list(G = G, D = D, genic = genic, ld = G - genic, contributions = contributions,
+       alpha = alpha, p = stats::setNames(p, rownames(a)), loci = rownames(a))
+}
+
+# G from multi-allelic loci: effects loci x founders x traits; founder
+# dosages (individuals x founders x loci) or founder frequencies (loci x
+# founders).
+.indri_locus_G_founders <- function(effects, haplotypes, p, ld, loci) {
+  if (!is.numeric(effects)) stop("Founder effects must be numeric.", call. = FALSE)
+  M <- dim(effects)[1]; Fn <- dim(effects)[2]; P <- dim(effects)[3]
+  dn <- dimnames(effects)
+  locus_names <- dn[[1]] %||% paste0("locus", seq_len(M))
+  founders <- dn[[2]]
+  traits <- dn[[3]]
+  dimnames(effects) <- list(locus_names, founders, traits)
+  if (!is.null(loci)) {
+    miss <- setdiff(loci, locus_names)
+    if (length(miss)) stop("`loci` not in the effects: ", paste(utils::head(miss, 5L), collapse = ", "),
+                           call. = FALSE)
+    effects <- effects[loci, , , drop = FALSE]
+    locus_names <- loci
+  }
+  keep <- apply(effects, 1, function(b) all(is.finite(b)))
+  if (!all(keep)) {
+    message(sum(!keep), ngettext(sum(!keep), " locus", " loci"),
+            " without estimated effects dropped: ",
+            paste(utils::head(locus_names[!keep], 5L), collapse = ", "))
+    effects <- effects[keep, , , drop = FALSE]
+    locus_names <- locus_names[keep]
+  }
+  M <- length(locus_names)
+
+  if (!is.null(haplotypes)) {
+    if (!is.array(haplotypes) || length(dim(haplotypes)) != 3L)
+      stop("`haplotypes` must be an array, individuals by founders by loci.", call. = FALSE)
+    if (dim(haplotypes)[2] != Fn)
+      stop("`haplotypes` has ", dim(haplotypes)[2], " founders, the effects ", Fn, ".", call. = FALSE)
+    hf <- dimnames(haplotypes)[[2]]
+    if (!is.null(founders) && !is.null(hf)) {
+      if (!setequal(founders, hf))
+        stop("The founders of `haplotypes` and of the effects differ.", call. = FALSE)
+      haplotypes <- haplotypes[, founders, , drop = FALSE]
+    }
+    hl <- dimnames(haplotypes)[[3]]
+    if (!is.null(hl) && !is.null(dn[[1]])) {
+      miss <- setdiff(locus_names, hl)
+      if (length(miss))
+        stop("`haplotypes` has no position for ", length(miss), ngettext(length(miss), " locus", " loci"),
+             " of the effects: ", paste(utils::head(miss, 5L), collapse = ", "), call. = FALSE)
+      haplotypes <- haplotypes[, , locus_names, drop = FALSE]
+    } else if (dim(haplotypes)[3] != M) {
+      stop("`haplotypes` must have one position per locus of the effects (", M, ").", call. = FALSE)
+    }
+    freq <- t(apply(haplotypes, c(2, 3), mean, na.rm = TRUE) / 2)    # loci x founders
+  } else if (!is.null(p)) {
+    freq <- as.matrix(p)
+    if (!is.null(rownames(freq)) && !is.null(dn[[1]])) freq <- freq[locus_names, , drop = FALSE]
+    if (!is.null(founders) && !is.null(colnames(freq))) freq <- freq[, founders, drop = FALSE]
+    if (!identical(dim(freq), c(M, Fn)))
+      stop("`p` must be loci by founders (", M, " x ", Fn, ").", call. = FALSE)
+  } else {
+    stop("Give the founder dosages `haplotypes` or the founder frequencies `p`.", call. = FALSE)
+  }
+  if (any(!is.finite(freq)) || any(freq < 0))
+    stop("Founder frequencies must be non-negative.", call. = FALSE)
+  freq <- freq / rowSums(freq)
+
+  contributions <- array(0, c(P, P, M), dimnames = list(traits, traits, locus_names))
+  for (j in seq_len(M)) {
+    b <- matrix(effects[j, , ], Fn, P)
+    S <- 2 * (diag(freq[j, ], Fn) - tcrossprod(freq[j, ]))
+    contributions[, , j] <- crossprod(b, S %*% b)
+  }
+  genic <- apply(contributions, c(1, 2), sum)
+  ldm <- matrix(0, P, P)
+  if (ld && !is.null(haplotypes) && M > 1L) {
+    # cross terms: beta_j' Cov(h_j, h_x) beta_x, from the centred dosage
+    # contribution of each locus to each individual's genotypic value
+    vals <- vapply(seq_len(M), function(j) {
+      h <- matrix(haplotypes[, , j], dim(haplotypes)[1], Fn)
+      h <- sweep(h, 2, colMeans(h, na.rm = TRUE))
+      h[is.na(h)] <- 0
+      h %*% matrix(effects[j, , ], Fn, P)
+    }, matrix(0, dim(haplotypes)[1], P))                    # individuals x traits x loci
+    N <- dim(vals)[1]
+    total <- crossprod(matrix(apply(vals, c(1, 2), sum), N, P)) / (N - 1)
+    within <- Reduce(`+`, lapply(seq_len(M), function(j) crossprod(matrix(vals[, , j], N, P)) / (N - 1)))
+    ldm <- total - within
+  }
+  G <- genic + ldm
+  G <- (G + t(G)) / 2
+  dimnames(G) <- dimnames(genic) <- dimnames(ldm) <- list(traits, traits)
+  list(G = G, D = matrix(0, P, P, dimnames = list(traits, traits)), genic = genic, ld = ldm,
+       contributions = contributions, effects = effects,
+       p = freq, loci = locus_names)
 }
 
 # Effects as a numeric matrix, loci by traits. A data frame may carry one
