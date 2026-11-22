@@ -1,3 +1,21 @@
+# indri 0.5.0
+
+GEMMA from R.
+
+* `indri_gemma()` runs GEMMA's linear mixed model association tests from R:
+  multi-trait (one joint test per SNP) or per trait, with the Wald, likelihood
+  ratio or score test, and optionally with leave-one-chromosome-out (LOCO)
+  relationship matrices. Each run writes its own files, so runs in parallel
+  cannot read each other's results. The scan is returned as an `indri_gwas`
+  object, so `summary()`, `plot()`, `as.data.frame()` and `indri_locus_G()`
+  work on it, with GEMMA's null-model REML `Vg` and `Ve` for each run. Point
+  indri at the program with `options(indri.gemma = <path>)`, `gemma = <path>`
+  or the PATH. It replaces the GEMMA wrappers of the AtchleyMice package.
+
+* `indri_gemma_kinship()` gives GEMMA's centred genomic relationship matrix
+  (`-gk 1`) and the exact LOCO matrices, computed once from per-chromosome
+  parts.
+
 # indri 0.4.0
 
 Genotype-by-environment scans, environment-specific genetic covariance

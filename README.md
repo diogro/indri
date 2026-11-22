@@ -18,7 +18,7 @@ covariance of `Y` after `X` minus `G`), then drives **genome-wide association sc
 across all the traits, or trait-by-trait tests, in a linear mixed model, with
 optional dominance effects (`indri_gwas()`, [below](#association-scans)).
 
-> **Status (0.4.0):** working and validated on simulations of up to 35 traits;
+> **Status (0.5.0):** working and validated on simulations of up to 35 traits;
 > association scans calibrated at 10 and 30 traits; genotype-by-environment
 > scans (experimental) mildly conservative.
 > The assembled `G` is as accurate as the full model where the full model can
@@ -123,6 +123,10 @@ single <- indri_gwas(Y, genotypes, A = A, X = X, mode = "single_trait",
 
 # additive and dominance effects
 dom <- indri_gwas(Y, genotypes, fit = fit, A = A, X = X, dominance = TRUE)
+
+# the same multi-trait scan run by GEMMA, with LOCO relationship matrices
+# (needs the GEMMA program; options(indri.gemma = <path>))
+gm <- indri_gemma(Y, genotypes, X = X, snp_info = snp_info, loco = TRUE)
 ```
 
 `genotypes` is an individuals × SNPs matrix (typically 0/1/2); samples are

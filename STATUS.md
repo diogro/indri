@@ -7,7 +7,7 @@ where the work stands, what has been measured, and what to do next.
 
 | repo | branch | remote | state |
 |---|---|---|---|
-| `indri` | `main` | `diogro/indri` (public; vignettes at <https://diogro.github.io/indri/>) | **0.4.0**: four engines (stanimal, sommer, asreml, wombat), uncertainty for all of them, `G` and `E` in the units of `Y`; `indri_gwas()` (multi- and single-trait, dominance, GxE, permutations, plots); `fit_G_env()` (experimental); the LG/SM F3 data and vignettes |
+| `indri` | `main` | `diogro/indri` (public; vignettes at <https://diogro.github.io/indri/>) | **0.5.0**: four engines (stanimal, sommer, asreml, wombat), uncertainty for all of them, `G` and `E` in the units of `Y`; `indri_gwas()` (multi- and single-trait, dominance, GxE, permutations, plots); `indri_gemma()` (GEMMA from R, LOCO); `fit_G_env()` (experimental); the LG/SM F3 data and vignettes |
 | `stanimal` | `master` | `diogro/stanimal` | **0.8.1** (`eigen_A`, CmdStan output fix); Laplace labels on `master` as development, unreleased |
 | `limmbo` | `indri-session-fixes` | `diogro/limmbo` (fork of `meyer-lab-cshl/limmbo`) | pipeline fixes and a pixi environment; reference only |
 
@@ -372,6 +372,12 @@ Same populations and scenarios (20 seeds, "none" = cross-sex r_G 1,
 
 ## Changes and fixes
 
+- **indri 0.5.0:** `indri_gemma()` runs GEMMA's LMM association tests
+  (multi-trait or per trait, Wald, LRT or score, optional LOCO) and returns
+  an `indri_gwas` scan; `indri_gemma_kinship()` gives GEMMA's centred
+  relationship matrices and exact LOCO matrices. They replace the GEMMA
+  wrappers of AtchleyMice, which shared one output folder between parallel
+  LOCO runs. Tests skip without the GEMMA program.
 - **indri 0.4.0:** `fit_G_env()` and `indri_gwas(gxe = )`, the wombat
   engine, and trait-paired subsets as `fit_G_env()`'s default. Nothing
   returned by 0.3.0 changed.

@@ -20,6 +20,7 @@ genetic association studies. bioRxiv, preprint.
 \seealso{
 Useful links:
 \itemize{
+  \item \url{https://diogro.github.io/indri/}
   \item \url{https://github.com/diogro/indri}
   \item Report bugs at \url{https://github.com/diogro/indri/issues}
 }
