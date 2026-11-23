@@ -255,3 +255,23 @@ simulate_env_gwas <- function(n_fam = 12, size = 5, P = 2L, M = 5L,
   list(Y = Y, X = X, A = A, env = env, Gs = Gs, Es = Es, geno = geno,
        fit = fit, N = N, P = P, M = M)
 }
+
+# Multi-trait test with extra random effects: V = G (x) A + sum_r C_r (x) Z_r Z_r'
+# + delta E (x) I, for a marker term H (N x K, trait-specific effects). With
+# P = 1 and 1 x 1 matrices it is the single-trait test.
+dense_random <- function(Y, X, H, G, E, A, Zs, Cs, delta = NULL) {
+  N <- nrow(Y); P <- ncol(Y)
+  base <- kronecker(G, A) + Reduce(`+`, Map(function(Z, C) kronecker(C, tcrossprod(Z)), Zs, Cs))
+  V_of <- function(d) base + d * kronecker(E, diag(N))
+  D0 <- kronecker(diag(P), X)
+  if (is.null(delta)) delta <- dense_delta(c(Y), D0, V_of)
+  Vi <- solve(V_of(delta))
+  D1 <- cbind(D0, kronecker(diag(P), H))
+  f0 <- dense_gls(c(Y), D0, Vi)
+  f1 <- dense_gls(c(Y), D1, Vi)
+  stat <- N * P * log(f0$q / f1$q)
+  list(p = stats::pchisq(stat, P * ncol(H), lower.tail = FALSE),
+       beta = matrix(utils::tail(f1$beta, P * ncol(H)), ncol(H), P), delta = delta)
+}
+
+incidence <- function(f) outer(f, sort(unique(f)), "==") * 1

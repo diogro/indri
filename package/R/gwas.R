@@ -68,6 +68,37 @@
 #' cubic in the number of individuals times traits for a dense `A`. `delta`
 #' is fitted by REML as usual; `single_trait_variance` does not apply.
 #'
+#' @section Extra random effects:
+#' With `random`, the covariance of the traits has random terms next to the
+#' polygenic one, such as a litter, nurse or cage:
+#' `V = G (x) A + sum_r C_r (x) Z_r Z_r' + delta E (x) I`, with `Z_r` the
+#' incidence matrix of term `r` and `C_r` its trait covariance (from
+#' `fit$random` of [fit_G()] with the same `random`, or `random_cov`). A
+#' shared environment that is not modelled is taken for relatedness, and
+#' fitting it as fixed effects instead can cost much of the information: when
+#' each level is one family (whole litters cross-fostered, or kept with their
+#' mother), the dummies absorb the family means, and with them about half of
+#' the genotype variance, so the test only uses segregation within families.
+#'
+#' The scan keeps the rotation by the eigenvectors of `A` and the whitening of
+#' `G` relative to `E`, and adds the random terms as a low-rank update of
+#' width `P sum_r L_r` (`L_r` levels) through the Woodbury identity, so it
+#' never forms the `NP x NP` covariance: each SNP costs `O(N P sum_r L_r)` on
+#' top of the rotation, and each REML evaluation of `delta` one Cholesky
+#' factorisation of a matrix of that width. `G`, `C_r` and `E` set the shape
+#' of `V`; `delta` scales `E` (fitted by REML under the null as usual, or
+#' given) and the overall scale is profiled, as in the other scans. With
+#' `mode = "single_trait"` each trait uses its own entries of `G`, `E` and
+#' `C_r`, and `delta` again scales `E` (1 keeps the fitted ratios, which is
+#' what `single_trait_variance = "fit"` does), unlike the scan without
+#' random effects, where it is `E / G`. Not yet available with `dominance`,
+#' `gxe`, permutations, `fdr` or an environment-specific `fit`.
+#'
+#' The variance components are those of the null model, held fixed for every
+#' SNP (as EMMAX and GEMMA's approximate tests do); estimate them with the
+#' same random terms (`fit_G(random = )`, or another REML program) so that
+#' `delta` stays near 1.
+#'
 #' @section Permutations:
 #' With `n_permutations > 0` the genotype rows are permuted across
 #' individuals and the scan rerun, keeping the null variance ratio of the
@@ -144,6 +175,13 @@
 #' @param cores Number of processes for the permuted scans (forked; one on
 #'   Windows).
 #' @param chunk_size Number of SNPs rotated at a time.
+#' @param random Optional extra random effects: a named list of factors (or
+#'   vectors), one value per individual in the order of `Y`, such as
+#'   `list(nurse = nurse_id)`. Missing values count as unshared levels. See
+#'   the Extra random effects section.
+#' @param random_cov Named list with the trait covariance of each term of
+#'   `random` (traits x traits, in the units of `Y`, matched by name); by
+#'   default `fit$random`.
 #'
 #' @return An object of class `indri_gwas`: `pvalues` (a vector over SNPs,
 #'   or SNPs by traits), `a` (the additive effects, SNPs by traits, in the
@@ -156,6 +194,8 @@
 #'   With `gxe`, also `pvalues_gxe`, `gxe` (SNPs by traits by environments),
 #'   `gxe_estimable` and `gxe_terms`; `pvalues_adjust` then adjusts the joint
 #'   test.
+#'   With `random`, also `random_terms` (the names of the terms), and
+#'   `delta` is the multiplier of `E` (see that section).
 #'   With permutations, `pvalues_empirical`, `qvalues_empirical` and
 #'   `n_permutations`, and with `fdr`, `fdr` and `fdr_threshold`.
 #' @seealso [fit_G()], [indri_effective_tests()]
@@ -173,7 +213,8 @@ indri_gwas <- function(Y, genotypes, fit = NULL, G = NULL, E = NULL, A = NULL,
                        delta = NULL, dominance = FALSE, gxe = NULL,
                        adjust = c("none", "bonferroni", "effective"),
                        n_permutations = 0L, fdr = NULL, seed = NULL,
-                       cores = 1L, chunk_size = 1000L) {
+                       cores = 1L, chunk_size = 1000L,
+                       random = NULL, random_cov = NULL) {
   call <- match.call()
   mode <- match.arg(mode)
   model <- match.arg(model)
@@ -330,6 +371,42 @@ indri_gwas <- function(Y, genotypes, fit = NULL, G = NULL, E = NULL, A = NULL,
             paste(utils::head(colnames(genotypes)[monomorphic], 5L),
                   collapse = ", "),
             if (sum(monomorphic) > 5L) ", ...", call. = FALSE)
+
+  if (!is.null(random)) {
+    if (model != "lmm")
+      stop("Extra random effects (`random`) need model = \"lmm\".", call. = FALSE)
+    if (!is.null(env_fit))
+      stop("Extra random effects (`random`) cannot be combined with an ",
+           "environment-specific fit (fit_G_env()).", call. = FALSE)
+    if (dominance || !is.null(gxe) || n_permutations > 0L)
+      stop("Extra random effects (`random`) are not available with `dominance`, ",
+           "`gxe`, permutations or `fdr` yet.", call. = FALSE)
+    if (is.null(G) || is.null(E))
+      stop("Extra random effects (`random`) need `G` and `E` (or an indri `fit`), ",
+           "in both modes: they set the variance of each term relative to the ",
+           "polygenic background.", call. = FALSE)
+    terms <- .indri_gwas_random_terms(random, random_cov %||% fit$random, traits, N)
+    rs <- .indri_gwas_random(Y, X, G, E, terms, A, mode, delta, single_trait_variance,
+                             terms_of = function(idx) list(genotypes[, idx, drop = FALSE]),
+                             M = M, K = 1L, chunk_size = chunk_size, skip = monomorphic)
+    pvalues <- stats::pchisq(rs$stat, rs$df, lower.tail = FALSE)
+    betas <- matrix(rs$coef[, 1, ], M, P, dimnames = list(colnames(genotypes), traits))
+    if (mode == "multi_trait") {
+      names(pvalues) <- colnames(genotypes)
+    } else {
+      pvalues <- matrix(pvalues, M, P, dimnames = list(colnames(genotypes), traits))
+    }
+    out <- list(pvalues = pvalues, a = betas, delta = rs$delta,
+                pvalues_adjust = NULL, n_tests = NULL, snp_info = snp_info,
+                dominance = FALSE, gxe_terms = NULL, background = "kronecker",
+                random_terms = names(terms), mode = mode, model = model,
+                n_individuals = N, traits = traits, call = call)
+    if (adjust != "none") {
+      out$n_tests <- if (adjust == "bonferroni") P else indri_effective_tests(Y, X)
+      out$pvalues_adjust <- pmin(pvalues * out$n_tests, 1)
+    }
+    return(structure(out, class = "indri_gwas"))
+  }
 
   run_scan <- function(genotypes, dom, delta) {
     if (!is.null(env_fit)) {

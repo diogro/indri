@@ -12,8 +12,9 @@
 #' @param haplotypes Numeric array, individuals by founders by positions, of
 #'   founder dosages (each individual's dosages sum to 2 at every position).
 #'   The founder and position names are carried into the results.
-#' @param fit,G,E,A,X,mode,model,single_trait_variance,delta As for
-#'   [indri_gwas()].
+#' @param fit,G,E,A,X,mode,model,single_trait_variance,delta,random,random_cov
+#'   As for [indri_gwas()]; with `random`, see its Extra random effects
+#'   section (a litter or nurse term, for instance).
 #' @param snp_info Optional data frame with one row per position (for example
 #'   `snp`, `chrom`, `pos`), carried into the results.
 #' @param baseline Founder whose dosage is left out of the model (dosages sum
@@ -29,7 +30,8 @@
 #'   haplotype, centred on the mean founder), `a` (positions by traits: the
 #'   spread of the founder effects, largest minus smallest), `df` (degrees of
 #'   freedom of each test), `delta`, `snp_info`, `mode`, `model`, `founders`,
-#'   `baseline`, `traits`, `n_individuals`, `haplotypes = TRUE` and `call`.
+#'   `baseline`, `traits`, `n_individuals`, `haplotypes = TRUE` and `call`,
+#'   and with `random`, `random_terms`.
 #'
 #' @details
 #' The model is that of [indri_gwas()] with the single dosage replaced by the
@@ -48,7 +50,8 @@ indri_gwas_haplotypes <- function(Y, haplotypes, fit = NULL, G = NULL, E = NULL,
                                   mode = c("multi_trait", "single_trait"),
                                   model = c("lmm", "lm"),
                                   single_trait_variance = c("reml", "fit"),
-                                  delta = NULL, baseline = NULL, chunk_size = 500L) {
+                                  delta = NULL, baseline = NULL, chunk_size = 500L,
+                                  random = NULL, random_cov = NULL) {
   call <- match.call()
   mode <- match.arg(mode)
   model <- match.arg(model)
@@ -119,6 +122,44 @@ indri_gwas_haplotypes <- function(Y, haplotypes, fit = NULL, G = NULL, E = NULL,
   if (mode == "multi_trait" && model == "lmm" && (is.null(G) || is.null(E)))
     stop("The multi-trait LMM needs `fit`, or `G` and `E`.", call. = FALSE)
   if (!is.null(delta)) delta <- .indri_gwas_delta(delta, mode, traits)
+
+  # ---- extra random effects: the low-rank path (gwas-random.R) ----------------
+  if (!is.null(random)) {
+    if (model != "lmm")
+      stop("Extra random effects (`random`) need model = \"lmm\".", call. = FALSE)
+    if (is.null(G) || is.null(E))
+      stop("Extra random effects (`random`) need `G` and `E` (or an indri `fit`), ",
+           "in both modes.", call. = FALSE)
+    terms <- .indri_gwas_random_terms(random, random_cov %||% fit$random, traits, N)
+    K <- length(kept)
+    rs <- .indri_gwas_random(Y, X, G, E, terms, A, mode, delta, single_trait_variance,
+                             terms_of = function(idx) lapply(kept, function(f)
+                               matrix(haplotypes[, f, idx], N, length(idx))),
+                             M = M, K = K, chunk_size = chunk_size,
+                             skip = rep(FALSE, M))
+    pvalues <- stats::pchisq(rs$stat, rs$df, lower.tail = FALSE)
+    effects <- array(0, c(M, Fn, P), dimnames = list(positions, founders, traits))
+    for (k in seq_len(K)) effects[, kept[k], ] <- rs$coef[, k, ]
+    effects <- sweep(effects, c(1, 3), apply(effects, c(1, 3), mean))
+    if (mode == "multi_trait") {
+      names(pvalues) <- positions
+      bad <- is.na(pvalues)
+    } else {
+      pvalues <- matrix(pvalues, M, P, dimnames = list(positions, traits))
+      bad <- apply(is.na(pvalues), 1, all)
+    }
+    effects[bad, , ] <- NA_real_
+    spread <- apply(effects, c(1, 3), function(v) diff(range(v)))
+    dimnames(spread) <- list(positions, traits)
+    return(structure(list(pvalues = pvalues, a = spread, effects = effects, df = rs$df,
+                          delta = rs$delta, pvalues_adjust = NULL, n_tests = NULL,
+                          snp_info = snp_info, dominance = FALSE, gxe_terms = NULL,
+                          background = "kronecker", random_terms = names(terms),
+                          mode = mode, model = model, n_individuals = N,
+                          traits = traits, founders = founders, baseline = baseline,
+                          haplotypes = TRUE, call = call),
+                     class = "indri_gwas"))
+  }
 
   # ---- rotation and null model (as in indri_gwas) ----------------------------
   if (mode == "multi_trait") {

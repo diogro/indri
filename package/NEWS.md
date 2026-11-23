@@ -1,3 +1,31 @@
+# indri 0.9.0
+
+Association scans with extra random effects.
+
+* `indri_gwas(random = , random_cov = )` and
+  `indri_gwas_haplotypes(random = , random_cov = )` scan with a covariance
+  that has random terms next to the polygenic one,
+  `V = G (x) A + sum_r C_r (x) Z_r Z_r' + delta E (x) I`: a litter, nurse,
+  cage or batch, with its own trait covariance `C_r` (from `fit$random` of
+  `fit_G(random = )`, or given). Multi- and single-trait modes, SNPs and
+  founder haplotypes; `delta` is fitted by REML under the null as before.
+* The scan keeps the rotation by the eigenvectors of `A` and adds the random
+  terms as a low-rank update through the Woodbury identity, so it never forms
+  the `NP x NP` covariance; a term with `L` levels adds `O(N P L)` per marker
+  column. It reproduces the rotation path exactly when the random covariances
+  are zero, and dense GLS otherwise (`test-gwas-random.R`).
+* Why: entering a shared environment as fixed dummies can discard much of the
+  information. When every level is one family (whole litters fostered, or
+  kept with their mother), the dummies absorb the family means and the scan
+  only uses segregation within families; leaving the term out instead lets
+  it pass for relatedness, and biases `G`. `examples/gwas_random_calibration.R`
+  compares the three.
+* `indri_gls()`: generalised least squares under the same covariance (with
+  or without `random`), for models with many marker terms at once, such as
+  the founder effects of all QTL estimated jointly; returns the effects,
+  their covariance and the REML `delta`.
+* Not yet with `dominance`, `gxe`, permutations, `fdr` or `fit_G_env()`.
+
 # indri 0.8.0
 
 Extra random effects in `fit_G()`.

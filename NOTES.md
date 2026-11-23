@@ -356,6 +356,27 @@ Decided (with the evidence in STATUS.md):
 8. **`G` in the units of `Y`** (indri 0.2.0); estimation stays on the
    standardised scale.
 9. **Licence: GPL-3**, to match stanimal. **Remote**: `diogro/indri`, private.
+10. **Extra random effects in scans: a low-rank update of the rotation, with
+    the variance components fixed** (indri 0.9.0, `R/gwas-random.R`).
+    - **Why random and not fixed:** `G (x) A + delta E (x) I` is whitened by
+      one rotation, and a third term (a litter, nurse or cage) breaks that,
+      so it used to enter scans as fixed dummies. With whole-litter fostering,
+      though, every nurse level is one full-sib family. The dummies then
+      absorb the family means, which in the Atchley F5/F6 is 52% of the
+      genotype variance, leaving a within-family test.
+    - **Why not a dense whitening:** a full whitening of the NP x NP
+      covariance (one Cholesky per chromosome) was considered and dropped. It
+      costs O((NP)^3) and O((NP)^2) memory: 460 MB at NP = 7572, and slow with
+      R's reference BLAS.
+    - **The method:** the random terms are a low-rank matrix of width
+      `P sum_r L_r`. The Woodbury identity keeps the rotation and corrects
+      every quadratic form with one Cholesky factor of that width, so REML
+      for `delta` stays cheap as well.
+    - **What stays fixed:** `G`, `C_r` and `E` come from the null model and
+      are held fixed for every marker, as in EMMAX/P3D; only the ratio
+      `delta`, which scales `E`, is refitted by REML. In single-trait mode
+      `delta` is also the multiplier of `E` (not `E / G`), so that
+      `single_trait_variance = "fit"` means `delta = 1`.
 
 Open:
 

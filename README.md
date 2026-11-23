@@ -124,6 +124,12 @@ single <- indri_gwas(Y, genotypes, A = A, X = X, mode = "single_trait",
 # additive and dominance effects
 dom <- indri_gwas(Y, genotypes, fit = fit, A = A, X = X, dominance = TRUE)
 
+# with a litter (nurse, cage) as a random effect: G, the litter covariance and
+# E from the same fit, then the scan with that covariance
+fitr <- fit_G(Y, X = X, A = A, engine = "sommer", random = list(litter = litter))
+rscan <- indri_gwas(Y, genotypes, fit = fitr, A = A, X = X,
+                    random = list(litter = litter))
+
 # the same multi-trait scan run by GEMMA, with LOCO relationship matrices
 # (needs the GEMMA program; options(indri.gemma = <path>))
 gm <- indri_gemma(Y, genotypes, X = X, snp_info = snp_info, loco = TRUE)
@@ -138,6 +144,7 @@ matched to `Y`, `A` and `X` by row name. `snp_info` is an optional data frame
 | `"multi_trait"`, `"lmm"` (default) | joint, `P` degrees of freedom | `G ⊗ A + δ E ⊗ I` |
 | `"multi_trait"`, `"lm"` | joint, `P` degrees of freedom | `E ⊗ I`, `E` the residual covariance after `X` |
 | `"single_trait"`, `"lmm"` | one per trait | `A + δ I` per trait, `δ` by REML or from the fit |
+| either, `"lmm"`, with `random` | as above | plus `Σ C_r ⊗ Z_r Z_r'` (see below) |
 | `"single_trait"`, `"lm"` | one per trait | ordinary least squares |
 
 Every test is a likelihood ratio with the overall scale profiled. The
@@ -150,6 +157,16 @@ genotypes plus `O(N P)` per SNP: thousands of SNPs take seconds.
   it is returned (`scan$delta`) so that you can check. A value far from 1
   says the covariances do not describe the data being scanned; the test stays
   calibrated either way. Pass `delta =` to fix it instead.
+- **Extra random effects.** `random = list(litter = litter)` adds terms to
+  the covariance, `G ⊗ A + Σ C_r ⊗ Z_r Z_r' + δ E ⊗ I`, with `C_r` from
+  `fit_G(random = )` (`fit$random`) or `random_cov`. They enter as a
+  low-rank update of the rotation, so a term with `L` levels adds about
+  `O(N P L)` per SNP. Use it rather than fixed dummies when a level groups
+  relatives: when each litter is one family, litter dummies absorb the
+  family means and leave a within-family test, and leaving the litter out
+  lets it pass for relatedness and biases `G`
+  (`examples/gwas_random_calibration.R`). Works with `indri_gwas_haplotypes()`
+  too; not yet with `dominance`, `gxe` or permutations.
 - **Dominance.** `dominance = TRUE` adds a heterozygote indicator next to
   each SNP's dosage: `pvalues` becomes the joint additive + dominance test,
   `pvalues_dominance` tests dominance given the additive effect, and `a` and

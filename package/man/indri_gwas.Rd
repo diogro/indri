@@ -24,7 +24,9 @@ indri_gwas(
   fdr = NULL,
   seed = NULL,
   cores = 1L,
-  chunk_size = 1000L
+  chunk_size = 1000L,
+  random = NULL,
+  random_cov = NULL
 )
 }
 \arguments{
@@ -91,6 +93,15 @@ is restored afterwards.}
 Windows).}
 
 \item{chunk_size}{Number of SNPs rotated at a time.}
+
+\item{random}{Optional extra random effects: a named list of factors (or
+vectors), one value per individual in the order of \code{Y}, such as
+\code{list(nurse = nurse_id)}. Missing values count as unshared levels. See
+the Extra random effects section.}
+
+\item{random_cov}{Named list with the trait covariance of each term of
+\code{random} (traits x traits, in the units of \code{Y}, matched by name); by
+default \code{fit$random}.}
 }
 \value{
 An object of class \code{indri_gwas}: \code{pvalues} (a vector over SNPs,
@@ -104,6 +115,8 @@ heterozygote's deviation from the homozygotes' midpoint) and
 With \code{gxe}, also \code{pvalues_gxe}, \code{gxe} (SNPs by traits by environments),
 \code{gxe_estimable} and \code{gxe_terms}; \code{pvalues_adjust} then adjusts the joint
 test.
+With \code{random}, also \code{random_terms} (the names of the terms), and
+\code{delta} is the multiplier of \code{E} (see that section).
 With permutations, \code{pvalues_empirical}, \code{qvalues_empirical} and
 \code{n_permutations}, and with \code{fdr}, \code{fdr} and \code{fdr_threshold}.
 }
@@ -183,6 +196,39 @@ generalized eigendecomposition of its genetic and residual parts, once
 per connected component of \code{A}: fast for families (a block-diagonal \code{A}),
 cubic in the number of individuals times traits for a dense \code{A}. \code{delta}
 is fitted by REML as usual; \code{single_trait_variance} does not apply.
+}
+
+\section{Extra random effects}{
+
+With \code{random}, the covariance of the traits has random terms next to the
+polygenic one, such as a litter, nurse or cage:
+\verb{V = G (x) A + sum_r C_r (x) Z_r Z_r' + delta E (x) I}, with \code{Z_r} the
+incidence matrix of term \code{r} and \code{C_r} its trait covariance (from
+\code{fit$random} of \code{\link[=fit_G]{fit_G()}} with the same \code{random}, or \code{random_cov}). A
+shared environment that is not modelled is taken for relatedness, and
+fitting it as fixed effects instead can cost much of the information: when
+each level is one family (whole litters cross-fostered, or kept with their
+mother), the dummies absorb the family means, and with them about half of
+the genotype variance, so the test only uses segregation within families.
+
+The scan keeps the rotation by the eigenvectors of \code{A} and the whitening of
+\code{G} relative to \code{E}, and adds the random terms as a low-rank update of
+width \verb{P sum_r L_r} (\code{L_r} levels) through the Woodbury identity, so it
+never forms the \verb{NP x NP} covariance: each SNP costs \verb{O(N P sum_r L_r)} on
+top of the rotation, and each REML evaluation of \code{delta} one Cholesky
+factorisation of a matrix of that width. \code{G}, \code{C_r} and \code{E} set the shape
+of \code{V}; \code{delta} scales \code{E} (fitted by REML under the null as usual, or
+given) and the overall scale is profiled, as in the other scans. With
+\code{mode = "single_trait"} each trait uses its own entries of \code{G}, \code{E} and
+\code{C_r}, and \code{delta} again scales \code{E} (1 keeps the fitted ratios, which is
+what \code{single_trait_variance = "fit"} does), unlike the scan without
+random effects, where it is \code{E / G}. Not yet available with \code{dominance},
+\code{gxe}, permutations, \code{fdr} or an environment-specific \code{fit}.
+
+The variance components are those of the null model, held fixed for every
+SNP (as EMMAX and GEMMA's approximate tests do); estimate them with the
+same random terms (\code{fit_G(random = )}, or another REML program) so that
+\code{delta} stays near 1.
 }
 
 \section{Permutations}{

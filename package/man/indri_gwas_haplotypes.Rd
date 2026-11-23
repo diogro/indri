@@ -18,7 +18,9 @@ indri_gwas_haplotypes(
   single_trait_variance = c("reml", "fit"),
   delta = NULL,
   baseline = NULL,
-  chunk_size = 500L
+  chunk_size = 500L,
+  random = NULL,
+  random_cov = NULL
 )
 }
 \arguments{
@@ -28,8 +30,8 @@ indri_gwas_haplotypes(
 founder dosages (each individual's dosages sum to 2 at every position).
 The founder and position names are carried into the results.}
 
-\item{fit, G, E, A, X, mode, model, single_trait_variance, delta}{As for
-\code{\link[=indri_gwas]{indri_gwas()}}.}
+\item{fit, G, E, A, X, mode, model, single_trait_variance, delta, random, random_cov}{As for \code{\link[=indri_gwas]{indri_gwas()}}; with \code{random}, see its Extra random effects
+section (a litter or nurse term, for instance).}
 
 \item{snp_info}{Optional data frame with one row per position (for example
 \code{snp}, \code{chrom}, \code{pos}), carried into the results.}
@@ -49,7 +51,8 @@ effects on each trait, in the units of \code{Y} per copy of the founder's
 haplotype, centred on the mean founder), \code{a} (positions by traits: the
 spread of the founder effects, largest minus smallest), \code{df} (degrees of
 freedom of each test), \code{delta}, \code{snp_info}, \code{mode}, \code{model}, \code{founders},
-\code{baseline}, \code{traits}, \code{n_individuals}, \code{haplotypes = TRUE} and \code{call}.
+\code{baseline}, \code{traits}, \code{n_individuals}, \code{haplotypes = TRUE} and \code{call},
+and with \code{random}, \code{random_terms}.
 }
 \description{
 Tests each position for an association between the traits in \code{Y} and the

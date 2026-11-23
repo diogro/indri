@@ -492,6 +492,39 @@ Same populations and scenarios (20 seeds, "none" = cross-sex r_G 1,
 9. **A litter (or nurse) random effect.** Full sibs share a litter, and
    indri's models put that variance into `G` (vignettes 1 and 4). The
    LG/SM data have cross-fostering to separate dam from nurse.
+10. **Scans with extra random effects: done in 0.9.0 (2026-11-23), as a
+    low-rank (Woodbury) update of the rotation rather than the dense path
+    sketched below; see NOTES.md decision 10. `indri_gwas(random =)`,
+    `indri_gwas_haplotypes(random =)`, `indri_gls()`; tested against the
+    rotation path (zero covariance) and dense GLS (`test-gwas-random.R`).
+    Calibration study `examples/gwas_random_calibration.R` (20 seeds) running;
+    record its numbers here. First two seeds: random lambda_GC 1.00 and rG
+    recovered; litter ignored 1.02 but rG biased negative (-0.16 vs 0.37);
+    litter fixed inflated (1.22). Used in the Early-Late AIL growth mapping
+    (AntagonisticPleiotropy, ail/scan_growth.R). Original request: The scans assume
+    V = G (x) A + delta E (x) I, which one rotation by the eigenvectors of A
+    whitens exactly. A third variance term breaks that rotation, so a nurse or
+    litter effect can only enter a scan as fixed dummies.
+    - **Why dummies are not enough:** whole-litter fostering makes each nurse
+      level a single full-sib family. In the Atchley F5/F6, 52% of the
+      genotype variance lies between nurse groups, the full-sib expectation.
+      Nurse dummies therefore turn the scan into a within-family test, which
+      discards about half the information per QTL.
+    - **What is needed:** a scan with V fixed (EMMAX/P3D style), with V built
+      from `fit_G()` (or asreml) G, the extra random-effect covariances
+      (`fit$random`) and E:
+      V = G (x) K_chr + sum_r R_r (x) Z_r Z_r' + E (x) I.
+    - **The computation:** one Cholesky of the NP x NP V per chromosome (LOCO),
+      then whitening by triangular solves on blocks of markers (level-3 BLAS),
+      then the same nested GLS tests and outputs as `indri_gwas()` and
+      `indri_gwas_haplotypes()`, in both multi- and single-trait modes. This
+      is minutes at N about 2000 and P = 4, and memory grows as (NP)^2:
+      460 MB at NP = 7572.
+    - **Prototype:** `AntagonisticPleiotropy/ail/scan_nurse_random.R`. Port it
+      as `indri_gwas*(random = list(nurse = ...), fit = ...)`, falling back to
+      the rotation when there are no extra terms.
+    - **Validate:** calibration under the null with simulated nurse effects,
+      and agreement with the rotation path when R = 0.
 
 ## Running the studies
 
