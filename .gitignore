@@ -16,6 +16,7 @@ results/*
 !results/gwas_power_*.csv
 !results/gwas_gxe_calibration_*.csv
 !results/shrinkage_G_*.csv
+!results/gwas_random_calibration.csv
 *.rds
 # test fixtures are data the suite needs
 !package/tests/testthat/fixtures/**/*.rds

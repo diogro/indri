@@ -497,10 +497,24 @@ Same populations and scenarios (20 seeds, "none" = cross-sex r_G 1,
     sketched below; see NOTES.md decision 10. `indri_gwas(random =)`,
     `indri_gwas_haplotypes(random =)`, `indri_gls()`; tested against the
     rotation path (zero covariance) and dense GLS (`test-gwas-random.R`).
-    Calibration study `examples/gwas_random_calibration.R` (20 seeds) running;
-    record its numbers here. First two seeds: random lambda_GC 1.00 and rG
-    recovered; litter ignored 1.02 but rG biased negative (-0.16 vs 0.37);
-    litter fixed inflated (1.22). Used in the Early-Late AIL growth mapping
+    Calibration (`examples/gwas_random_calibration.R`, 20 seeds, 150 litters
+    of 6 in families related across two generations, litter covariance
+    with correlation -0.56, 2000 null SNPs, a QTL of 0.35 SD per allele;
+    G and the litter covariance by fit_G() (sommer) for each model;
+    `results/gwas_random_calibration.csv`):
+
+    | litter | lambda_GC | rate 0.05 | rate 0.001 | QTL -log10 p | rG (true 0.37) | G[1,1] (true 0.60) |
+    |---|---|---|---|---|---|---|
+    | random | 1.00 | 0.051 | 0.0009 | 7.72 | 0.36 | 0.73 |
+    | ignored | 1.00 | 0.051 | 0.0010 | 7.66 | -0.17 | 1.90 |
+    | fixed | 1.19 | 0.083 | 0.0031 | 7.14 | 0.14 | 0.78 |
+
+    The random term is calibrated, has the most power and recovers the
+    genetic correlation. Ignoring the litter keeps the test calibrated here
+    (the litter variance passes into G, whose structure resembles it in
+    families of sibs) but makes G three times too large and its correlation
+    negative. Litter dummies inflate the test (lambda 1.19) and still lose
+    power: the within-family G they leave is poorly estimated (rG 0.14). Used in the Early-Late AIL growth mapping
     (AntagonisticPleiotropy, ail/scan_growth.R). Original request: The scans assume
     V = G (x) A + delta E (x) I, which one rotation by the eigenvectors of A
     whitens exactly. A third variance term breaks that rotation, so a nurse or
